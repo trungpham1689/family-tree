@@ -99,9 +99,17 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
             <p className="text-lg">Gia phả chưa có ai.</p>
             <p className="mt-2 text-ink-muted">Bắt đầu từ Thuỷ tổ — người ở đời thứ nhất mà dòng họ còn ghi lại được.</p>
             {canEdit && (
-              <Button className="mt-6" onClick={() => setAdding('root')}>
-                Thêm Thuỷ tổ
-              </Button>
+              <div className="mt-6 flex flex-wrap justify-center gap-3">
+                <Button onClick={() => setAdding('root')}>Thêm Thuỷ tổ</Button>
+                {isOwner && (
+                  <Link
+                    to={`/gia-pha/nhap-excel?vao=${tree.id}`}
+                    className="inline-flex min-h-12 items-center rounded-xl border border-line bg-surface px-5 font-semibold hover:bg-paper"
+                  >
+                    Nhập từ Excel
+                  </Link>
+                )}
+              </div>
             )}
           </div>
         )}

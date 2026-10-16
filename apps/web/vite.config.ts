@@ -12,6 +12,8 @@ export default defineConfig({
           groups: [
             { name: 'react', test: /node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/ },
             { name: 'supabase', test: /node_modules[\\/]@supabase[\\/]/ },
+            // Thư viện Excel chỉ nạp khi nhập/xuất, không gộp vào vendor.
+            { name: 'excel', test: /node_modules[\\/](read-excel-file|write-excel-file|fflate|unzipper|@xmldom)[\\/]/ },
             { name: 'vendor', test: /node_modules[\\/]/ },
           ],
         },

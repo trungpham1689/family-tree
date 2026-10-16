@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/auth-context';
 import { buildFamilyGraph } from '../family/family-graph';
+import type { ImportPayload } from '../excel/import-preview';
 import type { PersonFields } from '../people/person-form';
+import { importIntoTree, importNewTree } from './excel-import';
 import {
   addChild,
   addParent,
@@ -133,3 +135,18 @@ export const useUpdateParentLinkKind = (treeId: string) => useFamilyMutation(tre
 export const useSetProgenitor = (treeId: string) => useFamilyMutation(treeId, setProgenitor);
 export const useLinkParent = (treeId: string) => useFamilyMutation(treeId, linkParent);
 export const useLinkSpouse = (treeId: string) => useFamilyMutation(treeId, linkSpouse);
+
+/** Lưu gia phả từ Excel: vào gia phả trống `treeId`, hoặc tạo gia phả mới tên `name`. Trả về id gia phả. */
+export const useImportExcel = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { treeId: string | null; name: string; payload: ImportPayload }) => {
+      if (input.treeId) {
+        await importIntoTree(input.treeId, input.payload);
+        return input.treeId;
+      }
+      return importNewTree(input.name, input.payload);
+    },
+    onSuccess: () => queryClient.invalidateQueries(),
+  });
+};

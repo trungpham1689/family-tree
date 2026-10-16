@@ -7,6 +7,8 @@
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
     "types": ["node"]
   },
   "include": ["tests", "vitest.config.ts"]
