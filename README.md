@@ -71,8 +71,12 @@ Vào [Supabase Dashboard](https://supabase.com/dashboard/project/gihidxqjfcezsrc
    | Mục | Giá trị |
    |---|---|
    | Production branch | `main` |
+   | Root directory | `apps/web` (để Cloudflare thấy thư mục `functions/`) |
    | Build command | `pnpm install --frozen-lockfile && pnpm build` |
-   | Build output directory | `apps/web/dist` |
+   | Build output directory | `dist` |
    | Biến môi trường | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` (giá trị như `.env.example`), `NODE_VERSION=22` |
+
+   Hai biến `VITE_SUPABASE_*` dùng cho cả lúc build lẫn Pages Function `functions/p/[[path]].ts`
+   (chèn tiêu đề và ảnh xem trước khi dán link công khai vào Zalo/Facebook).
 
 4. Lấy địa chỉ `*.pages.dev` vừa có, quay lại bước 1.1 để thêm vào Site URL và Redirect URLs.

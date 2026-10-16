@@ -6,6 +6,7 @@ import {
   useAddParent,
   useAddSpouse,
   useFamily,
+  useSetHiddenFromPublic,
   useSetProgenitor,
   useTree,
   useUpdateParentLinkKind,
@@ -14,12 +15,12 @@ import {
 import type { Person } from '../data/trees';
 import type { FamilyGraph, ParentLinkKind, UnionStatus } from '../family/family-graph';
 import { birthOrderLabel, kindLabel, LINK_KIND_LABELS, spouseLabel, UNION_STATUS_LABELS } from '../family/labels';
-import { todayInVietnam } from '../calendar/month-grid';
-import { ageAtDeath, anniversaryText, describeDate, lifespanText } from '../people/person-display';
+import { lifespanText } from '../people/person-display';
 import { DeletePerson } from '../people/DeletePerson';
 import { EditPerson } from '../people/EditPerson';
-import { EMPTY_PERSON_FORM, storedBirth, storedDeath } from '../people/person-form';
+import { EMPTY_PERSON_FORM } from '../people/person-form';
 import { PersonForm } from '../people/PersonForm';
+import { ProfileInfo } from '../people/ProfileInfo';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
@@ -167,6 +168,7 @@ const PersonDetail = ({ treeId, graph, person, canEdit }: DetailProps) => {
               {setProgenitor.isError && <ErrorBanner>{setProgenitor.error.message}</ErrorBanner>}
             </div>
           )}
+          <HiddenFromPublicToggle treeId={treeId} person={person} />
           <Button variant="ghost" className="text-danger" onClick={() => setAction('delete')}>
             Xoá người này
           </Button>
@@ -393,76 +395,25 @@ const UnionControls = ({
 };
 
 /** Các thông tin hồ sơ đã ghi; dòng nào trống thì không hiện. */
-const ProfileInfo = ({ person }: { person: Person }) => {
-  const age = ageAtDeath(person);
-  const anniversary = person.is_deceased
-    ? anniversaryText({ day: person.anniversary_day, month: person.anniversary_month }, todayInVietnam())
-    : null;
-  const rows: [string, ReactNode][] = [
-    ['Tên thường gọi', person.common_name],
-    ['Tên huý', person.taboo_name],
-    ['Tên tự / hiệu', person.courtesy_name],
-    ['Tên chữ Hán', person.han_name],
-    ['Giới tính', person.gender === 'nam' ? 'Nam' : person.gender === 'nu' ? 'Nữ' : null],
-    ['Ngày sinh', describeDate(storedBirth(person))],
-    ['Nơi sinh', person.birth_place],
-    ['Quê quán', person.hometown],
-    ['Nơi ở', person.residence],
-    ['Nghề nghiệp', person.occupation],
-    ['Học vấn', person.education],
-    ['Chức vụ / danh hiệu', person.title],
-    ['Vai vế', person.role_note],
-    ['Điện thoại', person.phone && <a key="tel" href={`tel:${person.phone.replace(/\s/g, '')}`} className="text-son underline">{person.phone}</a>],
-    ['Email', person.email && <a key="mail" href={`mailto:${person.email}`} className="text-son underline">{person.email}</a>],
-  ];
-  const deathRows: [string, ReactNode][] = person.is_deceased
-    ? [
-        ['Ngày mất', describeDate(storedDeath(person)) ?? 'Chưa rõ'],
-        ['Hưởng thọ', age !== null ? `${age} tuổi` : null],
-        ['Ngày giỗ', anniversary],
-        [
-          'Mộ phần',
-          (person.burial_place || person.burial_map_url) && (
-            <span key="burial" className="flex flex-wrap items-center gap-3">
-              {person.burial_place}
-              {person.burial_map_url && (
-                <a
-                  href={person.burial_map_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex min-h-11 items-center rounded-xl bg-son px-4 font-semibold text-white"
-                >
-                  Chỉ đường
-                </a>
-              )}
-            </span>
-          ),
-        ],
-        ['Nơi thờ', person.worship_place],
-        ['Người phụ trách cúng giỗ', person.worship_keeper],
-      ]
-    : [];
-  const visible = [...rows, ...deathRows].filter(([, value]) => value);
-
+const HiddenFromPublicToggle = ({ treeId, person }: { treeId: string; person: Person }) => {
+  const setHidden = useSetHiddenFromPublic(treeId);
   return (
-    <>
-      {visible.length > 0 && (
-        <dl className="mt-6 grid grid-cols-1 gap-x-6 gap-y-3 rounded-2xl border border-line bg-surface p-5 sm:grid-cols-[max-content_1fr]">
-          {visible.map(([label, value]) => (
-            <div key={label} className="contents">
-              <dt className="text-ink-muted">{label}</dt>
-              <dd className="font-medium">{value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-      {person.biography && (
-        <section className="mt-6">
-          <h2 className="font-serif text-xl font-bold">Tiểu sử</h2>
-          <p className="mt-2 whitespace-pre-line">{person.biography}</p>
-        </section>
-      )}
-    </>
+    <div>
+      <label className="flex min-h-12 cursor-pointer items-center gap-3">
+        <input
+          type="checkbox"
+          className="size-5 accent-son"
+          checked={person.hidden_from_public}
+          disabled={setHidden.isPending}
+          onChange={(event) => setHidden.mutate({ personId: person.id, hidden: event.target.checked })}
+        />
+        <span className="font-medium">Ẩn hoàn toàn khỏi link công khai</span>
+      </label>
+      <p className="text-sm text-ink-muted">
+        Người này không xuất hiện trên link công khai; nếu có con cháu thì hiện thành một ô “Ẩn danh”.
+      </p>
+      {setHidden.isError && <ErrorBanner>{setHidden.error.message}</ErrorBanner>}
+    </div>
   );
 };
 
