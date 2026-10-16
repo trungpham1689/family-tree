@@ -10,6 +10,7 @@ import { LoginPage } from './pages/LoginPage';
 import { MyTreesPage } from './pages/MyTreesPage';
 import { PersonPage } from './pages/PersonPage';
 import { TreePage } from './pages/TreePage';
+import { TreeViewPage } from './pages/TreeViewPage';
 import { FullPageMessage } from './ui/FullPageMessage';
 
 const queryClient = new QueryClient({
@@ -33,6 +34,14 @@ const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <TreePage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/gia-pha/:treeId/cay',
+    element: (
+      <RequireAuth>
+        <TreeViewPage />
       </RequireAuth>
     ),
   },

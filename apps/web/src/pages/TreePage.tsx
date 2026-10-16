@@ -69,6 +69,12 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
           <h1 className="font-serif text-3xl font-bold text-son">{tree.name}</h1>
           {tree.description && <p className="mt-1 text-ink-muted">{tree.description}</p>}
           <p className="mt-2 text-sm text-ink-muted">Vai trò của bạn: {ROLE_LABELS[tree.role]}</p>
+          <Link
+            to={`/gia-pha/${tree.id}/cay`}
+            className="mt-4 inline-flex min-h-12 items-center rounded-xl bg-son px-5 font-semibold text-white hover:bg-son-strong"
+          >
+            Xem cây gia phả
+          </Link>
         </div>
         {isOwner && (
           <div className="flex gap-2">
