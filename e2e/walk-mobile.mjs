@@ -1,8 +1,9 @@
 // Đi qua các trang chính ở khổ điện thoại 375px: không được tràn ngang.
-import { APP, openBrowser } from './walk-lib.mjs';
+// Dùng lại tài khoản và gia phả walk-2 vừa tạo (ghi trong walk-2.json).
+import { readFileSync } from 'node:fs';
+import { APP, openBrowser, reportProblems, SHOTS } from './walk-lib.mjs';
 
-const [treeUrl, publicUrl, email] = process.argv.slice(2);
-const SHOTS = process.env.SHOTS;
+const { email, treeUrl, publicUrl } = JSON.parse(readFileSync(`${SHOTS}/walk-2.json`, 'utf8'));
 const { browser, page, problems } = await openBrowser({ mobile: true });
 
 await page.goto(`${APP}/dang-nhap`);
@@ -10,6 +11,13 @@ await page.getByLabel('Email').fill(email);
 await page.getByLabel('Mật khẩu').first().fill('matkhau123');
 await page.getByRole('button', { name: 'Đăng nhập' }).last().click();
 await page.waitForURL(/\/gia-pha$/);
+
+const checkOverflow = async (name) => {
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  await page.screenshot({ path: `${SHOTS}/m-${name}.png`, fullPage: true });
+  if (overflow > 0) process.exitCode = 1;
+  console.log(`${overflow > 0 ? 'TRÀN' : 'OK  '} ${name}${overflow > 0 ? ` (+${overflow}px)` : ''}`);
+};
 
 const pages = {
   'danh-sach': `${APP}/gia-pha`,
@@ -26,15 +34,11 @@ for (const [name, url] of Object.entries(pages)) {
   await page.goto(url);
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(400);
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-  await page.screenshot({ path: `${SHOTS}/m-${name}.png`, fullPage: true });
-  console.log(`${overflow > 0 ? 'TRÀN' : 'OK  '} ${name}${overflow > 0 ? ` (+${overflow}px)` : ''}`);
+  await checkOverflow(name);
 }
 const firstPerson = await page.goto(treeUrl).then(() => page.locator('a[href*="/nguoi/"]').first().getAttribute('href'));
 await page.goto(`${APP}${firstPerson}`);
 await page.waitForLoadState('networkidle');
-const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-await page.screenshot({ path: `${SHOTS}/m-nguoi.png`, fullPage: true });
-console.log(`${overflow > 0 ? 'TRÀN' : 'OK  '} nguoi`);
-console.log(problems.length ? problems.join('\n') : '(không có lỗi console)');
+await checkOverflow('nguoi');
+reportProblems(problems);
 await browser.close();

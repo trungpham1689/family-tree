@@ -1,21 +1,19 @@
-import { execSync } from 'node:child_process';
-import { statSync } from 'node:fs';
-import { APP, openBrowser } from './walk-lib.mjs';
+// Mọi tính năng còn lại: Excel, tìm kiếm, hồ sơ, sự kiện, lịch, link công khai, Phả đồ, xoá.
+import { readFileSync, statSync, writeFileSync } from 'node:fs';
+import { APP, makeStep, openBrowser, reportProblems, SHOTS } from './walk-lib.mjs';
 
-const SHOTS = process.env.SHOTS;
-const { browser, context, page, problems } = await openBrowser();
+const { browser, page, problems } = await openBrowser();
 let current = page;
 const shot = (name, target = current) => target.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
-const results = [];
-const step = async (name, work) => {
-  try {
-    const note = await work();
-    results.push(`OK   ${name}${note ? ` — ${note}` : ''}`);
-  } catch (error) {
-    results.push(`FAIL ${name} — ${error.message.split('\n')[0]}`);
-    await shot(`FAIL-2-${name.replace(/[^a-z0-9]+/gi, '-')}`).catch(() => {});
-  }
+const step = makeStep(() => current);
+
+/** Khổ trang đầu tiên của file PDF, đơn vị pt. */
+const pdfPageSize = (path) => {
+  const match = readFileSync(path, 'latin1').match(/\/MediaBox\s*\[\s*0 0 ([\d.]+) ([\d.]+)\s*\]/);
+  if (!match) throw new Error('không đọc được khổ trang PDF');
+  return [Number(match[1]), Number(match[2])];
 };
+const PNG_SIGNATURE = '89504e470d0a1a0a';
 
 const email = `excel-${Date.now()}@example.com`;
 let treeUrl = '';
@@ -155,8 +153,11 @@ await step('Phả đồ: xem trước, xuất PDF và PNG', async () => {
     page.getByRole('button', { name: /Xuất ảnh PNG/ }).click(),
   ]);
   await png.saveAs(`${SHOTS}/pha-do.png`);
-  const info = execSync(`pdfinfo ${SHOTS}/pha-do.pdf | grep "Page size"`).toString().trim();
-  return `${info}; PNG ${png.suggestedFilename()} ${statSync(`${SHOTS}/pha-do.png`).size} byte`;
+  const [width, height] = pdfPageSize(`${SHOTS}/pha-do.pdf`);
+  // A2 ngang: 594 × 420 mm = 1683,78 × 1190,55 pt.
+  if (Math.abs(width - 1683.78) > 1 || Math.abs(height - 1190.55) > 1) throw new Error(`PDF sai khổ: ${width} × ${height}`);
+  if (readFileSync(`${SHOTS}/pha-do.png`).subarray(0, 8).toString('hex') !== PNG_SIGNATURE) throw new Error('file PNG hỏng');
+  return `PDF ${width.toFixed(2)} × ${height.toFixed(2)} pt (A2); PNG ${png.suggestedFilename()} ${statSync(`${SHOTS}/pha-do.png`).size} byte`;
 });
 
 await step('lưu cấu hình Phả đồ và mở lại', async () => {
@@ -185,8 +186,8 @@ await step('xoá người có con cháu đòi gõ tên', async () => {
   await dialog.getByRole('button', { name: 'Huỷ' }).click();
 });
 
-await context.storageState({ path: `${SHOTS}/state.json` });
-console.log(results.join('\n'));
-console.log('\n--- vấn đề ghi nhận ---\n' + ([...new Set(problems)].filter((p) => !p.includes('ERR_TUNNEL')).join('\n') || '(không có)'));
+reportProblems(problems);
+// walk-mobile dùng lại gia phả này.
+writeFileSync(`${SHOTS}/walk-2.json`, JSON.stringify({ email, treeUrl, publicUrl }));
 console.log('EMAIL', email, 'TREE', treeUrl, 'PUBLIC', publicUrl);
 await browser.close();

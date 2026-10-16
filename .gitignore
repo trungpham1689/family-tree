@@ -10,3 +10,4 @@ supabase/.temp
 .dev-stack
 .tools/
 apps/web/dist-e2e/
+e2e/.out/

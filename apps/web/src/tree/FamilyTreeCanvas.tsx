@@ -143,15 +143,22 @@ export const FamilyTreeCanvas = ({
         </g>
       </svg>
 
-      <div className="absolute bottom-3 right-3 flex flex-col gap-2">
-        <Button variant="secondary" aria-label="Phóng to" className="size-12 px-0 text-xl" onClick={() => zoomBy(1.3)}>
-          +
-        </Button>
-        <Button variant="secondary" aria-label="Thu nhỏ" className="size-12 px-0 text-xl" onClick={() => zoomBy(1 / 1.3)}>
+      {/* Một hàng sát góc dưới: chiếm ít chỗ của cây, nhất là trên điện thoại. */}
+      <div
+        role="toolbar"
+        aria-label="Thu phóng cây"
+        className="absolute bottom-2 right-2 flex items-center gap-1 rounded-2xl border border-line bg-surface/95 p-1 shadow-sm"
+      >
+        <Button variant="ghost" aria-label="Thu nhỏ" title="Thu nhỏ" className="size-12 text-2xl" onClick={() => zoomBy(1 / 1.3)}>
           −
         </Button>
-        <Button variant="secondary" className="px-3 text-sm" onClick={fitToScreen}>
-          Vừa màn hình
+        <Button variant="ghost" aria-label="Phóng to" title="Phóng to" className="size-12 text-2xl" onClick={() => zoomBy(1.3)}>
+          +
+        </Button>
+        <Button variant="ghost" aria-label="Vừa màn hình" title="Vừa màn hình" className="size-12" onClick={fitToScreen}>
+          <svg viewBox="0 0 24 24" className="size-6 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+          </svg>
         </Button>
       </div>
     </div>
