@@ -16,6 +16,8 @@ const BUSINESS_MESSAGES: Record<string, (details?: string | null) => string> = {
   ANCESTOR_CYCLE: () => 'Không thể nối như vậy: một người không thể là tổ tiên của chính mình.',
   TOO_MANY_PARENTS: () => 'Người này đã có đủ cha và mẹ ruột. Có thể ghi thêm cha/mẹ nuôi.',
   SAME_TREE_REQUIRED: () => 'Chỉ nối được với Người trong cùng gia phả.',
+  TREE_NOT_EMPTY: () => 'Gia phả này đã có người. Chỉ nhập Excel vào gia phả mới hoặc gia phả chưa có ai.',
+  NOT_TREE_OWNER: () => 'Chỉ Chủ sở hữu gia phả mới nhập được từ Excel.',
   STALE_VERSION: () => 'Đã có người sửa Người này trước bạn. Hãy xem bản mới nhất rồi lưu lại.',
   PERSON_NOT_FOUND: () => 'Không tìm thấy Người này. Có thể đã bị xoá; hãy tải lại trang.',
 };

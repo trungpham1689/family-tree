@@ -273,6 +273,8 @@ export type Database = {
       set_progenitor: { Args: { person_id: string }; Returns: undefined };
       link_parent: { Args: { child_id: string; parent_id: string; link_kind: string }; Returns: undefined };
       link_spouse: { Args: { person_id: string; spouse_id: string }; Returns: undefined };
+      import_into_tree: { Args: { target_tree: string; payload: Json }; Returns: number };
+      import_new_tree: { Args: { tree_name: string; payload: Json }; Returns: string };
       tree_positions: {
         Args: { target_tree: string };
         // nullable: generation, branch_id

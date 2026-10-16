@@ -20,7 +20,15 @@ export const MyTreesPage = () => {
       <main className="mx-auto max-w-4xl px-4 py-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="font-serif text-3xl font-bold">Gia phả của tôi</h1>
-          <Button onClick={() => setCreating(true)}>+ Tạo gia phả</Button>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              to="/gia-pha/nhap-excel"
+              className="inline-flex min-h-12 items-center rounded-xl border border-line bg-surface px-5 font-semibold hover:bg-paper"
+            >
+              Nhập từ Excel
+            </Link>
+            <Button onClick={() => setCreating(true)}>+ Tạo gia phả</Button>
+          </div>
         </div>
 
         <div className="mt-8">

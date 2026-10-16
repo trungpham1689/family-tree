@@ -9,6 +9,7 @@ import { CalendarPage } from './pages/CalendarPage';
 import { LoginPage } from './pages/LoginPage';
 import { MyTreesPage } from './pages/MyTreesPage';
 import { PersonPage } from './pages/PersonPage';
+import { ImportPage } from './pages/ImportPage';
 import { TreePage } from './pages/TreePage';
 import { TreeViewPage } from './pages/TreeViewPage';
 import { FullPageMessage } from './ui/FullPageMessage';
@@ -26,6 +27,14 @@ const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <MyTreesPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/gia-pha/nhap-excel',
+    element: (
+      <RequireAuth>
+        <ImportPage />
       </RequireAuth>
     ),
   },
