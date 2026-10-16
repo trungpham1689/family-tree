@@ -15,6 +15,9 @@ export const AppHeader = ({ email }: { email?: string | undefined }) => {
           <Link to="/lich" className="font-semibold text-ink hover:text-son">
             Lịch
           </Link>
+          <Link to="/sap-toi" className="font-semibold text-ink hover:text-son">
+            Sắp tới
+          </Link>
           {email && <span className="hidden text-ink-muted sm:inline">{email}</span>}
           <Button variant="ghost" onClick={signOut}>
             Đăng xuất
