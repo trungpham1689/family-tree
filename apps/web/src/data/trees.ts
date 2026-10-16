@@ -34,6 +34,9 @@ const isTreeRole = (value: string): value is TreeRole => value === 'owner' || va
 const TREE_COLUMNS = 'id, name, description, owner_id, created_at, outside_generations';
 
 export const listMyTrees = async (accountId: string): Promise<TreeWithRole[]> => {
+  // Nhận lời mời đang chờ cho email của mình trước (người được mời khi chưa có tài khoản).
+  const accepted = await supabase.rpc('accept_my_invitations');
+  if (accepted.error) throw new DataError(accepted.error);
   const rows = unwrap(
     await supabase
       .from('tree_roles')

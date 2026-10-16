@@ -155,25 +155,29 @@ begin
 end;
 $$;
 
--- Tài khoản mới đăng ký: nhận các lời mời đang chờ cho email của mình.
-create function private.accept_pending_invitations() returns trigger
+-- Nhận các lời mời đang chờ cho email của chính mình. Giao diện gọi khi tải "Gia phả của tôi",
+-- nên người được mời trước khi có tài khoản sẽ thấy gia phả ngay lần đăng nhập đầu tiên.
+-- (Cố ý không gắn trigger vào auth.users.) Email lấy từ auth.users theo auth.uid(), không tin dữ liệu gửi lên.
+create function private.accept_my_invitations() returns integer
 language plpgsql security definer set search_path = ''
 as $$
+declare
+  my_email text;
+  accepted integer;
 begin
-  if new.email is null then
-    return new;
+  select lower(email::text) into my_email from auth.users where id = auth.uid();
+  if my_email is null then
+    return 0;
   end if;
   insert into public.tree_roles (tree_id, account_id, role)
-  select i.tree_id, new.id, i.role from public.tree_invitations i
-  where i.email = lower(new.email::text)
+  select i.tree_id, auth.uid(), i.role from public.tree_invitations i
+  where i.email = my_email
   on conflict (tree_id, account_id) do nothing;
-  delete from public.tree_invitations where email = lower(new.email::text);
-  return new;
+  get diagnostics accepted = row_count;
+  delete from public.tree_invitations where email = my_email;
+  return accepted;
 end;
 $$;
-
-create trigger accept_pending_invitations after insert on auth.users
-  for each row execute function private.accept_pending_invitations();
 
 -- Bản public (security invoker) để giao diện gọi qua /rest/v1/rpc.
 create function public.invite_member(target_tree uuid, invitee_email text, new_role text) returns text
@@ -184,30 +188,26 @@ create function public.remove_member(target_tree uuid, member uuid) returns void
 language sql set search_path = '' as $$ select private.remove_member(target_tree, member) $$;
 create function public.set_member_person(target_tree uuid, member uuid, target_person uuid) returns void
 language sql set search_path = '' as $$ select private.set_member_person(target_tree, member, target_person) $$;
+create function public.accept_my_invitations() returns integer
+language sql set search_path = '' as $$ select private.accept_my_invitations() $$;
 create function public.tree_members(target_tree uuid)
 returns table (account_id uuid, email text, role text, person_id uuid, joined_at timestamptz, is_me boolean)
 language sql stable set search_path = '' as $$ select * from private.tree_members(target_tree) $$;
 
-revoke execute on function private.accept_pending_invitations() from public, anon, authenticated;
 revoke execute on function private.invite_member(uuid, text, text), private.set_member_role(uuid, uuid, text),
-  private.remove_member(uuid, uuid), private.set_member_person(uuid, uuid, uuid), private.tree_members(uuid)
+  private.remove_member(uuid, uuid), private.set_member_person(uuid, uuid, uuid), private.tree_members(uuid),
+  private.accept_my_invitations()
   from public, anon;
 grant execute on function private.invite_member(uuid, text, text), private.set_member_role(uuid, uuid, text),
-  private.remove_member(uuid, uuid), private.set_member_person(uuid, uuid, uuid), private.tree_members(uuid)
+  private.remove_member(uuid, uuid), private.set_member_person(uuid, uuid, uuid), private.tree_members(uuid),
+  private.accept_my_invitations()
   to authenticated;
 revoke execute on function public.invite_member(uuid, text, text), public.set_member_role(uuid, uuid, text),
-  public.remove_member(uuid, uuid), public.set_member_person(uuid, uuid, uuid), public.tree_members(uuid)
+  public.remove_member(uuid, uuid), public.set_member_person(uuid, uuid, uuid), public.tree_members(uuid),
+  public.accept_my_invitations()
   from public, anon;
 grant execute on function public.invite_member(uuid, text, text), public.set_member_role(uuid, uuid, text),
-  public.remove_member(uuid, uuid), public.set_member_person(uuid, uuid, uuid), public.tree_members(uuid)
+  public.remove_member(uuid, uuid), public.set_member_person(uuid, uuid, uuid), public.tree_members(uuid),
+  public.accept_my_invitations()
   to authenticated;
 
--- Trên Supabase, tài khoản mới do supabase_auth_admin ghi vào auth.users.
-do $$
-begin
-  if exists (select 1 from pg_roles where rolname = 'supabase_auth_admin') then
-    grant usage on schema private to supabase_auth_admin;
-    grant execute on function private.accept_pending_invitations() to supabase_auth_admin;
-  end if;
-end;
-$$;

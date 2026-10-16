@@ -54,8 +54,19 @@ describe('seam B: Vai trò', () => {
       expect(await db.as(owner).query('select email, role from tree_invitations')).toEqual([{ email, role: 'viewer' }]);
 
       const newcomer = await db.createUser(email);
+      expect(await db.as(newcomer).rpc('accept_my_invitations')).toBe(1);
       expect(await roleOf(newcomer)).toBe('viewer');
+      expect(await db.as(newcomer).query('select id from family_trees')).toEqual([{ id: treeId }]);
       expect(await db.as(owner).query('select * from tree_invitations')).toEqual([]);
+      // Gọi lại không có gì thay đổi.
+      expect(await db.as(newcomer).rpc('accept_my_invitations')).toBe(0);
+    });
+
+    it('không nhận được lời mời của email khác', async () => {
+      await db.as(owner).rpc('invite_member', { target_tree: treeId, invitee_email: unique('nguoi-khac'), new_role: 'editor' });
+      const someone = await db.createUser(unique('ke-la'));
+      expect(await db.as(someone).rpc('accept_my_invitations')).toBe(0);
+      expect(await db.as(someone).query('select * from family_trees')).toEqual([]);
     });
 
     it('Biên tập viên mời được, Người xem thì không', async () => {

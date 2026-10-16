@@ -283,6 +283,7 @@ export type Database = {
       set_member_role: { Args: { target_tree: string; member: string; new_role: string }; Returns: undefined };
       remove_member: { Args: { target_tree: string; member: string }; Returns: undefined };
       set_member_person: { Args: { target_tree: string; member: string; target_person: string | null }; Returns: undefined };
+      accept_my_invitations: { Args: Record<string, never>; Returns: number };
       tree_members: {
         Args: { target_tree: string };
         Returns: { account_id: string; email: string; role: string; person_id: string | null; joined_at: string; is_me: boolean }[];
