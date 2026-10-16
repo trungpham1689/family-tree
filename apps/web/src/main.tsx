@@ -9,7 +9,9 @@ import { CalendarPage } from './pages/CalendarPage';
 import { LoginPage } from './pages/LoginPage';
 import { MyTreesPage } from './pages/MyTreesPage';
 import { PersonPage } from './pages/PersonPage';
+import { EventsPage } from './pages/EventsPage';
 import { ImportPage } from './pages/ImportPage';
+import { UpcomingPage } from './pages/UpcomingPage';
 import { PublicPersonPage, PublicTreePage } from './pages/PublicTreePage';
 import { TreePage } from './pages/TreePage';
 import { TreeViewPage } from './pages/TreeViewPage';
@@ -46,6 +48,22 @@ const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <TreePage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/gia-pha/:treeId/su-kien',
+    element: (
+      <RequireAuth>
+        <EventsPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/sap-toi',
+    element: (
+      <RequireAuth>
+        <UpcomingPage />
       </RequireAuth>
     ),
   },

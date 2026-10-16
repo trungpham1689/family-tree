@@ -2,6 +2,8 @@ import { yearCanChi, type SolarDate } from '@gia-pha/lunar';
 import { useMemo } from 'react';
 import { Button } from '../ui/Button';
 import { buildMonthGrid, sameDay, WEEKDAY_HEADERS, type DayCell } from './month-grid';
+import { MARK_COLORS, MARK_LABELS } from './mark-colors';
+import type { OccurrenceKind } from './occurrences';
 
 type MonthCalendarProps = {
   year: number;
@@ -11,8 +13,8 @@ type MonthCalendarProps = {
   onSelect: (date: SolarDate) => void;
   onShiftMonth: (delta: number) => void;
   onToday: () => void;
-  /** Đánh dấu thêm (giỗ, sinh nhật…) cho từng ngày — dùng ở ticket 13. */
-  marks?: (date: SolarDate) => number;
+  /** Loại sự kiện của tài khoản rơi vào từng ngày (giỗ, sinh nhật, Sự kiện), để chấm màu. */
+  marks?: (date: SolarDate) => readonly OccurrenceKind[];
 };
 
 const lunarLabel = ({ lunar }: DayCell): string => (lunar.day === 1 ? `${lunar.day}/${lunar.month}${lunar.leap ? 'N' : ''}` : String(lunar.day));
@@ -57,7 +59,7 @@ export const MonthCalendar = ({ year, month, today, selected, onSelect, onShiftM
               const isSelected = sameDay(cell.date, selected);
               const isToday = sameDay(cell.date, today);
               const isRedDay = cell.weekday === 8 || cell.holidays.some((holiday) => holiday.dayOff);
-              const markCount = marks?.(cell.date) ?? 0;
+              const kinds = marks?.(cell.date) ?? [];
               return (
                 <button
                   key={`${cell.date.month}-${cell.date.day}`}
@@ -66,7 +68,7 @@ export const MonthCalendar = ({ year, month, today, selected, onSelect, onShiftM
                   aria-selected={isSelected}
                   aria-label={`${cell.date.day}/${cell.date.month}, âm ${cell.lunar.day}/${cell.lunar.month}${
                     cell.holidays.length ? `, ${cell.holidays.map((holiday) => holiday.name).join(', ')}` : ''
-                  }`}
+                  }${kinds.length ? `, có ${kinds.map((kind) => MARK_LABELS[kind]).join(', ')}` : ''}`}
                   onClick={() => onSelect(cell.date)}
                   className={`relative flex min-h-16 flex-col items-center justify-center gap-0.5 border-b border-r border-line p-1 transition-colors last:border-r-0 sm:min-h-20 ${
                     cell.inMonth ? '' : 'opacity-40'
@@ -86,10 +88,12 @@ export const MonthCalendar = ({ year, month, today, selected, onSelect, onShiftM
                   >
                     {lunarLabel(cell)}
                   </span>
-                  {(cell.holidays.length > 0 || markCount > 0) && (
+                  {(cell.holidays.length > 0 || kinds.length > 0) && (
                     <span className="absolute right-1.5 top-1.5 flex gap-0.5" aria-hidden="true">
                       {cell.holidays.length > 0 && <span className="size-1.5 rounded-full bg-kim" />}
-                      {markCount > 0 && <span className="size-1.5 rounded-full bg-son" />}
+                      {kinds.map((kind) => (
+                        <span key={kind} className={`size-2 rounded-full ${MARK_COLORS[kind]}`} />
+                      ))}
                     </span>
                   )}
                 </button>

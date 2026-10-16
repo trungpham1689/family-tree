@@ -215,6 +215,60 @@ export type Database = {
         Update: { child_id?: string; created_at?: string; kind?: string; parent_id?: string; tree_id?: string };
         Relationships: [];
       };
+      tree_events: {
+        Row: {
+          id: string;
+          tree_id: string;
+          title: string;
+          calendar: string;
+          repeats_yearly: boolean;
+          year: number | null;
+          month: number;
+          day: number;
+          leap: boolean;
+          start_time: string | null;
+          location: string | null;
+          note: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tree_id: string;
+          title: string;
+          calendar?: string;
+          repeats_yearly?: boolean;
+          year?: number | null;
+          month: number;
+          day: number;
+          leap?: boolean;
+          start_time?: string | null;
+          location?: string | null;
+          note?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tree_id?: string;
+          title?: string;
+          calendar?: string;
+          repeats_yearly?: boolean;
+          year?: number | null;
+          month?: number;
+          day?: number;
+          leap?: boolean;
+          start_time?: string | null;
+          location?: string | null;
+          note?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       unions: {
         Row: {
           created_at: string;
