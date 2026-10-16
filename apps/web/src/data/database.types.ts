@@ -23,6 +23,7 @@ export type Database = {
           name: string;
           outside_generations: number;
           owner_id: string;
+          public_token: string | null;
           updated_at: string;
         };
         Insert: {
@@ -32,6 +33,7 @@ export type Database = {
           name: string;
           outside_generations?: number;
           owner_id?: string;
+          public_token?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -41,6 +43,7 @@ export type Database = {
           name?: string;
           outside_generations?: number;
           owner_id?: string;
+          public_token?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -94,6 +97,7 @@ export type Database = {
           tree_id: string;
           updated_at: string;
           version: number;
+          hidden_from_public: boolean;
         };
         Insert: {
           common_name?: string | null;
@@ -143,6 +147,7 @@ export type Database = {
           tree_id: string;
           updated_at?: string;
           version?: number;
+          hidden_from_public?: boolean;
         };
         Update: {
           common_name?: string | null;
@@ -192,6 +197,7 @@ export type Database = {
           tree_id?: string;
           updated_at?: string;
           version?: number;
+          hidden_from_public?: boolean;
         };
         Relationships: [
           {
@@ -273,6 +279,10 @@ export type Database = {
       set_progenitor: { Args: { person_id: string }; Returns: undefined };
       link_parent: { Args: { child_id: string; parent_id: string; link_kind: string }; Returns: undefined };
       link_spouse: { Args: { person_id: string; spouse_id: string }; Returns: undefined };
+      rotate_public_link: { Args: { target_tree: string }; Returns: string };
+      disable_public_link: { Args: { target_tree: string }; Returns: undefined };
+      public_tree: { Args: { token: string }; Returns: Json };
+      public_tree_card: { Args: { token: string }; Returns: Json };
       import_into_tree: { Args: { target_tree: string; payload: Json }; Returns: number };
       import_new_tree: { Args: { tree_name: string; payload: Json }; Returns: string };
       tree_positions: {

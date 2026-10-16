@@ -4,6 +4,7 @@ import { buildFamilyGraph } from '../family/family-graph';
 import type { ImportPayload } from '../excel/import-preview';
 import type { PersonFields } from '../people/person-form';
 import { importIntoTree, importNewTree } from './excel-import';
+import { disablePublicLink, fetchPublicTree, rotatePublicLink, setHiddenFromPublic } from './public-tree';
 import {
   addChild,
   addParent,
@@ -150,3 +151,27 @@ export const useImportExcel = () => {
     onSuccess: () => queryClient.invalidateQueries(),
   });
 };
+
+// ---------------------------------------------------------------------------
+// Link chia sẻ công khai
+// ---------------------------------------------------------------------------
+export const usePublicTree = (token: string) =>
+  useQuery({ queryKey: ['public', token], queryFn: () => fetchPublicTree(token), retry: false });
+
+export const useRotatePublicLink = (treeId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => rotatePublicLink(treeId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.detail(treeId) }),
+  });
+};
+
+export const useDisablePublicLink = (treeId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => disablePublicLink(treeId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.detail(treeId) }),
+  });
+};
+
+export const useSetHiddenFromPublic = (treeId: string) => useFamilyMutation(treeId, setHiddenFromPublic);

@@ -10,6 +10,7 @@ import { LoginPage } from './pages/LoginPage';
 import { MyTreesPage } from './pages/MyTreesPage';
 import { PersonPage } from './pages/PersonPage';
 import { ImportPage } from './pages/ImportPage';
+import { PublicPersonPage, PublicTreePage } from './pages/PublicTreePage';
 import { TreePage } from './pages/TreePage';
 import { TreeViewPage } from './pages/TreeViewPage';
 import { FullPageMessage } from './ui/FullPageMessage';
@@ -30,6 +31,8 @@ const router = createBrowserRouter([
       </RequireAuth>
     ),
   },
+  { path: '/p/:token', element: <PublicTreePage /> },
+  { path: '/p/:token/nguoi/:personId', element: <PublicPersonPage /> },
   {
     path: '/gia-pha/nhap-excel',
     element: (

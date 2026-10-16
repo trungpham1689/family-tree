@@ -11,6 +11,7 @@ import { EMPTY_PERSON_FORM } from '../people/person-form';
 import { toIsoDate, todayInVietnam } from '../calendar/month-grid';
 import { downloadFamily } from '../excel/xlsx-io';
 import { LinkPerson } from '../people/LinkPerson';
+import { PublicLinkPanel } from '../tree/PublicLinkPanel';
 import { PersonForm } from '../people/PersonForm';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
@@ -116,6 +117,11 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
                 )}
               </div>
             )}
+          </div>
+        )}
+        {isOwner && (
+          <div className="mb-8">
+            <PublicLinkPanel tree={tree} />
           </div>
         )}
         {family.isSuccess && <GenerationList treeId={tree.id} graph={family.data} canEdit={canEdit} />}
