@@ -15,6 +15,8 @@ import {
   type PaperName,
   type PhaDoConfig,
 } from '../pha-do/config';
+import { FRAME_LABELS, type Decoration, type FrameStyle } from '../pha-do/decoration';
+import { DESKTOP_LIMITS, IOS_LIMITS, isAppleMobile, planPng } from '../pha-do/png';
 import { renderPhaDo } from '../pha-do/render';
 import { drawingToSvg } from '../pha-do/svg';
 import { AppHeader } from '../ui/AppHeader';
@@ -60,31 +62,51 @@ type Zoom = 'fit' | 1 | 2 | 4;
 const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: FamilyGraph<Person>; initial: PhaDoConfig }) => {
   const [config, setConfig] = useState(initial);
   const [zoom, setZoom] = useState<Zoom>('fit');
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<'pdf' | 'png' | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const save = useSavePhaDoConfig(tree.id);
   const canEdit = tree.role === 'owner' || tree.role === 'editor';
 
-  const result = useMemo(() => renderPhaDo(graph, config), [graph, config]);
+  const result = useMemo(() => renderPhaDo(graph, config, tree.name), [graph, config, tree.name]);
+  const pngPlan = useMemo(
+    () => planPng(result.drawing, isAppleMobile() ? IOS_LIMITS : DESKTOP_LIMITS),
+    [result.drawing],
+  );
   const svg = useMemo(() => drawingToSvg(result.drawing), [result]);
   const update = (patch: Partial<PhaDoConfig>) => setConfig((current) => ({ ...current, ...patch }));
 
+  const paperLabel = config.paper === 'custom' ? `${config.customWidthCm}x${config.customHeightCm}cm` : config.paper;
+  const loadFonts = async () => {
+    const [regular, bold] = await Promise.all([
+      loadFontBinary('/fonts/NotoSerif-400Regular.ttf'),
+      loadFontBinary('/fonts/NotoSerif-700Bold.ttf'),
+    ]);
+    return { regular, bold };
+  };
+
   const exportPdf = async () => {
-    setExporting(true);
+    setExporting('pdf');
     setExportError(null);
     try {
-      const [{ drawingToPdf }, regular, bold] = await Promise.all([
-        import('../pha-do/pdf'),
-        loadFontBinary('/fonts/NotoSerif-400Regular.ttf'),
-        loadFontBinary('/fonts/NotoSerif-700Bold.ttf'),
-      ]);
-      const doc = drawingToPdf(result.drawing, { regular, bold }, `Gia phả ${tree.name}`);
-      const paper = config.paper === 'custom' ? `${config.customWidthCm}x${config.customHeightCm}cm` : config.paper;
-      doc.save(`pha-do-${paper}.pdf`);
+      const [{ drawingToPdf }, fonts] = await Promise.all([import('../pha-do/pdf'), loadFonts()]);
+      drawingToPdf(result.drawing, fonts, `Gia phả ${tree.name}`).save(`pha-do-${paperLabel}.pdf`);
     } catch {
       setExportError('Không tạo được file PDF. Hãy thử lại.');
     } finally {
-      setExporting(false);
+      setExporting(null);
+    }
+  };
+
+  const exportPng = async () => {
+    setExporting('png');
+    setExportError(null);
+    try {
+      const [{ renderPng, downloadBlob }, fonts] = await Promise.all([import('../pha-do/png-export'), loadFonts()]);
+      downloadBlob(await renderPng(result.drawing, fonts, pngPlan), `pha-do-${paperLabel}-${pngPlan.dpi}dpi.png`);
+    } catch {
+      setExportError('Không tạo được ảnh PNG (trình duyệt có thể thiếu bộ nhớ). Hãy thử khổ nhỏ hơn hoặc dùng PDF.');
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -92,6 +114,7 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
     <div className="mt-4 grid gap-6 lg:grid-cols-[22rem_1fr]">
       <aside className="space-y-6">
         <ScopeSettings graph={graph} config={config} onChange={update} />
+        <DecorationSettings treeName={tree.name} decoration={config.decoration} onChange={(patch) => update({ decoration: { ...config.decoration, ...patch } })} />
 
         <label className="block">
           <span className="mb-1 block font-medium">Hiển thị</span>
@@ -133,9 +156,17 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
         </fieldset>
 
         <div className="space-y-3 border-t border-line pt-4">
-          <Button className="w-full" disabled={exporting || result.personCount === 0} onClick={exportPdf}>
-            {exporting ? 'Đang tạo PDF…' : 'Xuất PDF'}
+          <Button className="w-full" disabled={exporting !== null || result.personCount === 0} onClick={exportPdf}>
+            {exporting === 'pdf' ? 'Đang tạo PDF…' : 'Xuất PDF (in ấn)'}
           </Button>
+          <Button variant="secondary" className="w-full" disabled={exporting !== null || result.personCount === 0} onClick={exportPng}>
+            {exporting === 'png' ? 'Đang vẽ ảnh PNG…' : `Xuất ảnh PNG (${pngPlan.dpi} dpi)`}
+          </Button>
+          <p className="text-sm text-ink-muted">
+            Ảnh PNG {pngPlan.width} × {pngPlan.height} điểm ảnh.
+            {pngPlan.reduced &&
+              ` Khổ này lớn hơn giới hạn ảnh của trình duyệt nên sẽ xuất ở ${pngPlan.dpi} dpi thay vì 300 dpi; bản PDF vẫn sắc nét ở mọi cỡ.`}
+          </p>
           {canEdit && (
             <Button
               variant="secondary"
@@ -189,6 +220,62 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
     </div>
   );
 };
+
+const DecorationSettings = ({
+  treeName,
+  decoration,
+  onChange,
+}: {
+  treeName: string;
+  decoration: Decoration;
+  onChange: (patch: Partial<Decoration>) => void;
+}) => (
+  <fieldset className="space-y-3">
+    <legend className="mb-1 font-medium">Trang trí</legend>
+    <div className="grid grid-cols-2 gap-2">
+      {(Object.keys(FRAME_LABELS) as FrameStyle[]).map((frame) => (
+        <label
+          key={frame}
+          className={`flex min-h-12 cursor-pointer items-center justify-center rounded-xl border px-2 text-center text-sm ${
+            decoration.frame === frame ? 'border-son bg-son/5 font-semibold text-son' : 'border-line'
+          }`}
+        >
+          <input type="radio" className="sr-only" checked={decoration.frame === frame} onChange={() => onChange({ frame })} />
+          {FRAME_LABELS[frame]}
+        </label>
+      ))}
+    </div>
+    <TextField
+      label="Tiêu đề"
+      placeholder={`Gia phả ${treeName}`}
+      maxLength={120}
+      value={decoration.title}
+      onChange={(event) => onChange({ title: event.target.value })}
+    />
+    <TextField
+      label="Phụ đề"
+      placeholder="Kính dâng tổ tiên – năm 2026"
+      maxLength={200}
+      value={decoration.subtitle}
+      onChange={(event) => onChange({ subtitle: event.target.value })}
+    />
+    <TextField
+      label="Câu đối – vế bên trái"
+      placeholder="Uống nước nhớ nguồn"
+      maxLength={200}
+      value={decoration.coupletLeft}
+      onChange={(event) => onChange({ coupletLeft: event.target.value })}
+    />
+    <TextField
+      label="Câu đối – vế bên phải"
+      placeholder="Ăn quả nhớ kẻ trồng cây"
+      maxLength={200}
+      value={decoration.coupletRight}
+      onChange={(event) => onChange({ coupletRight: event.target.value })}
+    />
+    <p className="text-sm text-ink-muted">Câu đối viết dọc, mỗi chữ một dòng, hai bên Phả đồ.</p>
+  </fieldset>
+);
 
 const ScopeSettings = ({
   graph,
