@@ -9,6 +9,7 @@ import { dateKey, groupByDay, occurrencesBetween, type CalendarSource, type Occu
 import { OccurrenceList } from '../calendar/OccurrenceList';
 import { useMyCalendar } from '../data/tree-queries';
 import { ErrorBanner } from '../ui/fields';
+import { AppHeader } from '../ui/AppHeader';
 import { PublicHeader } from '../ui/PublicHeader';
 
 /**
@@ -42,7 +43,7 @@ export const CalendarPage = () => {
 
   return (
     <>
-      <PublicHeader />
+      {signedIn ? <AppHeader email={state.session.user.email} /> : <PublicHeader />}
       <main className="mx-auto grid max-w-5xl gap-6 px-4 py-8 lg:grid-cols-[1fr_22rem]">
         <div>
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">

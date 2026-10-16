@@ -20,7 +20,14 @@ type Props = {
   focusRequest?: FocusRequest | null;
 };
 
-export type FocusRequest = { personId: string };
+export type FocusRequest = {
+  personId: string;
+  /** Lần mở đầu: nếu cả cây vừa màn hình mà chữ vẫn đọc được thì cho xem toàn cây. */
+  preferFit?: boolean;
+};
+
+/** Dưới mức phóng này chữ trong ô quá nhỏ để đọc, nên chỉ đưa gốc vào giữa. */
+const READABLE_FIT_SCALE = 0.6;
 
 const PADDING = 48;
 const MIN_SCALE = 0.05;
@@ -87,7 +94,17 @@ export const FamilyTreeCanvas = ({
   // Đưa người cần chú ý vào giữa màn hình, giữ cỡ chữ đọc được.
   useEffect(() => {
     if (!focusRequest) return;
-    const { nodes } = layoutRef.current;
+    const current = layoutRef.current;
+    const svg = svgRef.current;
+    if (focusRequest.preferFit && svg) {
+      const { width, height } = svg.getBoundingClientRect();
+      const fit = Math.min(width / (current.width + PADDING * 2), height / (current.height + PADDING * 2), 1);
+      if (fit >= READABLE_FIT_SCALE) {
+        animateTo(fit, current.width / 2 + PADDING, current.height / 2 + PADDING);
+        return;
+      }
+    }
+    const { nodes } = current;
     const target =
       nodes.find((n) => n.personId === focusRequest.personId && n.role === 'blood') ??
       nodes.find((n) => n.personId === focusRequest.personId);
@@ -157,7 +174,10 @@ const PersonBox = memo(({ node, person, highlighted, canToggle, onOpen, onToggle
   const isSpouse = node.role === 'spouse';
   const accent = person.gender === 'nu' ? 'var(--color-son)' : person.gender === 'nam' ? 'var(--color-kim)' : 'var(--color-line)';
   const centerX = node.x + node.width / 2;
-  const nameTop = node.y + (lines.length === 1 ? 30 : 22);
+  const toggleX = node.x + 22;
+  // Căn giữa theo chiều dọc: khối chữ gồm tên (1–2 dòng) và dòng năm sinh–mất nếu có.
+  const blockHeight = lines.length * 18 + (person.lifespan ? 18 : 0);
+  const nameTop = node.y + (node.height - blockHeight) / 2 + 14;
 
   return (
     <g>
@@ -199,7 +219,7 @@ const PersonBox = memo(({ node, person, highlighted, canToggle, onOpen, onToggle
           </text>
         ))}
         {person.lifespan && (
-          <text x={centerX} y={node.y + node.height - 12} textAnchor="middle" fontSize={13} fill="var(--color-ink-muted)">
+          <text x={centerX} y={nameTop + lines.length * 18} textAnchor="middle" fontSize={13} fill="var(--color-ink-muted)">
             {person.lifespan}
           </text>
         )}
@@ -219,8 +239,9 @@ const PersonBox = memo(({ node, person, highlighted, canToggle, onOpen, onToggle
             }
           }}
         >
-          <circle cx={centerX} cy={node.y + node.height + 4} r={13} fill="var(--color-son)" />
-          <text x={centerX} y={node.y + node.height + 9} textAnchor="middle" fontSize={node.collapsed ? 12 : 16} fontWeight={700} fill="white">
+          {/* Đặt ở góc trái dưới để không che chỗ bắt đầu đường hôn phối và đường xuống con. */}
+          <circle cx={toggleX} cy={node.y + node.height} r={13} fill="var(--color-son)" />
+          <text x={toggleX} y={node.y + node.height + 5} textAnchor="middle" fontSize={node.collapsed ? 12 : 16} fontWeight={700} fill="white">
             {node.collapsed ? `+${node.hiddenChildren}` : '−'}
           </text>
         </g>

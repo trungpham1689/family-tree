@@ -136,6 +136,25 @@ export const buildFamilyGraph = <P extends GraphPerson>(input: {
         .sort((a, b) => compareSiblings(a.person, b.person)),
 
     generations: () => {
+      // Thứ tự trong mỗi Đời theo gia đình: người trong họ, liền sau là vợ/chồng, rồi tới anh chị em kế tiếp
+      // (đi theo cây từ Thuỷ tổ, con xếp theo Thứ tự con). Người không đi tới được thì xếp sau, theo tên.
+      const rank = new Map<string, number>();
+      const visit = (id: string) => {
+        if (rank.has(id)) return;
+        rank.set(id, rank.size);
+        const spouses = (unionsByPerson.get(id) ?? [])
+          .map((union) => (union.partner_a === id ? { id: union.partner_b, order: union.order_for_a } : { id: union.partner_a, order: union.order_for_b }))
+          .sort((a, b) => a.order - b.order);
+        for (const spouse of spouses) if (!parentLinksByChild.has(spouse.id) && !rank.has(spouse.id)) rank.set(spouse.id, rank.size);
+        const kids = (childLinksByParent.get(id) ?? [])
+          .flatMap((link) => persons.get(link.child_id) ?? [])
+          .sort(compareSiblings);
+        for (const kid of kids) visit(kid.id);
+      };
+      for (const person of persons.values()) if (placement(person.id).kind === 'thuy_to') visit(person.id);
+      const familyOrder = (a: P, b: P) =>
+        (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER) || byName(a.full_name, b.full_name);
+
       const groups = new Map<number, P[]>();
       for (const person of persons.values()) {
         const generation = placement(person.id).generation;
@@ -145,7 +164,7 @@ export const buildFamilyGraph = <P extends GraphPerson>(input: {
         .sort(([a], [b]) => a - b)
         .map(([generation, members]) => ({
           generation,
-          persons: members.sort((a, b) => byName(a.full_name, b.full_name)),
+          persons: members.sort(familyOrder),
           male: members.filter((person) => person.gender === 'nam').length,
           female: members.filter((person) => person.gender === 'nu').length,
           total: members.length,

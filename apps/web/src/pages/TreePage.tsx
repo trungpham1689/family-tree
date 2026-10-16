@@ -48,6 +48,10 @@ export const TreePage = () => {
   );
 };
 
+const ACTION_BASE = 'inline-flex min-h-12 items-center rounded-xl border px-5 font-semibold';
+const ACTION = `${ACTION_BASE} border-line bg-surface hover:bg-paper`;
+const PRIMARY_ACTION = `${ACTION_BASE} border-son bg-son text-white hover:bg-son-strong`;
+
 const TreeView = ({ tree }: { tree: TreeWithRole }) => {
   const family = useFamily(tree.id);
   const createPerson = useCreatePerson(tree.id);
@@ -70,42 +74,40 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
         ← Gia phả của tôi
       </Link>
 
-      <header className="mt-3 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="font-serif text-3xl font-bold text-son">{tree.name}</h1>
-          {tree.description && <p className="mt-1 text-ink-muted">{tree.description}</p>}
-          <p className="mt-2 text-sm text-ink-muted">Vai trò của bạn: {ROLE_LABELS[tree.role]}</p>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Link
-              to={`/gia-pha/${tree.id}/cay`}
-              className="inline-flex min-h-12 items-center rounded-xl bg-son px-5 font-semibold text-white hover:bg-son-strong"
-            >
-              Xem cây gia phả
-            </Link>
-            <Link
-              to={`/gia-pha/${tree.id}/pha-do`}
-              className="inline-flex min-h-12 items-center rounded-xl border border-line bg-surface px-5 font-semibold hover:bg-paper"
-            >
-              Phả đồ (in)
-            </Link>
-            <Link
-              to={`/gia-pha/${tree.id}/su-kien`}
-              className="inline-flex min-h-12 items-center rounded-xl border border-line bg-surface px-5 font-semibold hover:bg-paper"
-            >
-              Sự kiện
-            </Link>
-            {family.isSuccess && !isEmpty && <ExportButton tree={tree} graph={family.data} />}
+      <header className="mt-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="font-serif text-3xl font-bold text-son">{tree.name}</h1>
+            {tree.description && <p className="mt-1 text-ink-muted">{tree.description}</p>}
+            <p className="mt-2 text-sm text-ink-muted">Vai trò của bạn: {ROLE_LABELS[tree.role]}</p>
           </div>
+          {isOwner && (
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setRenaming(true)}>
+                Đổi tên
+              </Button>
+              <Button variant="ghost" className="text-danger" onClick={() => setDeleting(true)}>
+                Xoá
+              </Button>
+            </div>
+          )}
         </div>
-        {isOwner && (
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => setRenaming(true)}>
-              Đổi tên
-            </Button>
-            <Button variant="ghost" className="text-danger" onClick={() => setDeleting(true)}>
-              Xoá
-            </Button>
-          </div>
+        <nav aria-label="Việc với gia phả" className="mt-5 flex flex-wrap gap-3">
+          <Link to={`/gia-pha/${tree.id}/cay`} className={PRIMARY_ACTION}>
+            Xem cây gia phả
+          </Link>
+          <Link to={`/gia-pha/${tree.id}/pha-do`} className={ACTION}>
+            Phả đồ (in)
+          </Link>
+          <Link to={`/gia-pha/${tree.id}/su-kien`} className={ACTION}>
+            Sự kiện
+          </Link>
+          {family.isSuccess && !isEmpty && <ExportButton tree={tree} graph={family.data} />}
+        </nav>
+        {canEdit && family.isSuccess && !isEmpty && (
+          <p className="mt-2 text-sm text-ink-muted">
+            Nên bấm “Xuất Excel” định kỳ để giữ bản sao lưu — phần mềm chưa có thùng rác để khôi phục.
+          </p>
         )}
       </header>
 
@@ -239,10 +241,10 @@ const PersonList = ({ treeId, graph, persons, action }: PersonListProps) => (
     {persons.map((person) => {
       const { kind } = graph.placement(person.id);
       return (
-        <li key={person.id} className="flex items-center gap-2 pr-3">
+        <li key={person.id} className="flex items-center gap-2 hover:bg-paper">
           <Link
             to={`/gia-pha/${treeId}/nguoi/${person.id}`}
-            className="flex flex-1 items-center justify-between gap-4 px-5 py-4 hover:bg-paper"
+            className="flex flex-1 items-center justify-between gap-4 px-5 py-4"
           >
             <div>
               <p className="text-lg font-semibold">{person.full_name}</p>
@@ -252,7 +254,7 @@ const PersonList = ({ treeId, graph, persons, action }: PersonListProps) => (
               <span className="rounded-full bg-paper px-3 py-1 text-sm text-ink-muted">{kindLabel(kind, person.gender)}</span>
             )}
           </Link>
-          {action?.(person)}
+          {action && <div className="pr-3">{action(person)}</div>}
         </li>
       );
     })}
@@ -262,7 +264,6 @@ const PersonList = ({ treeId, graph, persons, action }: PersonListProps) => (
 const ExportButton = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Person> }) => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const canEdit = tree.role === 'owner' || tree.role === 'editor';
 
   const exportNow = async () => {
     setBusy(true);
@@ -277,17 +278,12 @@ const ExportButton = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<
   };
 
   return (
-    <div>
+    <>
       <Button variant="secondary" disabled={busy} onClick={exportNow}>
         {busy ? 'Đang tạo file…' : 'Xuất Excel'}
       </Button>
-      {canEdit && (
-        <p className="mt-1 max-w-xs text-sm text-ink-muted">
-          Nên xuất định kỳ để giữ bản sao lưu — phần mềm chưa có thùng rác để khôi phục.
-        </p>
-      )}
       {error && <ErrorBanner>{error}</ErrorBanner>}
-    </div>
+    </>
   );
 };
 
@@ -345,7 +341,7 @@ const DeleteForm = ({ tree, onCancel }: { tree: TreeWithRole; onCancel: () => vo
         <Button variant="secondary" onClick={onCancel}>
           Huỷ
         </Button>
-        <Button type="submit" className="bg-danger hover:bg-danger" disabled={!matches || deleteTree.isPending}>
+        <Button type="submit" variant="danger" disabled={!matches || deleteTree.isPending}>
           {deleteTree.isPending ? 'Đang xoá…' : 'Xoá vĩnh viễn'}
         </Button>
       </div>

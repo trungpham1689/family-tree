@@ -59,7 +59,7 @@ export const TreeExplorer = <P extends Person>({ graph, defaultOutside, personHr
   // null = theo mặc định của Gia phả; người xem đổi tạm thì không lưu.
   const [outsideOverride, setOutsideOverride] = useState<number | null>(null);
   const outsideGenerations = outsideOverride ?? defaultOutside;
-  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(() => (root ? { personId: root.id } : null));
+  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(() => (root ? { personId: root.id, preferFit: true } : null));
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 

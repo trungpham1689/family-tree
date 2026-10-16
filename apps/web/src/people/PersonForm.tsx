@@ -92,6 +92,9 @@ export const PersonForm = ({
         </div>
       </fieldset>
 
+      {/* Quan hệ (mẹ/cha của con, ruột/nuôi) đặt ngay đầu để không bị khuất dưới form dài. */}
+      {extra}
+
       <PartialDateField label="Ngày sinh" value={values.birth} error={errors.birth} onChange={(birth) => set('birth', birth)} />
 
       {showBirthOrder && field('birthOrder', 'Thứ tự con', '1 là con trưởng. Để trống thì xếp sau các anh chị em đã có.')}
@@ -180,7 +183,6 @@ export const PersonForm = ({
         </div>
       )}
 
-      {extra}
 
       {Object.keys(errors).length > 0 && <ErrorBanner>Còn ô chưa hợp lệ, hãy xem các dòng báo đỏ.</ErrorBanner>}
       {serverError && <ErrorBanner>{serverError}</ErrorBanner>}

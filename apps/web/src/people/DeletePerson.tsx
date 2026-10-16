@@ -83,7 +83,7 @@ export const DeletePerson = ({ treeId, graph, person, onCancel, onDeleted }: Pro
         <Button variant="secondary" onClick={onCancel}>
           Huỷ
         </Button>
-        <Button type="submit" className="bg-danger hover:bg-danger" disabled={(mustType && !matches) || remove.isPending}>
+        <Button type="submit" variant="danger" disabled={(mustType && !matches) || remove.isPending}>
           {remove.isPending ? 'Đang xoá…' : 'Xoá vĩnh viễn'}
         </Button>
       </div>

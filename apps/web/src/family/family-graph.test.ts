@@ -85,6 +85,12 @@ describe('buildFamilyGraph', () => {
     ]);
   });
 
+  it('trong mỗi Đời xếp theo gia đình: Thuỷ tổ, rồi các vợ theo thứ tự; con theo Thứ tự con', () => {
+    const [first, second] = sample().generations();
+    expect(first!.persons.map((p) => p.id)).toEqual(['to', 'vo-ca', 'vo-hai']);
+    expect(second!.persons.map((p) => p.id)).toEqual(['con-truong', 'con-thu', 'con-nuoi', 'con-ut']);
+  });
+
   it('liệt kê Người chưa nối', () => {
     expect(sample().unconnected().map((p) => p.id)).toEqual(['lac']);
     expect(sample().placement('lac')).toEqual({ generation: null, branchId: null, kind: 'chua_noi' });

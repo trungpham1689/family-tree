@@ -8,3 +8,5 @@ dist
 supabase/.branches
 supabase/.temp
 .dev-stack
+.tools/
+apps/web/dist-e2e/

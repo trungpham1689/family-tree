@@ -206,11 +206,15 @@ const ActionDialogs = ({
   const addChild = useAddChild(treeId);
   const addParent = useAddParent(treeId);
   const addSpouse = useAddSpouse(treeId);
-  const [otherParentId, setOtherParentId] = useState<string>(spouses[0]?.id ?? '');
+  // null = chưa chọn: mặc định là vợ/chồng thứ nhất *tại lúc mở form* (danh sách có thể vừa thay đổi).
+  const [chosenOtherParent, setOtherParentId] = useState<string | null>(null);
+  const otherParentId = chosenOtherParent ?? spouses[0]?.id ?? '';
   const [linkKind, setLinkKind] = useState<ParentLinkKind>('ruot');
 
   const finish = () => {
     for (const mutation of [addChild, addParent, addSpouse]) mutation.reset();
+    setOtherParentId(null);
+    setLinkKind('ruot');
     onClose();
   };
 
