@@ -159,9 +159,15 @@ type ParsedRow = {
   data: RawRow;
   fields: PersonFields | null;
   gender: '' | 'nam' | 'nu';
-  spouseOrder: number | null;
+  spouseOrders: (number | null)[];
   parentKind: 'ruot' | 'nuoi';
 };
+
+const splitList = (text: string | undefined): string[] =>
+  (text ?? '')
+    .split(/[,;]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
 
 export const buildImportPreview = (table: readonly (readonly CellValue[])[]): ImportPreview => {
   const errors: ImportError[] = [];
@@ -203,8 +209,8 @@ export const buildImportPreview = (table: readonly (readonly CellValue[])[]): Im
     if (deceasedFlag === null) fail(row, 'deceased', `Cột Đã mất ghi "${data.deceased}" không hiểu được. Ghi Có hoặc để trống.`);
     const birthOrder = parseOrder(data.birthOrder);
     if (birthOrder === 'invalid') fail(row, 'birthOrder', 'Thứ tự con là số từ 1 (con trưởng).');
-    const spouseOrder = parseOrder(data.spouseOrder);
-    if (spouseOrder === 'invalid') fail(row, 'spouseOrder', 'Thứ tự hôn phối là số từ 1 (vợ/chồng cả).');
+    const spouseOrders = splitList(data.spouseOrder).map(parseOrder);
+    if (spouseOrders.includes('invalid')) fail(row, 'spouseOrder', 'Thứ tự hôn phối là số từ 1 (vợ/chồng cả).');
     const kindText = normalizeName(data.parentKind ?? '');
     if (!['', 'ruot', 'nuoi'].includes(kindText)) fail(row, 'parentKind', 'Ghi Ruột hoặc Nuôi.');
 
@@ -277,7 +283,7 @@ export const buildImportPreview = (table: readonly (readonly CellValue[])[]): Im
       data,
       fields: result.ok ? result.fields : null,
       gender: gender ?? '',
-      spouseOrder: typeof spouseOrder === 'number' ? spouseOrder : null,
+      spouseOrders: spouseOrders.map((order) => (typeof order === 'number' ? order : null)),
       parentKind: kindText === 'nuoi' ? 'nuoi' : 'ruot',
     };
     byCode.set(code, entry);
@@ -301,8 +307,12 @@ export const buildImportPreview = (table: readonly (readonly CellValue[])[]): Im
     unions.push({ a, b, orderA, orderB });
   };
 
-  const reference = (entry: ParsedRow, column: 'fatherCode' | 'motherCode' | 'spouseCode', label: string): string | null => {
-    const code = entry.data[column]?.trim();
+  const reference = (
+    entry: ParsedRow,
+    column: 'fatherCode' | 'motherCode' | 'spouseCode',
+    label: string,
+    code = entry.data[column]?.trim(),
+  ): string | null => {
     if (!code) return null;
     if (code === entry.code) {
       fail(entry.row, column, `${label} không thể là chính người này.`);
@@ -317,8 +327,10 @@ export const buildImportPreview = (table: readonly (readonly CellValue[])[]): Im
 
   // Hôn phối ghi ở cột "Mã vợ/chồng" được xét trước để giữ đúng Thứ tự hôn phối người dùng ghi.
   for (const entry of parsed) {
-    const spouse = reference(entry, 'spouseCode', 'Mã vợ/chồng');
-    if (spouse) addUnion(spouse, entry.code, entry.spouseOrder);
+    splitList(entry.data.spouseCode).forEach((code, index) => {
+      const spouse = reference(entry, 'spouseCode', 'Mã vợ/chồng', code);
+      if (spouse) addUnion(spouse, entry.code, entry.spouseOrders[index] ?? null);
+    });
   }
   for (const entry of parsed) {
     const father = reference(entry, 'fatherCode', 'Mã cha');
