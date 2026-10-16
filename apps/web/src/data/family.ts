@@ -90,3 +90,13 @@ export const setProgenitor = async (personId: string): Promise<void> => {
   const { error } = await supabase.rpc('set_progenitor', { person_id: personId });
   if (error) throw new DataError(error);
 };
+
+/** Nối một Người đã có (thường là Người chưa nối) làm con của một Người đã có. */
+export const linkParent = async (input: { childId: string; parentId: string; kind: ParentLinkKind }): Promise<void> => {
+  check(await supabase.rpc('link_parent', { child_id: input.childId, parent_id: input.parentId, link_kind: input.kind }));
+};
+
+/** Nối hai Người đã có thành vợ chồng. */
+export const linkSpouse = async (input: { personId: string; spouseId: string }): Promise<void> => {
+  check(await supabase.rpc('link_spouse', { person_id: input.personId, spouse_id: input.spouseId }));
+};

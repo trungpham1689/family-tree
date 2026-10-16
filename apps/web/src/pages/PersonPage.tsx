@@ -1,12 +1,11 @@
 import { useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import {
   useAddChild,
   useAddParent,
   useAddSpouse,
   useFamily,
-  useSavePerson,
   useSetProgenitor,
   useTree,
   useUpdateParentLinkKind,
@@ -17,7 +16,9 @@ import type { FamilyGraph, ParentLinkKind, UnionStatus } from '../family/family-
 import { birthOrderLabel, kindLabel, LINK_KIND_LABELS, spouseLabel, UNION_STATUS_LABELS } from '../family/labels';
 import { todayInVietnam } from '../calendar/month-grid';
 import { ageAtDeath, anniversaryText, describeDate, lifespanText } from '../people/person-display';
-import { EMPTY_PERSON_FORM, personToFormValues, storedBirth, storedDeath } from '../people/person-form';
+import { DeletePerson } from '../people/DeletePerson';
+import { EditPerson } from '../people/EditPerson';
+import { EMPTY_PERSON_FORM, storedBirth, storedDeath } from '../people/person-form';
 import { PersonForm } from '../people/PersonForm';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
@@ -25,7 +26,7 @@ import { Dialog } from '../ui/Dialog';
 import { ErrorBanner } from '../ui/fields';
 import { FullPageMessage } from '../ui/FullPageMessage';
 
-type Action = 'none' | 'edit' | 'add-child' | 'add-parent' | 'add-spouse';
+type Action = 'none' | 'edit' | 'add-child' | 'add-parent' | 'add-spouse' | 'delete';
 
 export const PersonPage = () => {
   const { treeId = '', personId = '' } = useParams();
@@ -155,35 +156,51 @@ const PersonDetail = ({ treeId, graph, person, canEdit }: DetailProps) => {
         )}
       </Section>
 
-      {canEdit && placement.kind !== 'thuy_to' && placement.kind !== 'dau_re' && (
-        <div className="mt-10 border-t border-line pt-6">
-          <Button variant="ghost" disabled={setProgenitor.isPending} onClick={() => setProgenitor.mutate(person.id)}>
-            Đặt người này làm Thuỷ tổ
+      {canEdit && (
+        <div className="mt-10 space-y-6 border-t border-line pt-6">
+          {placement.kind !== 'thuy_to' && placement.kind !== 'dau_re' && (
+            <div>
+              <Button variant="ghost" disabled={setProgenitor.isPending} onClick={() => setProgenitor.mutate(person.id)}>
+                Đặt người này làm Thuỷ tổ
+              </Button>
+              <p className="mt-1 text-sm text-ink-muted">Đời của mọi người sẽ được tính lại từ người này.</p>
+              {setProgenitor.isError && <ErrorBanner>{setProgenitor.error.message}</ErrorBanner>}
+            </div>
+          )}
+          <Button variant="ghost" className="text-danger" onClick={() => setAction('delete')}>
+            Xoá người này
           </Button>
-          <p className="mt-1 text-sm text-ink-muted">Đời của mọi người sẽ được tính lại từ người này.</p>
-          {setProgenitor.isError && <ErrorBanner>{setProgenitor.error.message}</ErrorBanner>}
         </div>
       )}
 
-      <ActionDialogs treeId={treeId} person={person} spouses={spouses.map((s) => s.person)} action={action} onClose={close} />
+      <ActionDialogs
+        treeId={treeId}
+        graph={graph}
+        person={person}
+        spouses={spouses.map((s) => s.person)}
+        action={action}
+        onClose={close}
+      />
     </article>
   );
 };
 
 const ActionDialogs = ({
   treeId,
+  graph,
   person,
   spouses,
   action,
   onClose,
 }: {
   treeId: string;
+  graph: FamilyGraph<Person>;
   person: Person;
   spouses: Person[];
   action: Action;
   onClose: () => void;
 }) => {
-  const savePerson = useSavePerson(treeId);
+  const navigate = useNavigate();
   const addChild = useAddChild(treeId);
   const addParent = useAddParent(treeId);
   const addSpouse = useAddSpouse(treeId);
@@ -191,7 +208,7 @@ const ActionDialogs = ({
   const [linkKind, setLinkKind] = useState<ParentLinkKind>('ruot');
 
   const finish = () => {
-    for (const mutation of [savePerson, addChild, addParent, addSpouse]) mutation.reset();
+    for (const mutation of [addChild, addParent, addSpouse]) mutation.reset();
     onClose();
   };
 
@@ -201,6 +218,7 @@ const ActionDialogs = ({
     'add-child': `Thêm con của ${person.full_name}`,
     'add-parent': `Thêm cha/mẹ của ${person.full_name}`,
     'add-spouse': `Thêm vợ/chồng của ${person.full_name}`,
+    delete: 'Xoá Người',
   };
 
   const kindPicker = (
@@ -242,14 +260,14 @@ const ActionDialogs = ({
 
   return (
     <Dialog open={action !== 'none'} title={titles[action]} onClose={finish}>
-      {action === 'edit' && (
-        <PersonForm
-          initial={personToFormValues(person)}
-          submitLabel="Lưu thay đổi"
-          busy={savePerson.isPending}
-          serverError={savePerson.error?.message ?? null}
+      {action === 'edit' && <EditPerson treeId={treeId} person={person} onDone={finish} />}
+      {action === 'delete' && (
+        <DeletePerson
+          treeId={treeId}
+          graph={graph}
+          person={person}
           onCancel={finish}
-          onSubmit={(fields) => savePerson.mutate({ personId: person.id, fields }, { onSuccess: finish })}
+          onDeleted={() => navigate(`/gia-pha/${treeId}`, { replace: true })}
         />
       )}
       {action === 'add-child' && (

@@ -76,5 +76,28 @@ export const deleteTree = async (treeId: string): Promise<void> => {
 export const createPerson = async (treeId: string, fields: PersonFields): Promise<Person> =>
   unwrap(await supabase.from('persons').insert({ ...fields, tree_id: treeId }).select('*').single());
 
-export const updatePerson = async (personId: string, fields: PersonFields): Promise<Person> =>
-  unwrap(await supabase.from('persons').update(fields).eq('id', personId).select('*').single());
+export type SaveResult = { status: 'saved'; person: Person } | { status: 'conflict'; current: Person };
+
+/**
+ * Lưu hồ sơ với version đã đọc khi mở form. Nếu đã có người lưu trước (database báo STALE_VERSION),
+ * trả về bản mới nhất để người dùng chọn — không bao giờ ghi đè im lặng.
+ */
+export const updatePerson = async (personId: string, fields: PersonFields, version: number): Promise<SaveResult> => {
+  const { data, error } = await supabase
+    .from('persons')
+    .update({ ...fields, version })
+    .eq('id', personId)
+    .select('*')
+    .single();
+  if (error?.message?.includes('STALE_VERSION')) {
+    const current = unwrap(await supabase.from('persons').select('*').eq('id', personId).single());
+    return { status: 'conflict', current };
+  }
+  return { status: 'saved', person: unwrap({ data, error }) };
+};
+
+export const deletePerson = async (personId: string): Promise<void> => {
+  const { error, count } = await supabase.from('persons').delete({ count: 'exact' }).eq('id', personId);
+  if (error) throw new DataError(error);
+  if (count === 0) throw new DataError({ code: 'PGRST116' });
+};

@@ -93,6 +93,7 @@ export type Database = {
           is_progenitor: boolean;
           tree_id: string;
           updated_at: string;
+          version: number;
         };
         Insert: {
           common_name?: string | null;
@@ -141,6 +142,7 @@ export type Database = {
           is_progenitor?: boolean;
           tree_id: string;
           updated_at?: string;
+          version?: number;
         };
         Update: {
           common_name?: string | null;
@@ -189,6 +191,7 @@ export type Database = {
           is_progenitor?: boolean;
           tree_id?: string;
           updated_at?: string;
+          version?: number;
         };
         Relationships: [
           {
@@ -268,6 +271,8 @@ export type Database = {
       can_view_tree: { Args: { target_tree: string }; Returns: boolean };
       is_tree_owner: { Args: { target_tree: string }; Returns: boolean };
       set_progenitor: { Args: { person_id: string }; Returns: undefined };
+      link_parent: { Args: { child_id: string; parent_id: string; link_kind: string }; Returns: undefined };
+      link_spouse: { Args: { person_id: string; spouse_id: string }; Returns: undefined };
       tree_positions: {
         Args: { target_tree: string };
         // nullable: generation, branch_id

@@ -2,10 +2,21 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/auth-context';
 import { buildFamilyGraph } from '../family/family-graph';
 import type { PersonFields } from '../people/person-form';
-import { addChild, addParent, addSpouse, loadFamily, setProgenitor, updateParentLinkKind, updateUnion } from './family';
+import {
+  addChild,
+  addParent,
+  addSpouse,
+  linkParent,
+  linkSpouse,
+  loadFamily,
+  setProgenitor,
+  updateParentLinkKind,
+  updateUnion,
+} from './family';
 import {
   createPerson,
   createTree,
+  deletePerson,
   deleteTree,
   getTree,
   listMyTrees,
@@ -79,11 +90,28 @@ export const useDeleteTree = (treeId: string) => {
   });
 };
 
-export const useSavePerson = (treeId: string) => {
+export const useCreatePerson = (treeId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ personId, fields }: { personId: string | null; fields: PersonFields }) =>
-      personId ? updatePerson(personId, fields) : createPerson(treeId, fields),
+    mutationFn: (fields: PersonFields) => createPerson(treeId, fields),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) }),
+  });
+};
+
+/** Sửa hồ sơ có kiểm tra xung đột; khi xung đột vẫn tải lại để mọi màn hình thấy bản mới. */
+export const useUpdatePerson = (treeId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ personId, fields, version }: { personId: string; fields: PersonFields; version: number }) =>
+      updatePerson(personId, fields, version),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) }),
+  });
+};
+
+export const useDeletePerson = (treeId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deletePerson,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) }),
   });
 };
@@ -103,3 +131,5 @@ export const useAddSpouse = (treeId: string) => useFamilyMutation(treeId, addSpo
 export const useUpdateUnion = (treeId: string) => useFamilyMutation(treeId, updateUnion);
 export const useUpdateParentLinkKind = (treeId: string) => useFamilyMutation(treeId, updateParentLinkKind);
 export const useSetProgenitor = (treeId: string) => useFamilyMutation(treeId, setProgenitor);
+export const useLinkParent = (treeId: string) => useFamilyMutation(treeId, linkParent);
+export const useLinkSpouse = (treeId: string) => useFamilyMutation(treeId, linkSpouse);
