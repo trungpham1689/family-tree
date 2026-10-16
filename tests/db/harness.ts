@@ -10,6 +10,8 @@ import { PGlite, type Transaction } from '@electric-sql/pglite';
  * Xem ADR 0005 về lý do dùng PGlite thay cho Supabase CLI + Docker.
  */
 
+const DATE_OID = 1082;
+const TIMESTAMPTZ_OID = 1184;
 const ROOT = join(import.meta.dirname, '..', '..');
 const SHIM_FILE = join(import.meta.dirname, 'supabase-shim.sql');
 const MIGRATIONS_DIR = join(ROOT, 'supabase', 'migrations');
@@ -52,7 +54,10 @@ const namedArgs = (args: Record<string, unknown>) => {
 };
 
 export async function createTestDb(): Promise<TestDb> {
-  const db = await PGlite.create();
+  // Trả ngày/giờ dạng chuỗi như PostgREST (không đổi sang Date của JS).
+  const db = await PGlite.create({
+    parsers: { [DATE_OID]: (value: string) => value, [TIMESTAMPTZ_OID]: (value: string) => value },
+  });
   await db.exec(await readFile(SHIM_FILE, 'utf8'));
   for (const file of await listMigrations()) {
     await db.exec(await readFile(join(MIGRATIONS_DIR, file), 'utf8'));

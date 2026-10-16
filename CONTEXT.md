@@ -67,6 +67,9 @@ Một email mỗi ngày cho mỗi tài khoản, gom mọi nhắc nhở đến h�
 **Ngày không đầy đủ**
 Một ngày chỉ biết năm, hoặc tháng-năm, hoặc có thể kèm dấu "khoảng". Ngày sinh và ngày mất có thể nhập theo âm hoặc dương; khi đủ ngày-tháng-năm thì tự đổi sang lịch kia.
 
+**Hưởng thọ**
+Tuổi của một Người lúc mất, tính theo tuổi mụ như gia phả Việt thường ghi: năm mất − năm sinh + 1.
+
 **Mộ phần**
 Nơi an táng của một Người: mô tả địa điểm và link vị trí (Google Maps). Chỉ tài khoản có vai trò mới thấy.
 
