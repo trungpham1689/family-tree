@@ -111,10 +111,19 @@ describe('seam C: cảnh báo chữ quá nhỏ', () => {
     expect(renderPhaDo(sample(), { ...base, paper: 'A0' }).warning).toBeNull();
   });
 
-  it('khung tiêu đề chiếm chỗ thì chữ nhỏ đi', () => {
-    const plain = renderPhaDo(bigFamily(), { ...base, paper: 'A1' });
-    const withHeader = renderPhaDo(bigFamily(), { ...base, paper: 'A1' }, { heightMm: 200 });
-    expect(withHeader.namePt).toBeLessThanOrEqual(plain.namePt);
+  it('khung, tiêu đề, câu đối chiếm chỗ thì cảnh báo vẫn tính đúng (chữ nhỏ đi)', () => {
+    const plain = renderPhaDo(bigFamily(), { ...base, paper: 'A1', decoration: { ...base.decoration, frame: 'none' } });
+    const decorated = renderPhaDo(
+      bigFamily(),
+      {
+        ...base,
+        paper: 'A1',
+        decoration: { frame: 'son-kim', title: '', subtitle: 'Kính dâng tổ tiên – năm 2026', coupletLeft: 'Uống nước nhớ nguồn', coupletRight: 'Ăn quả nhớ kẻ trồng cây' },
+      },
+      'Họ Phạm',
+    );
+    expect(decorated.namePt).toBeLessThan(plain.namePt);
+    expect(decorated.warning !== null).toBe(decorated.namePt < MIN_READABLE_PT);
   });
 });
 
@@ -145,5 +154,48 @@ describe('xem trước', () => {
     const svg = drawingToSvg(renderPhaDo(sample(), { ...base, paper: 'A3', orientation: 'landscape' }).drawing);
     expect(svg).toContain('width="420mm" height="297mm"');
     expect(svg).toContain('Phạm Văn Tổ');
+  });
+});
+
+describe('trang trí', () => {
+  const decorated = (frame: 'son-kim' | 'moc' | 'thanh-nha' | 'none') =>
+    renderPhaDo(
+      sample(),
+      {
+        ...base,
+        paper: 'A2',
+        decoration: { frame, title: '', subtitle: 'Kính dâng tổ tiên – năm 2026', coupletLeft: 'Uống nước nhớ nguồn', coupletRight: 'Ăn quả nhớ kẻ trồng cây' },
+      },
+      'họ Phạm',
+    );
+
+  it('tiêu đề mặc định theo tên gia phả, phụ đề, câu đối từng chữ theo cột dọc', () => {
+    const items = decorated('son-kim').drawing.items.flatMap((item) => (item.type === 'text' ? [item] : []));
+    const texts = items.map((item) => item.text);
+    expect(texts).toContain('Gia phả họ Phạm');
+    expect(texts).toContain('Kính dâng tổ tiên – năm 2026');
+    const left = ['Uống', 'nước', 'nhớ', 'nguồn'].map((word) => items.find((item) => item.text === word)!);
+    expect(new Set(left.map((item) => item.x)).size).toBe(1);
+    expect(left.map((item) => item.y)).toEqual([...left.map((item) => item.y)].sort((a, b) => a - b));
+    const right = items.find((item) => item.text === 'trồng')!;
+    expect(right.x).toBeGreaterThan(left[0]!.x);
+  });
+
+  it('tiêu đề tự đặt thay cho mặc định', () => {
+    const result = renderPhaDo(sample(), { ...base, decoration: { ...base.decoration, title: 'Phạm tộc phả đồ' } }, 'họ Phạm');
+    const texts = result.drawing.items.flatMap((item) => (item.type === 'text' ? [item.text] : []));
+    expect(texts).toContain('Phạm tộc phả đồ');
+    expect(texts).not.toContain('Gia phả họ Phạm');
+  });
+
+  it.each(['son-kim', 'moc', 'thanh-nha', 'none'] as const)('khung %s: mọi ô của cây nằm trong vùng trang trí', (frame) => {
+    const { drawing } = decorated(frame);
+    const boxes = drawing.items.filter((item) => item.type === 'rect' && item.fill !== 'none' && item.width < drawing.width);
+    for (const box of boxes) {
+      if (box.type !== 'rect') continue;
+      expect(box.x).toBeGreaterThan(0);
+      expect(box.x + box.width).toBeLessThan(drawing.width);
+      expect(box.y + box.height).toBeLessThan(drawing.height);
+    }
   });
 });

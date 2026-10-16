@@ -27,12 +27,20 @@ export const drawingToPdf = (drawing: Drawing, fonts: PdfFonts, title: string): 
 
   for (const item of drawing.items) {
     switch (item.type) {
-      case 'rect':
-        doc.setDrawColor(...hexToRgb(item.stroke));
-        doc.setFillColor(...hexToRgb(item.fill));
-        doc.setLineWidth(item.strokeWidth);
-        doc.roundedRect(item.x, item.y, item.width, item.height, item.radius, item.radius, 'FD');
+      case 'rect': {
+        const filled = item.fill !== 'none';
+        const stroked = item.strokeWidth > 0;
+        if (!filled && !stroked) break;
+        if (stroked) {
+          doc.setDrawColor(...hexToRgb(item.stroke));
+          doc.setLineWidth(item.strokeWidth);
+        }
+        if (filled) doc.setFillColor(...hexToRgb(item.fill));
+        const style = filled && stroked ? 'FD' : filled ? 'F' : 'S';
+        if (item.radius > 0) doc.roundedRect(item.x, item.y, item.width, item.height, item.radius, item.radius, style);
+        else doc.rect(item.x, item.y, item.width, item.height, style);
         break;
+      }
       case 'line': {
         doc.setDrawColor(...hexToRgb(item.stroke));
         doc.setLineWidth(item.strokeWidth);

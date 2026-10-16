@@ -1,3 +1,5 @@
+import { DEFAULT_DECORATION, FRAME_LABELS, type Decoration, type FrameStyle } from './decoration';
+
 /** Cấu hình một bản in Phả đồ; lưu theo Gia phả để in lại sau. */
 
 export const PAPER_SIZES = {
@@ -25,6 +27,7 @@ export const EXTRA_LINE_LABELS: Record<ExtraLine, string> = {
 };
 
 export type PhaDoConfig = {
+  decoration: Decoration;
   scope: PhaDoScope;
   outsideGenerations: number;
   paper: PaperName;
@@ -43,6 +46,7 @@ export const defaultPhaDoConfig = (outsideGenerations: number): PhaDoConfig => (
   customHeightCm: 70,
   orientation: 'landscape',
   extraLines: [],
+  decoration: DEFAULT_DECORATION,
 });
 
 /** Kích thước trang (mm) theo khổ và hướng giấy. */
@@ -77,7 +81,16 @@ export const readPhaDoConfig = (stored: unknown, outsideGenerations: number): Ph
     return Number.isFinite(parsed) && parsed >= min && parsed <= max ? parsed : otherwise;
   };
   const paper = stored.paper;
+  const decoration = isRecord(stored.decoration) ? stored.decoration : {};
+  const text = (value: unknown, max: number) => (typeof value === 'string' ? value.slice(0, max) : '');
   return {
+    decoration: {
+      frame: typeof decoration.frame === 'string' && decoration.frame in FRAME_LABELS ? (decoration.frame as FrameStyle) : DEFAULT_DECORATION.frame,
+      title: text(decoration.title, 120),
+      subtitle: text(decoration.subtitle, 200),
+      coupletLeft: text(decoration.coupletLeft, 200),
+      coupletRight: text(decoration.coupletRight, 200),
+    },
     scope: readScope(),
     outsideGenerations: number(stored.outsideGenerations, 0, 5, fallback.outsideGenerations),
     paper: paper === 'A3' || paper === 'A2' || paper === 'A1' || paper === 'A0' || paper === 'custom' ? paper : fallback.paper,

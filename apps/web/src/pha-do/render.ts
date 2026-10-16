@@ -3,13 +3,13 @@ import type { Person } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
 import { lifespanText } from '../people/person-display';
 import { pageSizeMm, type ExtraLine, type PhaDoConfig } from './config';
+import { layoutDecoration } from './decoration';
 import { PT_PER_MM, type Drawing, type DrawItem } from './drawing';
 
 /** Dưới cỡ này (pt) chữ in ra khó đọc với người lớn tuổi. */
 export const MIN_READABLE_PT = 6;
 /** Không phóng chữ quá to khi gia phả ít người. */
 const MAX_NAME_PT = 28;
-const MARGIN_MM = 12;
 
 // Kích thước trong hệ toạ độ bố cục (đơn vị trừu tượng, cùng tỉ lệ với cỡ chữ bên dưới).
 const BOX_WIDTH = 168;
@@ -66,7 +66,7 @@ const rootOf = (graph: FamilyGraph<Person>, config: PhaDoConfig): { rootId: stri
 };
 
 /** Dựng bản vẽ Phả đồ theo cấu hình: chọn phạm vi, xếp cây, co giãn vừa khổ giấy, kèm cảnh báo chữ nhỏ. */
-export const renderPhaDo = (graph: FamilyGraph<Person>, config: PhaDoConfig, header?: { heightMm: number }): PhaDoResult => {
+export const renderPhaDo = (graph: FamilyGraph<Person>, config: PhaDoConfig, treeName = ''): PhaDoResult => {
   const page = pageSizeMm(config);
   const { rootId, maxDepth } = rootOf(graph, config);
   const empty = { drawing: { ...page, items: [] }, personCount: 0, namePt: 0, warning: null };
@@ -81,21 +81,22 @@ export const renderPhaDo = (graph: FamilyGraph<Person>, config: PhaDoConfig, hea
     box: { width: BOX_WIDTH, height: boxHeight },
   });
 
-  const headerHeight = header?.heightMm ?? 0;
-  const availableWidth = page.width - 2 * MARGIN_MM;
-  const availableHeight = page.height - 2 * MARGIN_MM - headerHeight;
+  const decoration = layoutDecoration(page, config.decoration, treeName);
+  const area = decoration.content;
+  const availableWidth = area.width;
+  const availableHeight = area.height;
   const fitScale = Math.min(availableWidth / layout.width, availableHeight / layout.height);
   const scale = Math.min(fitScale, MAX_NAME_PT / (NAME_SIZE * PT_PER_MM));
   const namePt = NAME_SIZE * scale * PT_PER_MM;
   const smallPt = SMALL_SIZE * scale * PT_PER_MM;
 
   // Căn giữa cây trong vùng còn trống.
-  const offsetX = MARGIN_MM + (availableWidth - layout.width * scale) / 2;
-  const offsetY = MARGIN_MM + headerHeight + (availableHeight - layout.height * scale) / 2;
+  const offsetX = area.x + (availableWidth - layout.width * scale) / 2;
+  const offsetY = area.y + (availableHeight - layout.height * scale) / 2;
   const mx = (x: number) => offsetX + x * scale;
   const my = (y: number) => offsetY + y * scale;
 
-  const items: DrawItem[] = [];
+  const items: DrawItem[] = [...decoration.below];
   for (const line of layout.lines) {
     items.push({
       type: 'line',
@@ -148,5 +149,6 @@ export const renderPhaDo = (graph: FamilyGraph<Person>, config: PhaDoConfig, hea
       ? `Chữ in ra chỉ khoảng ${namePt.toFixed(1)} pt, rất khó đọc. Hãy chọn khổ giấy lớn hơn (A0 hoặc tự nhập) hoặc in tách theo từng Chi.`
       : null;
 
+  items.push(...decoration.above);
   return { drawing: { ...page, items }, personCount, namePt, warning, missingRoot: false };
 };
