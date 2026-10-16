@@ -7,6 +7,7 @@ import { RequireAuth } from './auth/RequireAuth';
 import './index.css';
 import { LoginPage } from './pages/LoginPage';
 import { MyTreesPage } from './pages/MyTreesPage';
+import { TreePage } from './pages/TreePage';
 import { FullPageMessage } from './ui/FullPageMessage';
 
 const queryClient = new QueryClient({
@@ -21,6 +22,14 @@ const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <MyTreesPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/gia-pha/:treeId',
+    element: (
+      <RequireAuth>
+        <TreePage />
       </RequireAuth>
     ),
   },
