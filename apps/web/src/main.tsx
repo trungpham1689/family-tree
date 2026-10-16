@@ -7,6 +7,7 @@ import { RequireAuth } from './auth/RequireAuth';
 import './index.css';
 import { LoginPage } from './pages/LoginPage';
 import { MyTreesPage } from './pages/MyTreesPage';
+import { PersonPage } from './pages/PersonPage';
 import { TreePage } from './pages/TreePage';
 import { FullPageMessage } from './ui/FullPageMessage';
 
@@ -30,6 +31,14 @@ const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <TreePage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/gia-pha/:treeId/nguoi/:personId',
+    element: (
+      <RequireAuth>
+        <PersonPage />
       </RequireAuth>
     ),
   },

@@ -22,6 +22,10 @@ describe('dbErrorMessage', () => {
     expect(dbErrorMessage({ code: '23514', message: 'violates check constraint "persons_check"' })).toMatch(/chưa hợp lệ/);
   });
 
+  it('giải thích lỗi vòng lặp tổ tiên', () => {
+    expect(dbErrorMessage({ code: '23514', message: 'ANCESTOR_CYCLE' })).toMatch(/tổ tiên của chính mình/);
+  });
+
   it('có câu mặc định', () => {
     expect(dbErrorMessage({ message: 'lạ' })).toBe('Có lỗi xảy ra. Hãy thử lại sau ít phút.');
   });

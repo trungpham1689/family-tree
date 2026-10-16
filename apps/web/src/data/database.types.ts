@@ -1,4 +1,5 @@
-// Sinh từ schema Supabase (generate_typescript_types). Đừng sửa tay; sinh lại sau mỗi migration.
+// Sinh từ schema Supabase (generate_typescript_types) sau mỗi migration.
+// Chỉnh tay duy nhất: đánh dấu nullable cho tham số/kết quả RPC mà Postgres không mô tả được (ghi chú `nullable`).
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
@@ -43,6 +44,7 @@ export type Database = {
       };
       persons: {
         Row: {
+          birth_order: number | null;
           birth_year: number | null;
           created_at: string;
           death_year: number | null;
@@ -50,10 +52,12 @@ export type Database = {
           gender: string | null;
           id: string;
           is_deceased: boolean;
+          is_progenitor: boolean;
           tree_id: string;
           updated_at: string;
         };
         Insert: {
+          birth_order?: number | null;
           birth_year?: number | null;
           created_at?: string;
           death_year?: number | null;
@@ -61,10 +65,12 @@ export type Database = {
           gender?: string | null;
           id?: string;
           is_deceased?: boolean;
+          is_progenitor?: boolean;
           tree_id: string;
           updated_at?: string;
         };
         Update: {
+          birth_order?: number | null;
           birth_year?: number | null;
           created_at?: string;
           death_year?: number | null;
@@ -72,6 +78,7 @@ export type Database = {
           gender?: string | null;
           id?: string;
           is_deceased?: boolean;
+          is_progenitor?: boolean;
           tree_id?: string;
           updated_at?: string;
         };
@@ -84,6 +91,45 @@ export type Database = {
             referencedColumns: ['id'];
           },
         ];
+      };
+      parent_links: {
+        Row: { child_id: string; created_at: string; kind: string; parent_id: string; tree_id: string };
+        Insert: { child_id: string; created_at?: string; kind?: string; parent_id: string; tree_id?: string };
+        Update: { child_id?: string; created_at?: string; kind?: string; parent_id?: string; tree_id?: string };
+        Relationships: [];
+      };
+      unions: {
+        Row: {
+          created_at: string;
+          id: string;
+          order_for_a: number;
+          order_for_b: number;
+          partner_a: string;
+          partner_b: string;
+          status: string;
+          tree_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          order_for_a?: number;
+          order_for_b?: number;
+          partner_a: string;
+          partner_b: string;
+          status?: string;
+          tree_id?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          order_for_a?: number;
+          order_for_b?: number;
+          partner_a?: string;
+          partner_b?: string;
+          status?: string;
+          tree_id?: string;
+        };
+        Relationships: [];
       };
       tree_roles: {
         Row: { account_id: string; created_at: string; role: string; tree_id: string };
@@ -102,9 +148,23 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      add_child: {
+        // nullable: other_parent_id
+        Args: { link_kind: string; other_parent_id: string | null; parent_id: string; person: Json };
+        Returns: string;
+      };
+      add_parent: { Args: { child_id: string; link_kind: string; person: Json }; Returns: string };
+      // nullable: union_order
+      add_spouse: { Args: { person: Json; person_id: string; union_order: number | null }; Returns: string };
       can_edit_tree: { Args: { target_tree: string }; Returns: boolean };
       can_view_tree: { Args: { target_tree: string }; Returns: boolean };
       is_tree_owner: { Args: { target_tree: string }; Returns: boolean };
+      set_progenitor: { Args: { person_id: string }; Returns: undefined };
+      tree_positions: {
+        Args: { target_tree: string };
+        // nullable: generation, branch_id
+        Returns: { branch_id: string | null; generation: number | null; kind: string; person_id: string }[];
+      };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };

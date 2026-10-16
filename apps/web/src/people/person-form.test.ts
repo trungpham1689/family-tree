@@ -13,7 +13,7 @@ describe('parsePersonForm', () => {
 
     expect(result).toEqual({
       ok: true,
-      fields: { full_name: 'Phạm Văn Tổ', gender: 'nam', birth_year: 1850, death_year: 1920, is_deceased: true },
+      fields: { full_name: 'Phạm Văn Tổ', gender: 'nam', birth_year: 1850, death_year: 1920, is_deceased: true, birth_order: null },
     });
   });
 
@@ -22,7 +22,7 @@ describe('parsePersonForm', () => {
 
     expect(result).toEqual({
       ok: true,
-      fields: { full_name: 'Bà Cả', gender: null, birth_year: null, death_year: null, is_deceased: false },
+      fields: { full_name: 'Bà Cả', gender: null, birth_year: null, death_year: null, is_deceased: false, birth_order: null },
     });
   });
 
@@ -59,10 +59,31 @@ describe('parsePersonForm', () => {
   });
 });
 
+describe('Thứ tự con', () => {
+  it('nhận số 1–99', () => {
+    const result = parsePersonForm({ ...EMPTY_PERSON_FORM, fullName: 'A', birthOrder: ' 3 ' });
+    expect(result.ok && result.fields.birth_order).toBe(3);
+  });
+
+  it.each(['0', '100', '1.5', 'trưởng'])('từ chối "%s"', (birthOrder) => {
+    expect(parsePersonForm({ ...EMPTY_PERSON_FORM, fullName: 'A', birthOrder })).toEqual({
+      ok: false,
+      errors: { birthOrder: 'Thứ tự con là số từ 1 đến 99 (1 là con trưởng).' },
+    });
+  });
+});
+
 describe('personToFormValues', () => {
   it('đổ ngược dữ liệu đã lưu vào form', () => {
     expect(
-      personToFormValues({ full_name: 'Phạm Văn Tổ', gender: 'nam', birth_year: 1850, death_year: null, is_deceased: true }),
-    ).toEqual({ fullName: 'Phạm Văn Tổ', gender: 'nam', birthYear: '1850', deathYear: '', isDeceased: true });
+      personToFormValues({
+        full_name: 'Phạm Văn Tổ',
+        gender: 'nam',
+        birth_year: 1850,
+        death_year: null,
+        is_deceased: true,
+        birth_order: 2,
+      }),
+    ).toEqual({ fullName: 'Phạm Văn Tổ', gender: 'nam', birthYear: '1850', deathYear: '', isDeceased: true, birthOrder: '2' });
   });
 });

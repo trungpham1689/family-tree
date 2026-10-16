@@ -68,9 +68,6 @@ export const deleteTree = async (treeId: string): Promise<void> => {
   if (error) throw new DataError(error);
 };
 
-export const listPersons = async (treeId: string): Promise<Person[]> =>
-  unwrap(await supabase.from('persons').select('*').eq('tree_id', treeId).order('created_at', { ascending: true }));
-
 export const createPerson = async (treeId: string, fields: PersonFields): Promise<Person> =>
   unwrap(await supabase.from('persons').insert({ ...fields, tree_id: treeId }).select('*').single());
 
