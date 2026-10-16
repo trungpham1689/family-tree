@@ -1,13 +1,14 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { ROLE_LABELS } from '../data/role-labels';
-import { useDeleteTree, useFamily, useRenameTree, useSavePerson, useTree } from '../data/tree-queries';
+import { useCreatePerson, useDeleteTree, useFamily, useRenameTree, useTree } from '../data/tree-queries';
 import type { Person, TreeWithRole } from '../data/trees';
 import { lifespanText } from '../people/person-display';
 import type { FamilyGraph } from '../family/family-graph';
 import { kindLabel } from '../family/labels';
 import { EMPTY_PERSON_FORM } from '../people/person-form';
+import { LinkPerson } from '../people/LinkPerson';
 import { PersonForm } from '../people/PersonForm';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
@@ -46,17 +47,19 @@ export const TreePage = () => {
 
 const TreeView = ({ tree }: { tree: TreeWithRole }) => {
   const family = useFamily(tree.id);
-  const savePerson = useSavePerson(tree.id);
-  const [addingRoot, setAddingRoot] = useState(false);
+  const createPerson = useCreatePerson(tree.id);
+  // 'root' = Thuỷ tổ của gia phả trống; 'loose' = người thuộc họ nhưng chưa biết cha/mẹ.
+  const [adding, setAdding] = useState<'none' | 'root' | 'loose'>('none');
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const canEdit = tree.role === 'owner' || tree.role === 'editor';
   const isOwner = tree.role === 'owner';
 
-  const closeRootDialog = () => {
-    savePerson.reset();
-    setAddingRoot(false);
+  const closeAddDialog = () => {
+    createPerson.reset();
+    setAdding('none');
   };
+  const isEmpty = family.isSuccess && family.data.persons.length === 0;
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
@@ -91,30 +94,44 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
       <section className="mt-8">
         {family.isPending && <p className="text-ink-muted">Đang tải…</p>}
         {family.isError && <ErrorBanner>{family.error.message}</ErrorBanner>}
-        {family.isSuccess && family.data.generations().length === 0 && family.data.unconnected().length === 0 && (
+        {isEmpty && (
           <div className="rounded-2xl border border-dashed border-line bg-surface px-6 py-10 text-center">
             <p className="text-lg">Gia phả chưa có ai.</p>
             <p className="mt-2 text-ink-muted">Bắt đầu từ Thuỷ tổ — người ở đời thứ nhất mà dòng họ còn ghi lại được.</p>
             {canEdit && (
-              <Button className="mt-6" onClick={() => setAddingRoot(true)}>
+              <Button className="mt-6" onClick={() => setAdding('root')}>
                 Thêm Thuỷ tổ
               </Button>
             )}
           </div>
         )}
-        {family.isSuccess && <GenerationList treeId={tree.id} graph={family.data} />}
+        {family.isSuccess && <GenerationList treeId={tree.id} graph={family.data} canEdit={canEdit} />}
+        {canEdit && family.isSuccess && !isEmpty && (
+          <div className="mt-8 border-t border-line pt-6">
+            <Button variant="secondary" onClick={() => setAdding('loose')}>
+              + Thêm người chưa rõ cha mẹ
+            </Button>
+            <p className="mt-1 text-sm text-ink-muted">
+              Người thuộc họ nhưng chưa biết nối vào đâu. Họ nằm ở mục “Chưa nối vào cây” cho tới khi được gắn.
+            </p>
+          </div>
+        )}
       </section>
 
-      <Dialog open={addingRoot} title="Thêm Thuỷ tổ" onClose={closeRootDialog}>
-        {addingRoot && (
+      <Dialog
+        open={adding !== 'none'}
+        title={adding === 'root' ? 'Thêm Thuỷ tổ' : 'Thêm người chưa rõ cha mẹ'}
+        onClose={closeAddDialog}
+      >
+        {adding !== 'none' && (
           <PersonForm
             initial={EMPTY_PERSON_FORM}
             showBirthOrder={false}
             submitLabel="Thêm"
-            busy={savePerson.isPending}
-            serverError={savePerson.isError ? savePerson.error.message : null}
-            onCancel={closeRootDialog}
-            onSubmit={(fields) => savePerson.mutate({ personId: null, fields }, { onSuccess: closeRootDialog })}
+            busy={createPerson.isPending}
+            serverError={createPerson.isError ? createPerson.error.message : null}
+            onCancel={closeAddDialog}
+            onSubmit={(fields) => createPerson.mutate(fields, { onSuccess: closeAddDialog })}
           />
         )}
       </Dialog>
@@ -130,9 +147,11 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
   );
 };
 
-const GenerationList = ({ treeId, graph }: { treeId: string; graph: FamilyGraph<Person> }) => {
+const GenerationList = ({ treeId, graph, canEdit }: { treeId: string; graph: FamilyGraph<Person>; canEdit: boolean }) => {
   const generations = graph.generations();
   const unconnected = graph.unconnected();
+  const [linkingId, setLinkingId] = useState<string | null>(null);
+  const linking = linkingId ? graph.person(linkingId) : undefined;
 
   return (
     <div className="space-y-8">
@@ -154,22 +173,45 @@ const GenerationList = ({ treeId, graph }: { treeId: string; graph: FamilyGraph<
             <span className="ml-3 font-sans text-base font-normal text-ink-muted">{unconnected.length} người</span>
           </h2>
           <p className="mt-1 text-ink-muted">Những người chưa xác định được cha/mẹ trong gia phả.</p>
-          <PersonList treeId={treeId} graph={graph} persons={unconnected} />
+          <PersonList
+            treeId={treeId}
+            graph={graph}
+            persons={unconnected}
+            action={
+              canEdit
+                ? (person) => (
+                    <Button variant="ghost" onClick={() => setLinkingId(person.id)}>
+                      Gắn vào cây
+                    </Button>
+                  )
+                : undefined
+            }
+          />
         </section>
       )}
+      <Dialog open={linking !== undefined} title={`Gắn ${linking?.full_name ?? ''} vào cây`} onClose={() => setLinkingId(null)}>
+        {linking && <LinkPerson treeId={treeId} graph={graph} person={linking} onDone={() => setLinkingId(null)} />}
+      </Dialog>
     </div>
   );
 };
 
-const PersonList = ({ treeId, graph, persons }: { treeId: string; graph: FamilyGraph<Person>; persons: Person[] }) => (
+type PersonListProps = {
+  treeId: string;
+  graph: FamilyGraph<Person>;
+  persons: Person[];
+  action?: ((person: Person) => ReactNode) | undefined;
+};
+
+const PersonList = ({ treeId, graph, persons, action }: PersonListProps) => (
   <ul className="mt-3 divide-y divide-line rounded-2xl border border-line bg-surface">
     {persons.map((person) => {
       const { kind } = graph.placement(person.id);
       return (
-        <li key={person.id}>
+        <li key={person.id} className="flex items-center gap-2 pr-3">
           <Link
             to={`/gia-pha/${treeId}/nguoi/${person.id}`}
-            className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-paper"
+            className="flex flex-1 items-center justify-between gap-4 px-5 py-4 hover:bg-paper"
           >
             <div>
               <p className="text-lg font-semibold">{person.full_name}</p>
@@ -179,6 +221,7 @@ const PersonList = ({ treeId, graph, persons }: { treeId: string; graph: FamilyG
               <span className="rounded-full bg-paper px-3 py-1 text-sm text-ink-muted">{kindLabel(kind, person.gender)}</span>
             )}
           </Link>
+          {action?.(person)}
         </li>
       );
     })}
