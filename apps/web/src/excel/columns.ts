@@ -13,9 +13,14 @@ export const COLUMNS = [
   {
     key: 'spouseCode',
     header: 'Mã vợ/chồng',
-    guide: 'Dùng cho Dâu/Rể (người ngoài họ): ghi mã của chồng/vợ là người trong họ.',
+    guide:
+      'Dùng cho Dâu/Rể (người ngoài họ): ghi mã của chồng/vợ là người trong họ. Nhiều người thì cách nhau dấu phẩy: A1, A3.',
   },
-  { key: 'spouseOrder', header: 'Thứ tự hôn phối', guide: 'Người này là vợ/chồng thứ mấy (1 = vợ cả). Để trống là 1.' },
+  {
+    key: 'spouseOrder',
+    header: 'Thứ tự hôn phối',
+    guide: 'Người này là vợ/chồng thứ mấy của người ở cột Mã vợ/chồng (1 = vợ cả). Nhiều người thì ghi theo thứ tự: 1, 2.',
+  },
   { key: 'commonName', header: 'Tên thường gọi', guide: '' },
   { key: 'tabooName', header: 'Tên huý', guide: '' },
   { key: 'courtesyName', header: 'Tên tự/hiệu', guide: '' },

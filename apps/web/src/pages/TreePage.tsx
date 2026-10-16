@@ -8,6 +8,8 @@ import { lifespanText } from '../people/person-display';
 import type { FamilyGraph } from '../family/family-graph';
 import { kindLabel } from '../family/labels';
 import { EMPTY_PERSON_FORM } from '../people/person-form';
+import { toIsoDate, todayInVietnam } from '../calendar/month-grid';
+import { downloadFamily } from '../excel/xlsx-io';
 import { LinkPerson } from '../people/LinkPerson';
 import { PersonForm } from '../people/PersonForm';
 import { AppHeader } from '../ui/AppHeader';
@@ -72,12 +74,15 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
           <h1 className="font-serif text-3xl font-bold text-son">{tree.name}</h1>
           {tree.description && <p className="mt-1 text-ink-muted">{tree.description}</p>}
           <p className="mt-2 text-sm text-ink-muted">Vai trò của bạn: {ROLE_LABELS[tree.role]}</p>
-          <Link
-            to={`/gia-pha/${tree.id}/cay`}
-            className="mt-4 inline-flex min-h-12 items-center rounded-xl bg-son px-5 font-semibold text-white hover:bg-son-strong"
-          >
-            Xem cây gia phả
-          </Link>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Link
+              to={`/gia-pha/${tree.id}/cay`}
+              className="inline-flex min-h-12 items-center rounded-xl bg-son px-5 font-semibold text-white hover:bg-son-strong"
+            >
+              Xem cây gia phả
+            </Link>
+            {family.isSuccess && !isEmpty && <ExportButton tree={tree} graph={family.data} />}
+          </div>
         </div>
         {isOwner && (
           <div className="flex gap-2">
@@ -235,6 +240,38 @@ const PersonList = ({ treeId, graph, persons, action }: PersonListProps) => (
     })}
   </ul>
 );
+
+const ExportButton = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Person> }) => {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const canEdit = tree.role === 'owner' || tree.role === 'editor';
+
+  const exportNow = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await downloadFamily(tree.name, graph, toIsoDate(todayInVietnam()));
+    } catch {
+      setError('Không tạo được file Excel. Hãy thử lại.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      <Button variant="secondary" disabled={busy} onClick={exportNow}>
+        {busy ? 'Đang tạo file…' : 'Xuất Excel'}
+      </Button>
+      {canEdit && (
+        <p className="mt-1 max-w-xs text-sm text-ink-muted">
+          Nên xuất định kỳ để giữ bản sao lưu — phần mềm chưa có thùng rác để khôi phục.
+        </p>
+      )}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
+    </div>
+  );
+};
 
 const RenameForm = ({ tree, onDone }: { tree: TreeWithRole; onDone: () => void }) => {
   const rename = useRenameTree(tree.id);

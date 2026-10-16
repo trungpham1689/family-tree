@@ -1,5 +1,7 @@
-import { DATA_SHEET, templateSheets } from './template';
+import { normalizeName } from '../tree/tree-search';
+import type { ExportData } from './export';
 import type { CellValue } from './import-preview';
+import { DATA_SHEET, templateSheets } from './template';
 
 /** Tải file mẫu về máy. Thư viện chỉ được nạp khi cần để trang đầu nhẹ. */
 export const downloadTemplate = async (): Promise<void> => {
@@ -13,4 +15,18 @@ export const readGiaPhaSheet = async (file: File): Promise<CellValue[][]> => {
   const sheets = await readXlsxFile(file);
   const sheet = sheets.find((candidate) => candidate.sheet === DATA_SHEET) ?? sheets[0];
   return (sheet?.data ?? []) as CellValue[][];
+};
+
+const fileSlug = (name: string) =>
+  normalizeName(name)
+    .replaceAll(/[^a-z0-9]+/g, '-')
+    .replaceAll(/^-|-$/g, '') || 'gia-pha';
+
+/** Xuất cả Gia phả ra file Excel cùng định dạng file mẫu, tên file kèm ngày xuất. */
+export const downloadFamily = async (treeName: string, data: ExportData, today: string): Promise<void> => {
+  const [{ default: writeXlsxFile }, { exportSheets, familyToRows }] = await Promise.all([
+    import('write-excel-file/browser'),
+    import('./export'),
+  ]);
+  await writeXlsxFile(exportSheets(familyToRows(data))).toFile(`${fileSlug(treeName)}-${today}.xlsx`);
 };
