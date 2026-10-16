@@ -24,7 +24,7 @@ export const Dialog = ({ open, title, onClose, children }: DialogProps) => {
       onClose={onClose}
       onCancel={onClose}
       aria-labelledby="dialog-title"
-      className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-2xl border border-line bg-surface p-0 text-ink shadow-xl backdrop:bg-ink/40"
+      className="m-auto max-h-[92dvh] w-[min(36rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-2xl border border-line bg-surface p-0 text-ink shadow-xl backdrop:bg-ink/40"
     >
       {open && (
         <div className="p-6">
