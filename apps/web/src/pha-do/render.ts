@@ -1,0 +1,152 @@
+import { layoutTree, outsideGenerationsFilter, wrapName } from '@gia-pha/tree-layout';
+import type { Person } from '../data/trees';
+import type { FamilyGraph } from '../family/family-graph';
+import { lifespanText } from '../people/person-display';
+import { pageSizeMm, type ExtraLine, type PhaDoConfig } from './config';
+import { PT_PER_MM, type Drawing, type DrawItem } from './drawing';
+
+/** Dưới cỡ này (pt) chữ in ra khó đọc với người lớn tuổi. */
+export const MIN_READABLE_PT = 6;
+/** Không phóng chữ quá to khi gia phả ít người. */
+const MAX_NAME_PT = 28;
+const MARGIN_MM = 12;
+
+// Kích thước trong hệ toạ độ bố cục (đơn vị trừu tượng, cùng tỉ lệ với cỡ chữ bên dưới).
+const BOX_WIDTH = 168;
+const BASE_BOX_HEIGHT = 72;
+const EXTRA_LINE_HEIGHT = 17;
+const NAME_SIZE = 15;
+const SMALL_SIZE = 12;
+const NAME_CHARS = 18;
+
+const COLORS = {
+  ink: '#1f1a17',
+  muted: '#5c534c',
+  son: '#8a1c1c',
+  kim: '#b8892b',
+  line: '#5c534c',
+  box: '#ffffff',
+  spouseBox: '#fbf8f3',
+};
+
+export type PhaDoResult = {
+  drawing: Drawing;
+  personCount: number;
+  /** Cỡ chữ tên khi in ra (pt). */
+  namePt: number;
+  warning: string | null;
+  /** Gốc của phạm vi không còn tồn tại (ví dụ Người đã bị xoá). */
+  missingRoot: boolean;
+};
+
+const extraText = (line: ExtraLine, person: Person, generation: number | null): string | null => {
+  switch (line) {
+    case 'gio':
+      return person.is_deceased && person.anniversary_day !== null && person.anniversary_month !== null
+        ? `Giỗ ${person.anniversary_day}/${person.anniversary_month} ÂL`
+        : null;
+    case 'doi':
+      return generation !== null ? `Đời ${generation}` : null;
+    case 'han':
+      return person.han_name;
+    case 'que':
+      return person.hometown;
+  }
+};
+
+const rootOf = (graph: FamilyGraph<Person>, config: PhaDoConfig): { rootId: string | null; maxDepth?: number } => {
+  switch (config.scope.kind) {
+    case 'all':
+      return { rootId: graph.persons.find((person) => person.is_progenitor)?.id ?? null };
+    case 'branch':
+      return { rootId: config.scope.personId };
+    case 'from-person':
+      return { rootId: config.scope.personId, maxDepth: config.scope.depth };
+  }
+};
+
+/** Dựng bản vẽ Phả đồ theo cấu hình: chọn phạm vi, xếp cây, co giãn vừa khổ giấy, kèm cảnh báo chữ nhỏ. */
+export const renderPhaDo = (graph: FamilyGraph<Person>, config: PhaDoConfig, header?: { heightMm: number }): PhaDoResult => {
+  const page = pageSizeMm(config);
+  const { rootId, maxDepth } = rootOf(graph, config);
+  const empty = { drawing: { ...page, items: [] }, personCount: 0, namePt: 0, warning: null };
+  if (!rootId || !graph.person(rootId)) return { ...empty, missingRoot: true };
+
+  const extras = config.extraLines.slice(0, 2);
+  const boxHeight = BASE_BOX_HEIGHT + extras.length * EXTRA_LINE_HEIGHT;
+  const layout = layoutTree(graph, {
+    rootId,
+    ...(maxDepth !== undefined ? { maxDepth } : {}),
+    includeChild: outsideGenerationsFilter(config.outsideGenerations),
+    box: { width: BOX_WIDTH, height: boxHeight },
+  });
+
+  const headerHeight = header?.heightMm ?? 0;
+  const availableWidth = page.width - 2 * MARGIN_MM;
+  const availableHeight = page.height - 2 * MARGIN_MM - headerHeight;
+  const fitScale = Math.min(availableWidth / layout.width, availableHeight / layout.height);
+  const scale = Math.min(fitScale, MAX_NAME_PT / (NAME_SIZE * PT_PER_MM));
+  const namePt = NAME_SIZE * scale * PT_PER_MM;
+  const smallPt = SMALL_SIZE * scale * PT_PER_MM;
+
+  // Căn giữa cây trong vùng còn trống.
+  const offsetX = MARGIN_MM + (availableWidth - layout.width * scale) / 2;
+  const offsetY = MARGIN_MM + headerHeight + (availableHeight - layout.height * scale) / 2;
+  const mx = (x: number) => offsetX + x * scale;
+  const my = (y: number) => offsetY + y * scale;
+
+  const items: DrawItem[] = [];
+  for (const line of layout.lines) {
+    items.push({
+      type: 'line',
+      points: line.points.map(([x, y]) => [mx(x), my(y)]),
+      stroke: line.kind === 'union' ? COLORS.kim : COLORS.line,
+      strokeWidth: (line.kind === 'union' ? 2 : 1.5) * scale,
+    });
+  }
+
+  for (const node of layout.nodes) {
+    const person = graph.person(node.personId);
+    if (!person) continue;
+    const isSpouse = node.role === 'spouse';
+    items.push({
+      type: 'rect',
+      x: mx(node.x),
+      y: my(node.y),
+      width: node.width * scale,
+      height: node.height * scale,
+      radius: 8 * scale,
+      fill: isSpouse ? COLORS.spouseBox : COLORS.box,
+      stroke: isSpouse ? COLORS.kim : COLORS.son,
+      strokeWidth: 1.5 * scale,
+    });
+
+    const centerX = mx(node.x + node.width / 2);
+    const nameLines = wrapName(person.full_name, NAME_CHARS).slice(0, 2);
+    const detailLines = [
+      lifespanText(person),
+      ...extras.map((line) => extraText(line, person, graph.placement(person.id).generation)),
+    ].filter((text): text is string => Boolean(text));
+    // Xếp các dòng từ trên xuống, căn giữa theo chiều dọc của ô.
+    const lineGap = 4;
+    const blockHeight =
+      nameLines.length * (NAME_SIZE + lineGap) + detailLines.length * (SMALL_SIZE + lineGap) - lineGap;
+    let cursor = node.y + (node.height - blockHeight) / 2;
+    for (const text of nameLines) {
+      items.push({ type: 'text', x: centerX, y: my(cursor + NAME_SIZE / 2), text, sizePt: namePt, bold: !isSpouse, color: COLORS.ink });
+      cursor += NAME_SIZE + lineGap;
+    }
+    for (const text of detailLines) {
+      items.push({ type: 'text', x: centerX, y: my(cursor + SMALL_SIZE / 2), text, sizePt: smallPt, bold: false, color: COLORS.muted });
+      cursor += SMALL_SIZE + lineGap;
+    }
+  }
+
+  const personCount = new Set(layout.nodes.map((node) => node.personId)).size;
+  const warning =
+    namePt < MIN_READABLE_PT
+      ? `Chữ in ra chỉ khoảng ${namePt.toFixed(1)} pt, rất khó đọc. Hãy chọn khổ giấy lớn hơn (A0 hoặc tự nhập) hoặc in tách theo từng Chi.`
+      : null;
+
+  return { drawing: { ...page, items }, personCount, namePt, warning, missingRoot: false };
+};

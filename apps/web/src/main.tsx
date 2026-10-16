@@ -11,6 +11,7 @@ import { MyTreesPage } from './pages/MyTreesPage';
 import { PersonPage } from './pages/PersonPage';
 import { EventsPage } from './pages/EventsPage';
 import { ImportPage } from './pages/ImportPage';
+import { PhaDoPage } from './pages/PhaDoPage';
 import { UpcomingPage } from './pages/UpcomingPage';
 import { PublicPersonPage, PublicTreePage } from './pages/PublicTreePage';
 import { TreePage } from './pages/TreePage';
@@ -48,6 +49,14 @@ const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <TreePage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/gia-pha/:treeId/pha-do',
+    element: (
+      <RequireAuth>
+        <PhaDoPage />
       </RequireAuth>
     ),
   },

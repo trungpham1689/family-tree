@@ -1,6 +1,7 @@
 import { buildFamilyGraph, type FamilyGraph } from '../family/family-graph';
 import { supabase } from '../lib/supabase';
 import type { Row } from './database.types';
+import { BLANK_PERSON } from './blank-person';
 import type { Person, Tree } from './trees';
 import { DataError } from './trees';
 
@@ -9,56 +10,6 @@ import { DataError } from './trees';
  * ở đây chỉ điền giá trị trống cho các trường không được gửi về, để dùng chung giao diện Cây.
  */
 
-const BLANK_PERSON: Person = {
-  id: '',
-  tree_id: '',
-  full_name: '',
-  gender: null,
-  is_progenitor: false,
-  is_deceased: false,
-  hidden_from_public: false,
-  birth_order: null,
-  common_name: null,
-  taboo_name: null,
-  courtesy_name: null,
-  han_name: null,
-  birth_calendar: 'duong',
-  birth_precision: null,
-  birth_year: null,
-  birth_month: null,
-  birth_day: null,
-  birth_leap: false,
-  birth_approx: false,
-  birth_solar_date: null,
-  birth_place: null,
-  hometown: null,
-  residence: null,
-  occupation: null,
-  education: null,
-  title: null,
-  phone: null,
-  email: null,
-  biography: null,
-  role_note: null,
-  death_calendar: 'duong',
-  death_precision: null,
-  death_year: null,
-  death_month: null,
-  death_day: null,
-  death_leap: false,
-  death_approx: false,
-  death_solar_date: null,
-  anniversary_day: null,
-  anniversary_month: null,
-  anniversary_manual: false,
-  burial_place: null,
-  burial_map_url: null,
-  worship_place: null,
-  worship_keeper: null,
-  created_at: '',
-  updated_at: '',
-  version: 0,
-};
 
 export type PublicPerson = Person & { anonymous: boolean };
 

@@ -83,6 +83,12 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
               Xem cây gia phả
             </Link>
             <Link
+              to={`/gia-pha/${tree.id}/pha-do`}
+              className="inline-flex min-h-12 items-center rounded-xl border border-line bg-surface px-5 font-semibold hover:bg-paper"
+            >
+              Phả đồ (in)
+            </Link>
+            <Link
               to={`/gia-pha/${tree.id}/su-kien`}
               className="inline-flex min-h-12 items-center rounded-xl border border-line bg-surface px-5 font-semibold hover:bg-paper"
             >

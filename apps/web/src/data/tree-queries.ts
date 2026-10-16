@@ -5,6 +5,7 @@ import type { ImportPayload } from '../excel/import-preview';
 import type { PersonFields } from '../people/person-form';
 import { listTreeEvents, loadMyCalendar, removeTreeEvent, saveTreeEvent } from './calendar';
 import { importIntoTree, importNewTree } from './excel-import';
+import { loadPhaDoConfig, savePhaDoConfig } from './pha-do';
 import { disablePublicLink, fetchPublicTree, rotatePublicLink, setHiddenFromPublic } from './public-tree';
 import {
   addChild,
@@ -207,3 +208,17 @@ const useEventMutation = <Input,>(treeId: string, mutationFn: (input: Input) => 
 
 export const useSaveTreeEvent = (treeId: string) => useEventMutation(treeId, saveTreeEvent);
 export const useRemoveTreeEvent = (treeId: string) => useEventMutation(treeId, removeTreeEvent);
+
+// ---------------------------------------------------------------------------
+// Phả đồ
+// ---------------------------------------------------------------------------
+export const usePhaDoConfig = (treeId: string) =>
+  useQuery({ queryKey: ['trees', treeId, 'pha-do'], queryFn: () => loadPhaDoConfig(treeId) });
+
+export const useSavePhaDoConfig = (treeId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: savePhaDoConfig,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trees', treeId, 'pha-do'] }),
+  });
+};
