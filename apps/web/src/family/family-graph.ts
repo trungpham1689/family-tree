@@ -38,6 +38,10 @@ export type Placement = { generation: number | null; branchId: string | null; ki
 export type GenerationGroup<P> = { generation: number; persons: P[]; male: number; female: number; total: number };
 
 export type FamilyGraph<P extends GraphPerson> = {
+  /** Dữ liệu thô, cho các mô-đun cần duyệt toàn bộ (bố cục cây, xuất Excel). */
+  persons: P[];
+  parentLinks: GraphParentLink[];
+  unions: GraphUnion[];
   person(id: string): P | undefined;
   placement(id: string): Placement;
   parentsOf(id: string): ParentRelative<P>[];
@@ -97,6 +101,9 @@ export const buildFamilyGraph = <P extends GraphPerson>(input: {
   };
 
   return {
+    persons: input.persons,
+    parentLinks: input.parentLinks,
+    unions: input.unions,
     person: (id) => persons.get(id),
     placement,
 
