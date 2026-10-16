@@ -63,6 +63,8 @@ export type LayoutNode = {
   height: number;
   /** Số con không được vẽ vì đang thu gọn hoặc vượt độ sâu (chỉ ở ô huyết thống). */
   hiddenChildren: number;
+  /** Số con qua bộ lọc hiển thị (đang vẽ hoặc đang ẩn vì thu gọn), để biết có nút thu/mở hay không. */
+  childCount: number;
   collapsed: boolean;
 };
 
@@ -81,6 +83,7 @@ type Unit = {
   groups: { spouseIndex: number | null; children: Unit[] }[];
   depth: number;
   hiddenChildren: number;
+  childCount: number;
   collapsed: boolean;
   unitBreadth: number;
   subtreeBreadth: number;
@@ -158,6 +161,7 @@ export const layoutTree = (
         groups: [],
         depth,
         hiddenChildren: children.length,
+        childCount: children.length,
         collapsed: isCollapsed && children.length > 0,
         unitBreadth,
         subtreeBreadth: unitBreadth,
@@ -194,6 +198,7 @@ export const layoutTree = (
       groups,
       depth,
       hiddenChildren: 0,
+      childCount: children.length,
       collapsed: false,
       unitBreadth,
       subtreeBreadth: Math.max(unitBreadth, childrenBreadth),
@@ -224,6 +229,7 @@ export const layoutTree = (
       width: box.width,
       height: box.height,
       hiddenChildren: role === 'blood' ? unit.hiddenChildren : 0,
+      childCount: role === 'blood' ? unit.childCount : 0,
       collapsed: role === 'blood' ? unit.collapsed : false,
     });
   };

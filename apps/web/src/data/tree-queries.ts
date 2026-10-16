@@ -3,7 +3,16 @@ import { useAuth } from '../auth/auth-context';
 import { buildFamilyGraph } from '../family/family-graph';
 import type { PersonFields } from '../people/person-form';
 import { addChild, addParent, addSpouse, loadFamily, setProgenitor, updateParentLinkKind, updateUnion } from './family';
-import { createPerson, createTree, deleteTree, getTree, listMyTrees, renameTree, updatePerson } from './trees';
+import {
+  createPerson,
+  createTree,
+  deleteTree,
+  getTree,
+  listMyTrees,
+  renameTree,
+  setTreeOutsideGenerations,
+  updatePerson,
+} from './trees';
 
 export const treeKeys = {
   mine: (accountId: string) => ['trees', 'mine', accountId] as const,
@@ -47,6 +56,14 @@ export const useRenameTree = (treeId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (name: string) => renameTree(treeId, name),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trees'] }),
+  });
+};
+
+export const useSetOutsideGenerations = (treeId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (outsideGenerations: number) => setTreeOutsideGenerations(treeId, outsideGenerations),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trees'] }),
   });
 };

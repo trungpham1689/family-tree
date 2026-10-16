@@ -2,7 +2,7 @@ import { wrapName, type LayoutNode, type TreeLayout } from '@gia-pha/tree-layout
 import { select } from 'd3-selection';
 import 'd3-transition';
 import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom';
-import { memo, useCallback, useEffect, useRef } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { Button } from '../ui/Button';
 
 export type CanvasPerson = { id: string; full_name: string; gender: string | null; lifespan: string };
@@ -10,14 +10,17 @@ export type CanvasPerson = { id: string; full_name: string; gender: string | nul
 type Props = {
   layout: TreeLayout;
   persons: ReadonlyMap<string, CanvasPerson>;
-  /** Người có con (để hiện nút thu/mở). */
-  hasChildren: (personId: string) => boolean;
   highlightedId?: string | null;
   onOpenPerson: (personId: string) => void;
   onToggleCollapse: (personId: string) => void;
-  /** Người cần đưa vào giữa màn hình (ví dụ gốc khi mở, hoặc kết quả tìm kiếm). */
-  focusPersonId?: string | null;
+  /**
+   * Yêu cầu đưa một Người vào giữa màn hình (gốc khi mở, kết quả tìm kiếm).
+   * Mỗi yêu cầu mới là một object mới; thu/mở nhánh không làm Cây nhảy lại.
+   */
+  focusRequest?: FocusRequest | null;
 };
+
+export type FocusRequest = { personId: string };
 
 const PADDING = 48;
 const MIN_SCALE = 0.05;
@@ -27,11 +30,10 @@ const MAX_SCALE = 2.5;
 export const FamilyTreeCanvas = ({
   layout,
   persons,
-  hasChildren,
   highlightedId,
   onOpenPerson,
   onToggleCollapse,
-  focusPersonId,
+  focusRequest,
 }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const groupRef = useRef<SVGGElement>(null);
@@ -77,12 +79,20 @@ export const FamilyTreeCanvas = ({
     if (svg && behavior) select(svg).transition().duration(200).call(behavior.scaleBy, factor);
   };
 
+  const layoutRef = useRef(layout);
+  useLayoutEffect(() => {
+    layoutRef.current = layout;
+  }, [layout]);
+
   // Đưa người cần chú ý vào giữa màn hình, giữ cỡ chữ đọc được.
   useEffect(() => {
-    if (!focusPersonId) return;
-    const target = layout.nodes.find((n) => n.personId === focusPersonId && n.role === 'blood') ?? layout.nodes.find((n) => n.personId === focusPersonId);
+    if (!focusRequest) return;
+    const { nodes } = layoutRef.current;
+    const target =
+      nodes.find((n) => n.personId === focusRequest.personId && n.role === 'blood') ??
+      nodes.find((n) => n.personId === focusRequest.personId);
     if (target) animateTo(1, target.x + target.width / 2 + PADDING, target.y + target.height / 2 + PADDING);
-  }, [focusPersonId, layout, animateTo]);
+  }, [focusRequest, animateTo]);
 
   return (
     <div className="relative h-full min-h-[60dvh] overflow-hidden rounded-2xl border border-line bg-paper">
@@ -106,7 +116,7 @@ export const FamilyTreeCanvas = ({
                   node={node}
                   person={person}
                   highlighted={node.personId === highlightedId}
-                  canToggle={node.role === 'blood' && hasChildren(node.personId)}
+                  canToggle={node.role === 'blood' && node.childCount > 0}
                   onOpen={onOpenPerson}
                   onToggle={onToggleCollapse}
                 />

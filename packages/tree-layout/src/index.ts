@@ -12,3 +12,4 @@ export {
   type TreeLayout,
 } from './layout.ts';
 export { wrapName } from './text.ts';
+export { outsideDepthOfChild, outsideGenerationsFilter } from './descent-filter.ts';
