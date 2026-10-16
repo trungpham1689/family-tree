@@ -209,6 +209,12 @@ export type Database = {
         Update: { child_id?: string; created_at?: string; kind?: string; parent_id?: string; tree_id?: string };
         Relationships: [];
       };
+      tree_invitations: {
+        Row: { id: string; tree_id: string; email: string; role: string; invited_by: string | null; created_at: string };
+        Insert: { id?: string; tree_id: string; email: string; role: string; invited_by?: string | null; created_at?: string };
+        Update: { id?: string; tree_id?: string; email?: string; role?: string; invited_by?: string | null; created_at?: string };
+        Relationships: [];
+      };
       unions: {
         Row: {
           created_at: string;
@@ -243,9 +249,9 @@ export type Database = {
         Relationships: [];
       };
       tree_roles: {
-        Row: { account_id: string; created_at: string; role: string; tree_id: string };
-        Insert: { account_id: string; created_at?: string; role: string; tree_id: string };
-        Update: { account_id?: string; created_at?: string; role?: string; tree_id?: string };
+        Row: { account_id: string; created_at: string; role: string; tree_id: string; person_id: string | null };
+        Insert: { account_id: string; created_at?: string; role: string; tree_id: string; person_id?: string | null };
+        Update: { account_id?: string; created_at?: string; role?: string; tree_id?: string; person_id?: string | null };
         Relationships: [
           {
             foreignKeyName: 'tree_roles_tree_id_fkey';
@@ -273,6 +279,14 @@ export type Database = {
       set_progenitor: { Args: { person_id: string }; Returns: undefined };
       link_parent: { Args: { child_id: string; parent_id: string; link_kind: string }; Returns: undefined };
       link_spouse: { Args: { person_id: string; spouse_id: string }; Returns: undefined };
+      invite_member: { Args: { target_tree: string; invitee_email: string; new_role: string }; Returns: string };
+      set_member_role: { Args: { target_tree: string; member: string; new_role: string }; Returns: undefined };
+      remove_member: { Args: { target_tree: string; member: string }; Returns: undefined };
+      set_member_person: { Args: { target_tree: string; member: string; target_person: string | null }; Returns: undefined };
+      tree_members: {
+        Args: { target_tree: string };
+        Returns: { account_id: string; email: string; role: string; person_id: string | null; joined_at: string; is_me: boolean }[];
+      };
       import_into_tree: { Args: { target_tree: string; payload: Json }; Returns: number };
       import_new_tree: { Args: { tree_name: string; payload: Json }; Returns: string };
       tree_positions: {

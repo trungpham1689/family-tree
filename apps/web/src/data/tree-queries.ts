@@ -5,6 +5,15 @@ import type { ImportPayload } from '../excel/import-preview';
 import type { PersonFields } from '../people/person-form';
 import { importIntoTree, importNewTree } from './excel-import';
 import {
+  cancelInvitation,
+  inviteMember,
+  listInvitations,
+  listMembers,
+  removeMember,
+  setMemberPerson,
+  setMemberRole,
+} from './members';
+import {
   addChild,
   addParent,
   addSpouse,
@@ -150,3 +159,29 @@ export const useImportExcel = () => {
     onSuccess: () => queryClient.invalidateQueries(),
   });
 };
+
+// ---------------------------------------------------------------------------
+// Vai trò
+// ---------------------------------------------------------------------------
+export const memberKeys = {
+  members: (treeId: string) => ['trees', treeId, 'members'] as const,
+  invitations: (treeId: string) => ['trees', treeId, 'invitations'] as const,
+};
+
+export const useMembers = (treeId: string) =>
+  useQuery({ queryKey: memberKeys.members(treeId), queryFn: () => listMembers(treeId) });
+
+export const useInvitations = (treeId: string, enabled: boolean) =>
+  useQuery({ queryKey: memberKeys.invitations(treeId), queryFn: () => listInvitations(treeId), enabled });
+
+/** Mọi thay đổi vai trò tải lại danh sách thành viên, lời mời và "Gia phả của tôi". */
+const useMemberMutation = <Input, Output>(mutationFn: (input: Input) => Promise<Output>) => {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trees'] }) });
+};
+
+export const useInviteMember = () => useMemberMutation(inviteMember);
+export const useSetMemberRole = () => useMemberMutation(setMemberRole);
+export const useRemoveMember = () => useMemberMutation(removeMember);
+export const useSetMemberPerson = () => useMemberMutation(setMemberPerson);
+export const useCancelInvitation = () => useMemberMutation(cancelInvitation);

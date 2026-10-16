@@ -18,6 +18,13 @@ const BUSINESS_MESSAGES: Record<string, (details?: string | null) => string> = {
   SAME_TREE_REQUIRED: () => 'Chỉ nối được với Người trong cùng gia phả.',
   TREE_NOT_EMPTY: () => 'Gia phả này đã có người. Chỉ nhập Excel vào gia phả mới hoặc gia phả chưa có ai.',
   NOT_TREE_OWNER: () => 'Chỉ Chủ sở hữu gia phả mới nhập được từ Excel.',
+  NOT_ALLOWED: () => 'Bạn không có quyền làm việc này trong gia phả.',
+  INVALID_ROLE: () => 'Chỉ mời được làm Biên tập viên hoặc Người xem.',
+  INVALID_EMAIL: () => 'Email chưa đúng dạng.',
+  ALREADY_MEMBER: () => 'Tài khoản này đã có vai trò trong gia phả.',
+  OWNER_PROTECTED: () => 'Không thể đổi hay gỡ Chủ sở hữu của gia phả.',
+  PERSON_ALREADY_LINKED: () => 'Người này đã được liên kết với một tài khoản khác.',
+  MEMBER_NOT_FOUND: () => 'Tài khoản này không còn trong gia phả. Hãy tải lại trang.',
   STALE_VERSION: () => 'Đã có người sửa Người này trước bạn. Hãy xem bản mới nhất rồi lưu lại.',
   PERSON_NOT_FOUND: () => 'Không tìm thấy Người này. Có thể đã bị xoá; hãy tải lại trang.',
 };

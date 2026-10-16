@@ -81,6 +81,12 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
             >
               Xem cây gia phả
             </Link>
+            <Link
+              to={`/gia-pha/${tree.id}/chia-se`}
+              className="inline-flex min-h-12 items-center rounded-xl border border-line bg-surface px-5 font-semibold hover:bg-paper"
+            >
+              Chia sẻ
+            </Link>
             {family.isSuccess && !isEmpty && <ExportButton tree={tree} graph={family.data} />}
           </div>
         </div>

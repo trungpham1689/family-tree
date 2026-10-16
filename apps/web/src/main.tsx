@@ -10,6 +10,7 @@ import { LoginPage } from './pages/LoginPage';
 import { MyTreesPage } from './pages/MyTreesPage';
 import { PersonPage } from './pages/PersonPage';
 import { ImportPage } from './pages/ImportPage';
+import { SharePage } from './pages/SharePage';
 import { TreePage } from './pages/TreePage';
 import { TreeViewPage } from './pages/TreeViewPage';
 import { FullPageMessage } from './ui/FullPageMessage';
@@ -43,6 +44,14 @@ const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <TreePage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/gia-pha/:treeId/chia-se',
+    element: (
+      <RequireAuth>
+        <SharePage />
       </RequireAuth>
     ),
   },
