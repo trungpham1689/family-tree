@@ -9,7 +9,7 @@ import type { PersonFields } from '../people/person-form';
  */
 
 export type TreeRole = 'owner' | 'editor' | 'viewer';
-export type Tree = Pick<Row<'family_trees'>, 'id' | 'name' | 'description' | 'owner_id' | 'created_at'>;
+export type Tree = Pick<Row<'family_trees'>, 'id' | 'name' | 'description' | 'owner_id' | 'created_at' | 'outside_generations'>;
 export type TreeWithRole = Tree & { role: TreeRole };
 export type Person = Row<'persons'>;
 
@@ -31,7 +31,7 @@ const unwrap = <Result extends QueryResult>({ data, error }: Result): NonNullabl
 
 const isTreeRole = (value: string): value is TreeRole => value === 'owner' || value === 'editor' || value === 'viewer';
 
-const TREE_COLUMNS = 'id, name, description, owner_id, created_at';
+const TREE_COLUMNS = 'id, name, description, owner_id, created_at, outside_generations';
 
 export const listMyTrees = async (accountId: string): Promise<TreeWithRole[]> => {
   const rows = unwrap(
@@ -60,6 +60,11 @@ export const createTree = async (input: { name: string; description: string | nu
 
 export const renameTree = async (treeId: string, name: string): Promise<void> => {
   const { error } = await supabase.from('family_trees').update({ name }).eq('id', treeId);
+  if (error) throw new DataError(error);
+};
+
+export const setTreeOutsideGenerations = async (treeId: string, outsideGenerations: number): Promise<void> => {
+  const { error } = await supabase.from('family_trees').update({ outside_generations: outsideGenerations }).eq('id', treeId);
   if (error) throw new DataError(error);
 };
 

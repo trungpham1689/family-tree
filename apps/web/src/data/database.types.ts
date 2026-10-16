@@ -21,6 +21,7 @@ export type Database = {
           description: string | null;
           id: string;
           name: string;
+          outside_generations: number;
           owner_id: string;
           updated_at: string;
         };
@@ -29,6 +30,7 @@ export type Database = {
           description?: string | null;
           id?: string;
           name: string;
+          outside_generations?: number;
           owner_id?: string;
           updated_at?: string;
         };
@@ -37,6 +39,7 @@ export type Database = {
           description?: string | null;
           id?: string;
           name?: string;
+          outside_generations?: number;
           owner_id?: string;
           updated_at?: string;
         };

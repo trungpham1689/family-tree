@@ -101,6 +101,23 @@ describe('seam B: Gia phả và Người', () => {
     it('tên gia phả không được để trống', async () => {
       await expect(createTree(owner, '   ')).rejects.toThrow();
     });
+
+    it('cách hiện Cháu ngoại mặc định là 1 đời, Chủ sở hữu đổi được trong khoảng 0–5', async () => {
+      const tree = await createTree(owner);
+      const read = async () =>
+        (await db.as(owner).query<{ outside_generations: number }>('select outside_generations from family_trees where id = $1', [tree.id]))[0]!
+          .outside_generations;
+      expect(await read()).toBe(1);
+
+      await db.as(owner).query('update family_trees set outside_generations = 0 where id = $1', [tree.id]);
+      expect(await read()).toBe(0);
+      await expect(
+        db.as(owner).query('update family_trees set outside_generations = 6 where id = $1', [tree.id]),
+      ).rejects.toThrow();
+
+      await db.as(stranger).query('update family_trees set outside_generations = 3 where id = $1', [tree.id]);
+      expect(await read()).toBe(0);
+    });
   });
 
   describe('Người', () => {
