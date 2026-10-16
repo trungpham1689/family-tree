@@ -215,6 +215,12 @@ export type Database = {
         Update: { child_id?: string; created_at?: string; kind?: string; parent_id?: string; tree_id?: string };
         Relationships: [];
       };
+      pha_do_configs: {
+        Row: { tree_id: string; config: Json; updated_by: string | null; updated_at: string };
+        Insert: { tree_id: string; config: Json; updated_by?: string | null; updated_at?: string };
+        Update: { tree_id?: string; config?: Json; updated_by?: string | null; updated_at?: string };
+        Relationships: [];
+      };
       tree_events: {
         Row: {
           id: string;

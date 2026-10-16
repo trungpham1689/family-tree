@@ -13,3 +13,5 @@ export {
 } from './layout.ts';
 export { wrapName } from './text.ts';
 export { outsideDepthOfChild, outsideGenerationsFilter } from './descent-filter.ts';
+/** Chỉ dùng cho test và đo hiệu năng. */
+export { randomFamily, type RandomFamily } from './random-family.ts';
