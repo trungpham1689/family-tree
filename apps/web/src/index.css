@@ -1,0 +1,42 @@
+@import 'tailwindcss';
+
+/*
+ * Token giao diện. Phần quản lý dữ liệu dùng nền sáng, sạch; màu son/kim
+ * dành cho điểm nhấn và (về sau) cho Cây, Phả đồ, trang công khai.
+ * Chữ cơ bản 18px vì nhiều người dùng lớn tuổi.
+ */
+@theme {
+  --color-ink: #1f1a17;
+  --color-ink-muted: #5c534c;
+  --color-paper: #fbf8f3;
+  --color-surface: #ffffff;
+  --color-line: #e4dcd1;
+  --color-son: #8a1c1c;
+  --color-son-strong: #6e1414;
+  --color-kim: #b8892b;
+  --color-kim-soft: #f3d79a;
+  --color-danger: #b42318;
+  --color-danger-soft: #fdecea;
+
+  --font-sans: 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Noto Serif', ui-serif, Georgia, serif;
+}
+
+@layer base {
+  html {
+    font-size: 18px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    line-height: 1.55;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-kim);
+    outline-offset: 2px;
+  }
+}
