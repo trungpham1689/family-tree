@@ -30,3 +30,35 @@ jobs:
         env:
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
+
+  e2e:
+    # Test khói: app thật trong Chromium, chạy trên backend giả lập (PGlite + PostgREST + auth giả).
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      POSTGREST_VERSION: v12.2.12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Cài PostgREST
+        run: |
+          mkdir -p .tools
+          curl -fsSL "https://github.com/PostgREST/postgrest/releases/download/${POSTGREST_VERSION}/postgrest-${POSTGREST_VERSION}-linux-static-x86-64.tar.xz" \
+            | tar -xJ -C .tools
+          .tools/postgrest --version
+      - name: Cài Chromium cho Playwright
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Test khói end-to-end
+        run: pnpm test:e2e
+      - name: Lưu ảnh chụp khi có lỗi
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-anh-chup
+          path: e2e/.out/
+          retention-days: 7

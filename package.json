@@ -13,12 +13,14 @@
     "lint": "pnpm -r lint",
     "test": "vitest run --project unit",
     "test:db": "vitest run --project db",
-    "test:all": "vitest run"
+    "test:all": "vitest run",
+    "test:e2e": "bash e2e/rebuild.sh && node e2e/smoke.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.10",
     "@electric-sql/pglite-socket": "0.2.11",
     "@types/node": "^24.19.2",
+    "playwright": "1.56.1",
     "read-excel-file": "9.3.10",
     "typescript": "~6.0.3",
     "vitest": "^5.0.5",

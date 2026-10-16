@@ -1,16 +1,9 @@
-import { APP, openBrowser } from './walk-lib.mjs';
-const SHOTS = process.env.SHOTS;
+// Luồng cơ bản: đăng ký → tạo gia phả → thêm Thuỷ tổ, vợ, con → xem cây.
+import { APP, makeStep, openBrowser, reportProblems, SHOTS } from './walk-lib.mjs';
+
 const { browser, page, problems } = await openBrowser();
 const shot = (name) => page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
-const step = async (name, work) => {
-  try {
-    await work();
-    console.log('OK  ', name);
-  } catch (error) {
-    console.log('FAIL', name, '-', error.message.split('\n')[0]);
-    await shot(`FAIL-${name.replace(/\W+/g, '-')}`);
-  }
-};
+const step = makeStep(() => page);
 
 const email = `truong-ho-${Date.now()}@example.com`;
 await step('mở app → chuyển tới đăng nhập', async () => {
@@ -68,6 +61,6 @@ await step('xem cây', async () => {
   await page.waitForTimeout(800);
   await shot('09-tree-view');
 });
-console.log('\n--- vấn đề ghi nhận ---\n' + (problems.join('\n') || '(không có)'));
+reportProblems(problems);
 console.log('EMAIL', email);
 await browser.close();
