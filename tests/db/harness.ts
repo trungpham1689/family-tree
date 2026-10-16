@@ -19,8 +19,10 @@ export type TestUser = { id: string; email: string };
 export type Caller = {
   /** Chạy một câu SQL với quyền của người gọi; trả về các dòng kết quả. */
   query<Row = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<Row[]>;
-  /** Gọi một hàm RPC trong schema public, giống `supabase.rpc(name, args)`. */
+  /** Gọi một hàm RPC trả về một giá trị, giống `supabase.rpc(name, args)`. */
   rpc<Result = unknown>(name: string, args?: Record<string, unknown>): Promise<Result>;
+  /** Gọi một hàm RPC trả về bảng (nhiều dòng), giống `supabase.rpc(name, args)`. */
+  rpcRows<Row = Record<string, unknown>>(name: string, args?: Record<string, unknown>): Promise<Row[]>;
 };
 
 export type TestDb = {
@@ -36,6 +38,18 @@ async function listMigrations(): Promise<string[]> {
   const entries = await readdir(MIGRATIONS_DIR).catch(() => []);
   return entries.filter((name) => name.endsWith('.sql')).sort();
 }
+
+// Đối số kiểu object được gửi dạng JSON, như PostgREST làm với tham số jsonb.
+const namedArgs = (args: Record<string, unknown>) => {
+  const keys = Object.keys(args);
+  return {
+    placeholders: keys.map((key, index) => `${key} => $${index + 1}`).join(', '),
+    values: keys.map((key) => {
+      const value = args[key];
+      return value !== null && typeof value === 'object' ? JSON.stringify(value) : value;
+    }),
+  };
+};
 
 export async function createTestDb(): Promise<TestDb> {
   const db = await PGlite.create();
@@ -57,16 +71,15 @@ export async function createTestDb(): Promise<TestDb> {
       query: async <Row>(sql: string, params: unknown[] = []) =>
         inScope(async (tx) => (await tx.query<Row>(sql, params)).rows),
       rpc: async <Result>(name: string, args: Record<string, unknown> = {}) => {
-        const keys = Object.keys(args);
-        const placeholders = keys.map((key, index) => `${key} => $${index + 1}`).join(', ');
-        const values = keys.map((key) => args[key]);
+        const { placeholders, values } = namedArgs(args);
         return inScope(async (tx) => {
-          const result = await tx.query<{ result: Result }>(
-            `select public.${name}(${placeholders}) as result`,
-            values,
-          );
+          const result = await tx.query<{ result: Result }>(`select public.${name}(${placeholders}) as result`, values);
           return result.rows[0]!.result;
         });
+      },
+      rpcRows: async <Row>(name: string, args: Record<string, unknown> = {}) => {
+        const { placeholders, values } = namedArgs(args);
+        return inScope(async (tx) => (await tx.query<Row>(`select * from public.${name}(${placeholders})`, values)).rows);
       },
     };
   };

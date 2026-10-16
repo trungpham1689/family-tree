@@ -1,10 +1,14 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { Button } from '../ui/Button';
 import { ErrorBanner, TextField } from '../ui/fields';
 import { parsePersonForm, type PersonFields, type PersonFormErrors, type PersonFormValues } from './person-form';
 
 type PersonFormProps = {
   initial: PersonFormValues;
+  /** Ẩn ô Thứ tự con khi không có ý nghĩa (ví dụ thêm vợ/chồng). */
+  showBirthOrder?: boolean;
+  /** Nội dung riêng của từng thao tác (chọn mẹ, loại cha/mẹ…), đặt trên nút lưu. */
+  extra?: ReactNode;
   submitLabel: string;
   busy: boolean;
   serverError: string | null;
@@ -18,7 +22,16 @@ const GENDER_OPTIONS = [
   ['nu', 'Nữ'],
 ] as const;
 
-export const PersonForm = ({ initial, submitLabel, busy, serverError, onSubmit, onCancel }: PersonFormProps) => {
+export const PersonForm = ({
+  initial,
+  showBirthOrder = true,
+  extra,
+  submitLabel,
+  busy,
+  serverError,
+  onSubmit,
+  onCancel,
+}: PersonFormProps) => {
   const [values, setValues] = useState(initial);
   const [errors, setErrors] = useState<PersonFormErrors>({});
 
@@ -99,6 +112,20 @@ export const PersonForm = ({ initial, submitLabel, busy, serverError, onSubmit, 
         />
         Đã mất (kể cả khi không rõ năm mất)
       </label>
+
+      {showBirthOrder && (
+        <TextField
+          label="Thứ tự con"
+          hint="1 là con trưởng. Để trống thì xếp sau các anh chị em đã có."
+          inputMode="numeric"
+          className="max-w-32"
+          value={values.birthOrder}
+          error={errors.birthOrder}
+          onChange={(event) => set('birthOrder', event.target.value)}
+        />
+      )}
+
+      {extra}
 
       {serverError && <ErrorBanner>{serverError}</ErrorBanner>}
 

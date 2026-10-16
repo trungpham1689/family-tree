@@ -9,9 +9,13 @@ export type PersonFormValues = {
   birthYear: string;
   deathYear: string;
   isDeceased: boolean;
+  birthOrder: string;
 };
 
-export type PersonFields = Pick<Insert<'persons'>, 'full_name' | 'gender' | 'birth_year' | 'death_year' | 'is_deceased'>;
+export type PersonFields = Pick<
+  Insert<'persons'>,
+  'full_name' | 'gender' | 'birth_year' | 'death_year' | 'is_deceased' | 'birth_order'
+>;
 
 export type PersonFormErrors = Partial<Record<keyof PersonFormValues, string>>;
 
@@ -23,6 +27,7 @@ export const EMPTY_PERSON_FORM: PersonFormValues = {
   birthYear: '',
   deathYear: '',
   isDeceased: false,
+  birthOrder: '',
 };
 
 const MIN_YEAR = 1;
@@ -55,6 +60,12 @@ export const parsePersonForm = (values: PersonFormValues): PersonFormResult => {
     errors.deathYear = 'Năm mất không thể trước năm sinh.';
   }
 
+  const orderText = values.birthOrder.trim();
+  const birthOrder = orderText === '' ? null : Number(orderText);
+  if (birthOrder !== null && !(Number.isInteger(birthOrder) && birthOrder >= 1 && birthOrder <= 99)) {
+    errors.birthOrder = 'Thứ tự con là số từ 1 đến 99 (1 là con trưởng).';
+  }
+
   if (Object.keys(errors).length > 0) return { ok: false, errors };
 
   return {
@@ -66,6 +77,7 @@ export const parsePersonForm = (values: PersonFormValues): PersonFormResult => {
       death_year: deathYear,
       // Có năm mất nghĩa là đã mất, kể cả khi người dùng quên tích ô.
       is_deceased: values.isDeceased || deathYear !== null,
+      birth_order: birthOrder,
     },
   };
 };
@@ -77,4 +89,5 @@ export const personToFormValues = (person: PersonFields): PersonFormValues => ({
   birthYear: person.birth_year?.toString() ?? '',
   deathYear: person.death_year?.toString() ?? '',
   isDeceased: person.is_deceased ?? false,
+  birthOrder: person.birth_order?.toString() ?? '',
 });

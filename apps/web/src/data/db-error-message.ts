@@ -13,6 +13,10 @@ const BUSINESS_MESSAGES: Record<string, (details?: string | null) => string> = {
     `Bạn đã tạo đủ số gia phả cho phép. ${details ?? ''}`.trim() +
     ' Hãy xoá bớt một gia phả cũ nếu muốn tạo mới.',
   PERSON_LIMIT_REACHED: (details) => `Gia phả đã đủ số Người cho phép. ${details ?? ''}`.trim(),
+  ANCESTOR_CYCLE: () => 'Không thể nối như vậy: một người không thể là tổ tiên của chính mình.',
+  TOO_MANY_PARENTS: () => 'Người này đã có đủ cha và mẹ ruột. Có thể ghi thêm cha/mẹ nuôi.',
+  SAME_TREE_REQUIRED: () => 'Chỉ nối được với Người trong cùng gia phả.',
+  PERSON_NOT_FOUND: () => 'Không tìm thấy Người này. Có thể đã bị xoá; hãy tải lại trang.',
 };
 
 const POSTGRES_MESSAGES: Record<string, string> = {
