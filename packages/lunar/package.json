@@ -1,0 +1,19 @@
+{
+  "name": "@gia-pha/lunar",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Âm lịch Việt Nam (thuật toán Hồ Ngọc Đức, múi giờ +7): đổi ngày, can chi, tiết khí, giờ hoàng đạo, ngày lễ, ngày giỗ.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "oxlint src"
+  },
+  "devDependencies": {
+    "amlich": "^0.0.2",
+    "oxlint": "^1.88.0",
+    "typescript": "~6.0.3"
+  }
+}

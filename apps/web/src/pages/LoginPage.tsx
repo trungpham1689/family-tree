@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Navigate, useSearchParams } from 'react-router';
+import { Link, Navigate, useSearchParams } from 'react-router';
 import { authErrorMessage } from '../auth/auth-error-message';
 import { useAuth } from '../auth/auth-context';
 import { safeRedirectPath } from '../auth/safe-redirect';
@@ -150,6 +150,12 @@ export const LoginPage = () => {
             </Button>
           </form>
         </section>
+
+        <p className="mt-6 text-center">
+          <Link to="/lich" className="font-semibold text-son hover:underline">
+            Xem lịch âm dương →
+          </Link>
+        </p>
       </div>
     </main>
   );
