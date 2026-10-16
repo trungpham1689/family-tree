@@ -114,7 +114,7 @@ const EventRow = ({ treeId, event, canEdit, onEdit }: { treeId: string; event: T
           <Button variant="secondary" onClick={() => setConfirming(false)}>
             Huỷ
           </Button>
-          <Button className="bg-danger hover:bg-danger" disabled={remove.isPending} onClick={() => remove.mutate(event.id)}>
+          <Button variant="danger" disabled={remove.isPending} onClick={() => remove.mutate(event.id)}>
             Xoá
           </Button>
         </div>

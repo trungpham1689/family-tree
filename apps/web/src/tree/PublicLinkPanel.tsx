@@ -60,7 +60,7 @@ export const PublicLinkPanel = ({ tree }: { tree: TreeWithRole }) => {
                   Huỷ
                 </Button>
                 <Button
-                  className="bg-danger hover:bg-danger"
+                  variant="danger"
                   disabled={busy}
                   onClick={() =>
                     (confirming === 'rotate' ? rotate : disable).mutate(undefined, { onSuccess: () => setConfirming(null) })

@@ -7,11 +7,11 @@ export const AppHeader = ({ email }: { email?: string | undefined }) => {
 
   return (
     <header className="border-b border-line bg-surface">
-      <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-4 py-3">
+      <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3 whitespace-nowrap">
         <Link to="/gia-pha" className="font-serif text-2xl font-bold text-son">
           Gia Phả
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <Link to="/lich" className="font-semibold text-ink hover:text-son">
             Lịch
           </Link>

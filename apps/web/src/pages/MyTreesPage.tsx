@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { useCreateTree, useMyTrees } from '../data/tree-queries';
 import { ROLE_LABELS } from '../data/role-labels';
@@ -71,6 +71,7 @@ export const MyTreesPage = () => {
 
 const CreateTreeForm = ({ onDone }: { onDone: () => void }) => {
   const createTree = useCreateTree();
+  const navigate = useNavigate();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
 
@@ -78,7 +79,8 @@ const CreateTreeForm = ({ onDone }: { onDone: () => void }) => {
     event.preventDefault();
     createTree.mutate(
       { name: name.trim(), description: description.trim() || null },
-      { onSuccess: onDone },
+      // Mở luôn gia phả vừa tạo: việc tiếp theo gần như luôn là thêm Thuỷ tổ.
+      { onSuccess: (tree) => navigate(`/gia-pha/${tree.id}`) },
     );
   };
 
