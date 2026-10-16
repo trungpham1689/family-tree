@@ -5,6 +5,7 @@ import { createBrowserRouter, Navigate, RouterProvider } from 'react-router';
 import { AuthProvider } from './auth/AuthProvider';
 import { RequireAuth } from './auth/RequireAuth';
 import './index.css';
+import { CalendarPage } from './pages/CalendarPage';
 import { LoginPage } from './pages/LoginPage';
 import { MyTreesPage } from './pages/MyTreesPage';
 import { PersonPage } from './pages/PersonPage';
@@ -18,6 +19,7 @@ const queryClient = new QueryClient({
 const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/gia-pha" replace /> },
   { path: '/dang-nhap', element: <LoginPage /> },
+  { path: '/lich', element: <CalendarPage /> },
   {
     path: '/gia-pha',
     element: (
