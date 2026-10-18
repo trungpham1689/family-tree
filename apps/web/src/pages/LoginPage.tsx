@@ -68,6 +68,7 @@ export const LoginPage = () => {
     <main className="grid min-h-dvh place-items-center px-4 py-10">
       <div className="w-full max-w-md">
         <header className="mb-8 text-center">
+          <img src="/logo-mark.svg" alt="" className="mx-auto mb-2 h-12 w-12" />
           <h1 className="font-serif text-4xl font-bold text-son">Gia Phả</h1>
           <p className="mt-2 text-ink-muted">Lưu giữ cội nguồn của cả dòng họ</p>
         </header>

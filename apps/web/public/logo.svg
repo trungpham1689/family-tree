@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 64">
+  <g transform="translate(4,4)" fill="none" stroke="#8a1c1c" stroke-width="3.9" stroke-linecap="round">
+    <path d="M28 43.75V22.75"/>
+    <path d="M28 22.75L17.5 33.25M28 22.75L38.5 33.25"/>
+    <path d="M28 29.75L21 36.75M28 29.75L35 36.75"/>
+  </g>
+  <circle cx="32" cy="20.625" r="5.6" fill="#d4a017" stroke="#8a1c1c" stroke-width="1.5"/>
+  <text x="76" y="34" font-family="'Noto Serif', Georgia, serif" font-size="28" font-weight="600" letter-spacing="1" fill="#8a1c1c">GIA PHẢ</text>
+</svg>
