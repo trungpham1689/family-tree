@@ -15,7 +15,7 @@ import {
   type PaperName,
   type PhaDoConfig,
 } from '../pha-do/config';
-import { FRAME_LABELS, type Decoration, type FrameStyle } from '../pha-do/decoration';
+import { defaultTitle, FRAME_LABELS, type Decoration, type FrameStyle } from '../pha-do/decoration';
 import { DESKTOP_LIMITS, IOS_LIMITS, isAppleMobile, planPng } from '../pha-do/png';
 import { renderPhaDo } from '../pha-do/render';
 import { drawingToSvg } from '../pha-do/svg';
@@ -101,7 +101,11 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
     setExporting('png');
     setExportError(null);
     try {
-      const [{ renderPng, downloadBlob }, fonts] = await Promise.all([import('../pha-do/png-export'), loadFonts()]);
+      const [{ renderPng }, { downloadBlob }, fonts] = await Promise.all([
+        import('../pha-do/png-export'),
+        import('../lib/download'),
+        loadFonts(),
+      ]);
       downloadBlob(await renderPng(result.drawing, fonts, pngPlan), `pha-do-${paperLabel}-${pngPlan.dpi}dpi.png`);
     } catch {
       setExportError('Không tạo được ảnh PNG (trình duyệt có thể thiếu bộ nhớ). Hãy thử khổ nhỏ hơn hoặc dùng PDF.');
@@ -187,12 +191,11 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
           <p className="text-ink-muted">
             {result.personCount} người · {result.drawing.width} × {result.drawing.height} mm · chữ tên ~{result.namePt.toFixed(1)} pt
           </p>
-          <div className="flex gap-1" role="group" aria-label="Phóng to">
+          <div className="flex flex-wrap gap-1" role="group" aria-label="Phóng to">
             {(['fit', 1, 2, 4] as const).map((level) => (
               <Button
                 key={String(level)}
                 variant={zoom === level ? 'primary' : 'secondary'}
-                className="px-3"
                 onClick={() => setZoom(level)}
               >
                 {level === 'fit' ? 'Vừa khung' : `${level * 100}%`}
@@ -247,7 +250,7 @@ const DecorationSettings = ({
     </div>
     <TextField
       label="Tiêu đề"
-      placeholder={`Gia phả ${treeName}`}
+      placeholder={defaultTitle(treeName)}
       maxLength={120}
       value={decoration.title}
       onChange={(event) => onChange({ title: event.target.value })}

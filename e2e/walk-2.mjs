@@ -85,6 +85,42 @@ await step('sửa hồ sơ (nghề nghiệp) và lưu', async () => {
   await page.getByText('Lý trưởng').waitFor();
 });
 
+await step('cảnh báo khi thêm Người trùng tên', async () => {
+  await page.goto(treeUrl);
+  await page.getByRole('link', { name: /Phạm Văn Tổ/ }).first().click();
+  await page.getByRole('button', { name: '+ Thêm con' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Họ và tên').fill('Phạm Văn Bình');
+  await dialog.getByText('Gia phả đã có').waitFor();
+  await dialog.getByRole('button', { name: 'Huỷ' }).click();
+});
+
+await step('Phả ký: văn bản tường thuật và xuất PDF', async () => {
+  await page.goto(`${treeUrl}/pha-ky`);
+  await page.getByText('Phạm Văn Tổ').first().waitFor();
+  await page.getByText('Thuỷ tổ của dòng họ').first().waitFor();
+  await shot('24b-pha-ky');
+  const [pdf] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Xuất PDF' }).click()]);
+  await pdf.saveAs(`${SHOTS}/pha-ky.pdf`);
+  if (statSync(`${SHOTS}/pha-ky.pdf`).size < 500) throw new Error('file PDF Phả ký quá nhỏ, có thể hỏng');
+});
+
+await step('Tra cứu quan hệ: chọn hai người, thấy xưng hô', async () => {
+  await page.goto(`${treeUrl}/quan-he`);
+  await page.getByLabel('Người thứ nhất').fill('pham van to');
+  await page.getByRole('button', { name: /Phạm Văn Tổ/ }).click();
+  await page.getByLabel('Người thứ hai').fill('pham van binh');
+  await page.getByRole('button', { name: /Phạm Văn Bình/ }).click();
+  await page.getByText('gọi', { exact: false }).first().waitFor();
+  await shot('24c-quan-he');
+});
+
+await step('Hồ sơ chưa đầy đủ: liệt kê người thiếu thông tin', async () => {
+  await page.goto(`${treeUrl}/thieu-thong-tin`);
+  await page.getByRole('heading', { name: 'Hồ sơ chưa đầy đủ' }).waitFor();
+  await shot('24d-thieu-thong-tin');
+});
+
 await step('thêm Sự kiện âm lịch hằng năm', async () => {
   await page.goto(`${treeUrl}/su-kien`);
   await page.getByRole('button', { name: '+ Thêm sự kiện' }).click();
@@ -106,6 +142,13 @@ await step('Lịch của tôi và Sắp tới', async () => {
   await page.goto(`${APP}/sap-toi`);
   await page.waitForTimeout(800);
   await shot('27-upcoming');
+  const [ics] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Xuất lịch 3 năm tới (.ics)' }).click(),
+  ]);
+  await ics.saveAs(`${SHOTS}/lich.ics`);
+  const text = readFileSync(`${SHOTS}/lich.ics`, 'utf8');
+  if (!text.startsWith('BEGIN:VCALENDAR') || !text.includes('BEGIN:VEVENT')) throw new Error('file .ics không hợp lệ');
   return `Sắp tới: ${(await page.locator('main').innerText()).split('\n').slice(0, 8).join(' | ')}`;
 });
 
@@ -136,6 +179,30 @@ await step('khách chưa đăng nhập mở link, không thấy thông tin riên
   await guest.close();
   if (text.includes('0912345678') || raw.includes('0912345678')) throw new Error('LỘ số điện thoại người còn sống');
   return text.replace(/\s+/g, ' ').slice(0, 160);
+});
+
+await step('mời Biên tập viên bằng email; họ thấy gia phả với đúng vai trò', async () => {
+  const editorEmail = `editor-${Date.now()}@example.com`;
+  const editor = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const editorPage = await editor.newPage();
+  await editorPage.goto(`${APP}/dang-nhap`);
+  await editorPage.getByRole('tab', { name: 'Tạo tài khoản' }).click();
+  await editorPage.getByLabel('Email').fill(editorEmail);
+  await editorPage.getByLabel('Mật khẩu').first().fill('matkhau123');
+  await editorPage.getByRole('button', { name: 'Tạo tài khoản' }).last().click();
+  await editorPage.waitForURL(/\/gia-pha$/);
+
+  await page.goto(treeUrl);
+  await page.getByRole('button', { name: '+ Mời người' }).click();
+  await page.getByLabel('Email tài khoản').fill(editorEmail);
+  await page.getByLabel('Vai trò').selectOption('viewer');
+  await page.getByRole('button', { name: 'Mời', exact: true }).click();
+  await page.getByText(editorEmail).waitFor();
+  await shot('31b-members');
+
+  await editorPage.goto(treeUrl);
+  await editorPage.getByText('Vai trò của bạn: Người xem').waitFor();
+  await editor.close();
 });
 
 await step('Phả đồ: xem trước, xuất PDF và PNG', async () => {

@@ -1,11 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../auth/auth-context';
+import { occurrencesToIcs } from '../calendar/ics';
 import { todayInVietnam } from '../calendar/month-grid';
-import { upcoming } from '../calendar/occurrences';
+import { occurrencesBetween, upcoming } from '../calendar/occurrences';
 import { OccurrenceList } from '../calendar/OccurrenceList';
 import { useMyCalendar } from '../data/tree-queries';
+import { downloadBlob } from '../lib/download';
 import { AppHeader } from '../ui/AppHeader';
+import { Button } from '../ui/Button';
 import { ErrorBanner } from '../ui/fields';
 
 /** Giỗ, sinh nhật, Sự kiện trong 30 ngày tới của mọi Gia phả tài khoản tham gia. */
@@ -14,6 +17,19 @@ export const UpcomingPage = () => {
   const email = state.status === 'signed-in' ? state.session.user.email : undefined;
   const calendar = useMyCalendar(true);
   const list = useMemo(() => (calendar.data ? upcoming(calendar.data, todayInVietnam(), 30) : []), [calendar.data]);
+  const [exporting, setExporting] = useState(false);
+
+  const exportIcs = () => {
+    if (!calendar.data) return;
+    setExporting(true);
+    try {
+      const today = todayInVietnam();
+      const threeYears = occurrencesBetween(calendar.data, today, { ...today, year: today.year + 3 });
+      downloadBlob(new Blob([occurrencesToIcs(threeYears)], { type: 'text/calendar;charset=utf-8' }), 'lich-gia-pha.ics');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <>
@@ -26,6 +42,11 @@ export const UpcomingPage = () => {
           </Link>
         </div>
         <p className="mt-1 text-ink-muted">Giỗ, sinh nhật và sự kiện trong 30 ngày tới.</p>
+        {calendar.isSuccess && (
+          <Button variant="secondary" className="mt-4" disabled={exporting} onClick={exportIcs}>
+            Xuất lịch 3 năm tới (.ics)
+          </Button>
+        )}
         <div className="mt-6">
           {calendar.isPending && <p className="text-ink-muted">Đang tải…</p>}
           {calendar.isError && <ErrorBanner>{calendar.error.message}</ErrorBanner>}

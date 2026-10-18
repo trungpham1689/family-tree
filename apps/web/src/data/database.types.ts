@@ -350,6 +350,13 @@ export type Database = {
         // nullable: generation, branch_id
         Returns: { branch_id: string | null; generation: number | null; kind: string; person_id: string }[];
       };
+      invite_to_tree: { Args: { target_tree: string; invite_email: string; new_role: string }; Returns: undefined };
+      update_tree_role: { Args: { target_tree: string; target_account: string; new_role: string }; Returns: undefined };
+      remove_tree_role: { Args: { target_tree: string; target_account: string }; Returns: undefined };
+      list_tree_members: {
+        Args: { target_tree: string };
+        Returns: { account_id: string; role: string; email: string; created_at: string }[];
+      };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };

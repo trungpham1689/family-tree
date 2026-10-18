@@ -112,6 +112,9 @@ const frameItems = (page: { width: number; height: number }, style: FrameStyle, 
 
 const words = (text: string) => text.trim().split(/\s+/).filter(Boolean);
 
+/** "Gia phả <tên>", không lặp "Gia phả" nếu tên đã có sẵn. */
+export const defaultTitle = (treeName: string) => (treeName ? `Gia phả ${treeName}`.replace(/^Gia phả gia phả /i, 'Gia phả ') : '');
+
 /** Bố trí trang trí trên trang; mọi kích thước co giãn theo khổ giấy. */
 export const layoutDecoration = (page: { width: number; height: number }, decoration: Decoration, treeName: string): DecorationLayout => {
   // Đơn vị trang trí: ~1/100 cạnh ngắn (A3 ≈ 3 mm, A0 ≈ 8,4 mm).
@@ -121,7 +124,7 @@ export const layoutDecoration = (page: { width: number; height: number }, decora
   const above: DrawItem[] = [];
 
   let top = inset;
-  const title = decoration.title.trim() || (treeName ? `Gia phả ${treeName}`.replace(/^Gia phả gia phả /i, 'Gia phả ') : '');
+  const title = decoration.title.trim() || defaultTitle(treeName);
   if (title) {
     const sizeMm = Math.min(unit * 7, (page.width - 2 * inset) / Math.max(8, title.length * 0.55));
     above.push({ type: 'text', x: page.width / 2, y: top + sizeMm * 0.6, text: title, sizePt: sizeMm * PT_PER_MM, bold: true, color: palette.title });

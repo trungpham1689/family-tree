@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Button } from '../ui/Button';
 import { ErrorBanner, TextAreaField, TextField } from '../ui/fields';
+import { findDuplicates, type DuplicateCandidate } from './duplicate-check';
 import { PartialDateField } from './PartialDateField';
 import {
   parsePersonForm,
@@ -14,6 +15,8 @@ type PersonFormProps = {
   initial: PersonFormValues;
   /** Ẩn ô Thứ tự con khi không có ý nghĩa (ví dụ thêm vợ/chồng). */
   showBirthOrder?: boolean;
+  /** Người đã có trong gia phả, để cảnh báo khi tên trùng (không chặn lưu). */
+  existing?: readonly DuplicateCandidate[];
   /** Nội dung riêng của từng thao tác (chọn mẹ, loại cha/mẹ…), đặt trên nút lưu. */
   extra?: ReactNode;
   submitLabel: string;
@@ -32,6 +35,7 @@ const GENDER_OPTIONS = [
 export const PersonForm = ({
   initial,
   showBirthOrder = true,
+  existing,
   extra,
   submitLabel,
   busy,
@@ -41,6 +45,7 @@ export const PersonForm = ({
 }: PersonFormProps) => {
   const [values, setValues] = useState(initial);
   const [errors, setErrors] = useState<PersonFormErrors>({});
+  const duplicates = existing ? findDuplicates(values.fullName, existing) : [];
   // Form mới chỉ mở phần cơ bản; sửa người đã có nhiều thông tin thì mở sẵn.
   const [showMore, setShowMore] = useState(initial !== undefined && hasDetails(initial));
 
@@ -74,6 +79,13 @@ export const PersonForm = ({
         error={errors.fullName}
         onChange={(event) => set('fullName', event.target.value)}
       />
+      {duplicates.length > 0 && (
+        <p role="alert" className="rounded-xl bg-kim-soft px-4 py-3 font-medium">
+          ⚠ Gia phả đã có {duplicates.length === 1 ? 'người' : `${duplicates.length} người`} tên này:{' '}
+          {duplicates.map((person) => person.full_name + (person.birth_year ? ` (sinh ${person.birth_year})` : '')).join(', ')}
+          . Kiểm tra lại trước khi lưu để tránh thêm trùng.
+        </p>
+      )}
 
       <fieldset>
         <legend className="mb-1 font-medium">Giới tính</legend>

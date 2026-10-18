@@ -7,6 +7,7 @@ import { listTreeEvents, loadMyCalendar, removeTreeEvent, saveTreeEvent } from '
 import { importIntoTree, importNewTree } from './excel-import';
 import { loadPhaDoConfig, savePhaDoConfig } from './pha-do';
 import { disablePublicLink, fetchPublicTree, rotatePublicLink, setHiddenFromPublic } from './public-tree';
+import { inviteToTree, listTreeMembers, removeTreeRole, updateTreeRole, type InvitableRole } from './roles';
 import {
   addChild,
   addParent,
@@ -34,6 +35,7 @@ export const treeKeys = {
   mine: (accountId: string) => ['trees', 'mine', accountId] as const,
   detail: (treeId: string) => ['trees', treeId] as const,
   family: (treeId: string) => ['trees', treeId, 'family'] as const,
+  members: (treeId: string) => ['trees', treeId, 'members'] as const,
 };
 
 const useAccountId = (): string => {
@@ -177,6 +179,36 @@ export const useDisablePublicLink = (treeId: string) => {
 };
 
 export const useSetHiddenFromPublic = (treeId: string) => useFamilyMutation(treeId, setHiddenFromPublic);
+
+// ---------------------------------------------------------------------------
+// Mời vai trò Biên tập viên / Người xem
+// ---------------------------------------------------------------------------
+export const useTreeMembers = (treeId: string) =>
+  useQuery({ queryKey: treeKeys.members(treeId), queryFn: () => listTreeMembers(treeId) });
+
+export const useInviteToTree = (treeId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { email: string; role: InvitableRole }) => inviteToTree({ treeId, ...input }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.members(treeId) }),
+  });
+};
+
+export const useUpdateTreeRole = (treeId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { accountId: string; role: InvitableRole }) => updateTreeRole({ treeId, ...input }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.members(treeId) }),
+  });
+};
+
+export const useRemoveTreeRole = (treeId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (accountId: string) => removeTreeRole({ treeId, accountId }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.members(treeId) }),
+  });
+};
 
 // ---------------------------------------------------------------------------
 // Lịch của tôi và Sự kiện

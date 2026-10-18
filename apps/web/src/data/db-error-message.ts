@@ -20,6 +20,9 @@ const BUSINESS_MESSAGES: Record<string, (details?: string | null) => string> = {
   NOT_TREE_OWNER: () => 'Chỉ Chủ sở hữu gia phả mới nhập được từ Excel.',
   STALE_VERSION: () => 'Đã có người sửa Người này trước bạn. Hãy xem bản mới nhất rồi lưu lại.',
   PERSON_NOT_FOUND: () => 'Không tìm thấy Người này. Có thể đã bị xoá; hãy tải lại trang.',
+  ACCOUNT_NOT_FOUND: () => 'Chưa có tài khoản dùng email này. Mời họ tạo tài khoản trước rồi mời lại.',
+  ALREADY_OWNER: () => 'Người này đã là Chủ sở hữu của gia phả.',
+  CANNOT_CHANGE_OWNER: () => 'Không thể đổi hay gỡ vai trò của Chủ sở hữu.',
 };
 
 const POSTGRES_MESSAGES: Record<string, string> = {

@@ -211,6 +211,8 @@ const ActionDialogs = ({
   const otherParentId = chosenOtherParent ?? spouses[0]?.id ?? '';
   const [linkKind, setLinkKind] = useState<ParentLinkKind>('ruot');
 
+  const existing = graph.persons.filter((other) => other.id !== person.id);
+
   const finish = () => {
     for (const mutation of [addChild, addParent, addSpouse]) mutation.reset();
     setOtherParentId(null);
@@ -279,6 +281,7 @@ const ActionDialogs = ({
       {action === 'add-child' && (
         <PersonForm
           initial={EMPTY_PERSON_FORM}
+          existing={existing}
           extra={
             <>
               {otherParentPicker}
@@ -301,6 +304,7 @@ const ActionDialogs = ({
         <PersonForm
           initial={EMPTY_PERSON_FORM}
           showBirthOrder={false}
+          existing={existing}
           extra={kindPicker}
           submitLabel="Thêm"
           busy={addParent.isPending}
@@ -313,6 +317,7 @@ const ActionDialogs = ({
         <PersonForm
           initial={{ ...EMPTY_PERSON_FORM, gender: person.gender === 'nam' ? 'nu' : person.gender === 'nu' ? 'nam' : '' }}
           showBirthOrder={false}
+          existing={existing}
           submitLabel="Thêm"
           busy={addSpouse.isPending}
           serverError={addSpouse.error?.message ?? null}

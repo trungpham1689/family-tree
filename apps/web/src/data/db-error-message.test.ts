@@ -26,6 +26,18 @@ describe('dbErrorMessage', () => {
     expect(dbErrorMessage({ code: '23514', message: 'ANCESTOR_CYCLE' })).toMatch(/tổ tiên của chính mình/);
   });
 
+  it('báo chưa có tài khoản khi mời email lạ', () => {
+    expect(dbErrorMessage({ code: '23514', message: 'ACCOUNT_NOT_FOUND' })).toMatch(/Chưa có tài khoản/);
+  });
+
+  it('báo đã là Chủ sở hữu khi mời nhầm chính mình', () => {
+    expect(dbErrorMessage({ code: '23514', message: 'ALREADY_OWNER' })).toMatch(/đã là Chủ sở hữu/);
+  });
+
+  it('báo không đổi/gỡ được vai trò Chủ sở hữu', () => {
+    expect(dbErrorMessage({ code: '23514', message: 'CANNOT_CHANGE_OWNER' })).toMatch(/Chủ sở hữu/);
+  });
+
   it('có câu mặc định', () => {
     expect(dbErrorMessage({ message: 'lạ' })).toBe('Có lỗi xảy ra. Hãy thử lại sau ít phút.');
   });

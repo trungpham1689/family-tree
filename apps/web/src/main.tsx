@@ -11,7 +11,10 @@ import { MyTreesPage } from './pages/MyTreesPage';
 import { PersonPage } from './pages/PersonPage';
 import { EventsPage } from './pages/EventsPage';
 import { ImportPage } from './pages/ImportPage';
+import { IncompletePage } from './pages/IncompletePage';
+import { KinshipPage } from './pages/KinshipPage';
 import { PhaDoPage } from './pages/PhaDoPage';
+import { PhaKyPage } from './pages/PhaKyPage';
 import { UpcomingPage } from './pages/UpcomingPage';
 import { PublicPersonPage, PublicTreePage } from './pages/PublicTreePage';
 import { TreePage } from './pages/TreePage';
@@ -61,10 +64,34 @@ const router = createBrowserRouter([
     ),
   },
   {
+    path: '/gia-pha/:treeId/pha-ky',
+    element: (
+      <RequireAuth>
+        <PhaKyPage />
+      </RequireAuth>
+    ),
+  },
+  {
     path: '/gia-pha/:treeId/su-kien',
     element: (
       <RequireAuth>
         <EventsPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/gia-pha/:treeId/quan-he',
+    element: (
+      <RequireAuth>
+        <KinshipPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/gia-pha/:treeId/thieu-thong-tin',
+    element: (
+      <RequireAuth>
+        <IncompletePage />
       </RequireAuth>
     ),
   },

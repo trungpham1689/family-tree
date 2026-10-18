@@ -11,6 +11,8 @@ import { EMPTY_PERSON_FORM } from '../people/person-form';
 import { toIsoDate, todayInVietnam } from '../calendar/month-grid';
 import { downloadFamily } from '../excel/xlsx-io';
 import { LinkPerson } from '../people/LinkPerson';
+import { TreeStats } from '../family/TreeStats';
+import { MembersPanel } from '../tree/MembersPanel';
 import { PublicLinkPanel } from '../tree/PublicLinkPanel';
 import { PersonForm } from '../people/PersonForm';
 import { AppHeader } from '../ui/AppHeader';
@@ -99,8 +101,17 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
           <Link to={`/gia-pha/${tree.id}/pha-do`} className={ACTION}>
             Phả đồ (in)
           </Link>
+          <Link to={`/gia-pha/${tree.id}/pha-ky`} className={ACTION}>
+            Phả ký
+          </Link>
           <Link to={`/gia-pha/${tree.id}/su-kien`} className={ACTION}>
             Sự kiện
+          </Link>
+          <Link to={`/gia-pha/${tree.id}/quan-he`} className={ACTION}>
+            Tra cứu quan hệ
+          </Link>
+          <Link to={`/gia-pha/${tree.id}/thieu-thong-tin`} className={ACTION}>
+            Hồ sơ thiếu
           </Link>
           {family.isSuccess && !isEmpty && <ExportButton tree={tree} graph={family.data} />}
         </nav>
@@ -133,9 +144,15 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
             )}
           </div>
         )}
-        {isOwner && (
+        {family.isSuccess && !isEmpty && (
           <div className="mb-8">
-            <PublicLinkPanel tree={tree} />
+            <TreeStats graph={family.data} />
+          </div>
+        )}
+        {canEdit && (
+          <div className="mb-8 space-y-6">
+            {isOwner && <PublicLinkPanel tree={tree} />}
+            <MembersPanel tree={tree} />
           </div>
         )}
         {family.isSuccess && <GenerationList treeId={tree.id} graph={family.data} canEdit={canEdit} />}
@@ -160,6 +177,7 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
           <PersonForm
             initial={EMPTY_PERSON_FORM}
             showBirthOrder={false}
+            existing={family.data?.persons}
             submitLabel="Thêm"
             busy={createPerson.isPending}
             serverError={createPerson.isError ? createPerson.error.message : null}
