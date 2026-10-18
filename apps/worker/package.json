@@ -1,0 +1,24 @@
+{
+  "name": "worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker Cron: tính nhắc nhở đến hạn mỗi tài khoản, gửi Bản tin nhắc qua Resend (SPEC story 65).",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "oxlint src"
+  },
+  "dependencies": {
+    "@gia-pha/lunar": "workspace:*",
+    "@gia-pha/reminders": "workspace:*",
+    "@supabase/supabase-js": "^2.118.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261018.1",
+    "oxlint": "^1.88.0",
+    "typescript": "~6.0.3",
+    "wrangler": "^4.151.1"
+  }
+}

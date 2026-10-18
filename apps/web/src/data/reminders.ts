@@ -32,18 +32,26 @@ export const removeFromWatch = async (personId: string): Promise<void> => {
   if (error) throw new DataError(error);
 };
 
-export type ReminderPrefsByTree = Map<string, number>;
+export type ReminderPrefs = { offsetDays: number; emailEnabled: boolean };
+export type ReminderPrefsByTree = Map<string, ReminderPrefs>;
 
 export const listReminderPrefs = async (): Promise<ReminderPrefsByTree> => {
-  const { data, error } = await supabase.from('reminder_prefs').select('tree_id, offset_days');
+  const { data, error } = await supabase.from('reminder_prefs').select('tree_id, offset_days, email_enabled');
   if (error) throw new DataError(error);
-  return new Map(data.map((row) => [row.tree_id, row.offset_days]));
+  return new Map(data.map((row) => [row.tree_id, { offsetDays: row.offset_days, emailEnabled: row.email_enabled }]));
 };
 
 export const setReminderOffset = async (input: { treeId: string; offsetDays: 0 | 1 | 3 | 7 }): Promise<void> => {
   const { error } = await supabase
     .from('reminder_prefs')
     .upsert({ tree_id: input.treeId, offset_days: input.offsetDays }, { onConflict: 'account_id,tree_id' });
+  if (error) throw new DataError(error);
+};
+
+export const setEmailEnabled = async (input: { treeId: string; emailEnabled: boolean }): Promise<void> => {
+  const { error } = await supabase
+    .from('reminder_prefs')
+    .upsert({ tree_id: input.treeId, email_enabled: input.emailEnabled }, { onConflict: 'account_id,tree_id' });
   if (error) throw new DataError(error);
 };
 

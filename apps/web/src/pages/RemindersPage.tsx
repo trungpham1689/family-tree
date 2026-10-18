@@ -8,6 +8,7 @@ import {
   useMyTrees,
   useReminderPrefs,
   useReminderWatch,
+  useSetEmailEnabled,
   useSetReminderOffset,
   useToggleWatch,
 } from '../data/tree-queries';
@@ -33,6 +34,7 @@ export const RemindersPage = () => {
   const trees = useMyTrees();
   const prefs = useReminderPrefs();
   const setOffset = useSetReminderOffset();
+  const setEmailEnabled = useSetEmailEnabled();
   const markRead = useMarkNotificationsRead();
 
   const manyTrees = trees.data && trees.data.length > 1;
@@ -101,29 +103,46 @@ export const RemindersPage = () => {
         {trees.data && trees.data.length > 0 && (
           <section className="mt-8">
             <h2 className="font-serif text-xl font-bold">Độ sớm nhắc</h2>
-            <p className="mt-1 text-ink-muted">Nhắc trước mấy ngày, riêng cho từng Gia phả.</p>
+            <p className="mt-1 text-ink-muted">Nhắc trước mấy ngày, và có gửi bản tin email mỗi sáng hay không — riêng cho từng Gia phả.</p>
             <ul className="mt-3 space-y-2">
-              {trees.data.map((tree) => (
-                <li key={tree.id} className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-2">
-                  <span className="font-medium">{tree.name}</span>
-                  <Select
-                    aria-label={`Độ sớm nhắc cho ${tree.name}`}
-                    value={prefs.data?.get(tree.id) ?? 0}
-                    disabled={setOffset.isPending}
-                    onChange={(event) =>
-                      setOffset.mutate({ treeId: tree.id, offsetDays: Number(event.target.value) as 0 | 1 | 3 | 7 })
-                    }
-                  >
-                    {OFFSET_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Select>
-                </li>
-              ))}
+              {trees.data.map((tree) => {
+                const pref = prefs.data?.get(tree.id);
+                return (
+                  <li key={tree.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-2">
+                    <span className="font-medium">{tree.name}</span>
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          className="size-5 accent-son"
+                          checked={pref?.emailEnabled ?? true}
+                          disabled={setEmailEnabled.isPending}
+                          onChange={(event) => setEmailEnabled.mutate({ treeId: tree.id, emailEnabled: event.target.checked })}
+                        />
+                        Email
+                      </label>
+                      <Select
+                        aria-label={`Độ sớm nhắc cho ${tree.name}`}
+                        value={pref?.offsetDays ?? 0}
+                        disabled={setOffset.isPending}
+                        onChange={(event) =>
+                          setOffset.mutate({ treeId: tree.id, offsetDays: Number(event.target.value) as 0 | 1 | 3 | 7 })
+                        }
+                      >
+                        {OFFSET_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
-            {setOffset.isError && <ErrorBanner>{setOffset.error.message}</ErrorBanner>}
+            {(setOffset.isError || setEmailEnabled.isError) && (
+              <ErrorBanner>{setOffset.error?.message ?? setEmailEnabled.error?.message}</ErrorBanner>
+            )}
           </section>
         )}
       </main>

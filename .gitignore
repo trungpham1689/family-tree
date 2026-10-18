@@ -9,5 +9,6 @@ supabase/.branches
 supabase/.temp
 .dev-stack
 .tools/
+.wrangler/
 apps/web/dist-e2e/
 e2e/.out/

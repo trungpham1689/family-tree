@@ -19,6 +19,7 @@ import {
   listReminderWatch,
   markNotificationsRead,
   removeFromWatch,
+  setEmailEnabled,
   setReminderOffset,
 } from './reminders';
 import { inviteToTree, listTreeMembers, removeTreeRole, updateTreeRole, type InvitableRole } from './roles';
@@ -333,6 +334,14 @@ export const useSetReminderOffset = () => {
   });
 };
 
+export const useSetEmailEnabled = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: setEmailEnabled,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminder-prefs'] }),
+  });
+};
+
 export const useMarkNotificationsRead = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -353,7 +362,8 @@ export const useDueReminders = () => {
     const today = todayInVietnam();
     const occurrences = occurrencesBetween(calendar.data, today, fromJulianDay(julianDay(today) + MAX_OFFSET_DAYS));
     const watchedIds = new Set((watch.data ?? []).map((row) => row.personId));
-    return dueReminders(occurrences, today, watchedIds, prefs.data ?? new Map());
+    const offsetsByTree = new Map([...(prefs.data ?? new Map())].map(([treeId, pref]) => [treeId, pref.offsetDays]));
+    return dueReminders(occurrences, today, watchedIds, offsetsByTree);
   }, [calendar.data, watch.data, prefs.data]);
 
   const readKeys = reads.data ?? new Set<string>();
