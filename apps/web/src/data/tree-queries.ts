@@ -1,12 +1,27 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { fromJulianDay, julianDay } from '@gia-pha/lunar';
 import { useAuth } from '../auth/auth-context';
 import { buildFamilyGraph } from '../family/family-graph';
 import type { ImportPayload } from '../excel/import-preview';
 import type { PersonFields } from '../people/person-form';
+import { todayInVietnam } from '../calendar/month-grid';
+import { occurrencesBetween } from '../calendar/occurrences';
+import { dueReminders } from '../reminders/due-reminders';
 import { listTreeEvents, loadMyCalendar, removeTreeEvent, saveTreeEvent } from './calendar';
 import { importIntoTree, importNewTree } from './excel-import';
 import { loadPhaDoConfig, savePhaDoConfig } from './pha-do';
 import { disablePublicLink, fetchPublicTree, rotatePublicLink, setHiddenFromPublic } from './public-tree';
+import {
+  addToWatch,
+  linkAccountToPerson,
+  listNotificationReads,
+  listReminderPrefs,
+  listReminderWatch,
+  markNotificationsRead,
+  removeFromWatch,
+  setReminderOffset,
+} from './reminders';
 import { inviteToTree, listTreeMembers, removeTreeRole, updateTreeRole, type InvitableRole } from './roles';
 import {
   addChild,
@@ -280,6 +295,77 @@ export const useMyCalendar = (enabled: boolean) => {
     queryFn: () => loadMyCalendar(accountId),
     enabled: enabled && accountId !== '',
   });
+};
+
+// ---------------------------------------------------------------------------
+// Nhắc nhở: liên kết tài khoản–Người, Danh sách nhắc giỗ, độ sớm nhắc, đã đọc
+// ---------------------------------------------------------------------------
+const MAX_OFFSET_DAYS = 7;
+
+export const useLinkAccountToPerson = (treeId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (personId: string) => linkAccountToPerson({ treeId, personId }),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: treeKeys.detail(treeId) }),
+        queryClient.invalidateQueries({ queryKey: ['reminder-watch'] }),
+      ]),
+  });
+};
+
+export const useReminderWatch = () => useQuery({ queryKey: ['reminder-watch'], queryFn: listReminderWatch });
+
+export const useToggleWatch = () => {
+  const queryClient = useQueryClient();
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['reminder-watch'] });
+  const add = useMutation({ mutationFn: addToWatch, onSuccess: invalidate });
+  const remove = useMutation({ mutationFn: removeFromWatch, onSuccess: invalidate });
+  return { add, remove };
+};
+
+export const useReminderPrefs = () => useQuery({ queryKey: ['reminder-prefs'], queryFn: listReminderPrefs });
+
+export const useSetReminderOffset = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: setReminderOffset,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminder-prefs'] }),
+  });
+};
+
+export const useMarkNotificationsRead = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: markNotificationsRead,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notification-reads'] }),
+  });
+};
+
+/** Nhắc nhở đến hạn của tài khoản đang đăng nhập: giỗ theo Danh sách, sinh nhật và Sự kiện không lọc. */
+export const useDueReminders = () => {
+  const calendar = useMyCalendar(true);
+  const watch = useReminderWatch();
+  const prefs = useReminderPrefs();
+  const reads = useQuery({ queryKey: ['notification-reads'], queryFn: listNotificationReads });
+
+  const due = useMemo(() => {
+    if (!calendar.data) return [];
+    const today = todayInVietnam();
+    const occurrences = occurrencesBetween(calendar.data, today, fromJulianDay(julianDay(today) + MAX_OFFSET_DAYS));
+    const watchedIds = new Set((watch.data ?? []).map((row) => row.personId));
+    return dueReminders(occurrences, today, watchedIds, prefs.data ?? new Map());
+  }, [calendar.data, watch.data, prefs.data]);
+
+  const readKeys = reads.data ?? new Set<string>();
+  const unread = due.filter((reminder) => !readKeys.has(reminder.key));
+
+  return {
+    isPending: calendar.isPending || watch.isPending || prefs.isPending || reads.isPending,
+    due,
+    unread,
+    readKeys,
+  };
 };
 
 export const useTreeEvents = (treeId: string) =>

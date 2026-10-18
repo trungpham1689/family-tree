@@ -10,7 +10,7 @@ import type { PersonFields } from '../people/person-form';
 
 export type TreeRole = 'owner' | 'editor' | 'viewer';
 export type Tree = Pick<Row<'family_trees'>, 'id' | 'name' | 'description' | 'owner_id' | 'created_at' | 'outside_generations' | 'public_token'>;
-export type TreeWithRole = Tree & { role: TreeRole };
+export type TreeWithRole = Tree & { role: TreeRole; linkedPersonId: string | null };
 export type Person = Row<'persons'>;
 
 /** Lỗi đã có sẵn câu tiếng Việt để hiển thị. */
@@ -37,22 +37,22 @@ export const listMyTrees = async (accountId: string): Promise<TreeWithRole[]> =>
   const rows = unwrap(
     await supabase
       .from('tree_roles')
-      .select(`role, family_trees (${TREE_COLUMNS})`)
+      .select(`role, linked_person_id, family_trees (${TREE_COLUMNS})`)
       .eq('account_id', accountId)
       .order('created_at', { ascending: true }),
   );
-  return rows.flatMap(({ role, family_trees: tree }) =>
-    tree && isTreeRole(role) ? [{ ...tree, role }] : [],
+  return rows.flatMap(({ role, linked_person_id, family_trees: tree }) =>
+    tree && isTreeRole(role) ? [{ ...tree, role, linkedPersonId: linked_person_id }] : [],
   );
 };
 
 export const getTree = async (treeId: string, accountId: string): Promise<TreeWithRole> => {
   const tree = unwrap(await supabase.from('family_trees').select(TREE_COLUMNS).eq('id', treeId).single());
-  const { role } = unwrap(
-    await supabase.from('tree_roles').select('role').eq('tree_id', treeId).eq('account_id', accountId).single(),
+  const { role, linked_person_id } = unwrap(
+    await supabase.from('tree_roles').select('role, linked_person_id').eq('tree_id', treeId).eq('account_id', accountId).single(),
   );
   if (!isTreeRole(role)) throw new DataError({ code: 'PGRST116' });
-  return { ...tree, role };
+  return { ...tree, role, linkedPersonId: linked_person_id };
 };
 
 export const createTree = async (input: { name: string; description: string | null }): Promise<Tree> =>

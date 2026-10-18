@@ -342,9 +342,9 @@ export type Database = {
         Relationships: [];
       };
       tree_roles: {
-        Row: { account_id: string; created_at: string; role: string; tree_id: string };
-        Insert: { account_id: string; created_at?: string; role: string; tree_id: string };
-        Update: { account_id?: string; created_at?: string; role?: string; tree_id?: string };
+        Row: { account_id: string; created_at: string; role: string; tree_id: string; linked_person_id: string | null };
+        Insert: { account_id: string; created_at?: string; role: string; tree_id: string; linked_person_id?: string | null };
+        Update: { account_id?: string; created_at?: string; role?: string; tree_id?: string; linked_person_id?: string | null };
         Relationships: [
           {
             foreignKeyName: 'tree_roles_tree_id_fkey';
@@ -354,6 +354,39 @@ export type Database = {
             referencedColumns: ['id'];
           },
         ];
+      };
+      reminder_watch: {
+        Row: { account_id: string; person_id: string; tree_id: string; created_at: string };
+        Insert: { account_id?: string; person_id: string; tree_id?: string; created_at?: string };
+        Update: { account_id?: string; person_id?: string; tree_id?: string; created_at?: string };
+        Relationships: [
+          {
+            foreignKeyName: 'reminder_watch_person_id_fkey';
+            columns: ['person_id'];
+            isOneToOne: false;
+            referencedRelation: 'persons';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'reminder_watch_tree_id_fkey';
+            columns: ['tree_id'];
+            isOneToOne: false;
+            referencedRelation: 'family_trees';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      reminder_prefs: {
+        Row: { account_id: string; tree_id: string; offset_days: number; updated_at: string };
+        Insert: { account_id?: string; tree_id: string; offset_days?: number; updated_at?: string };
+        Update: { account_id?: string; tree_id?: string; offset_days?: number; updated_at?: string };
+        Relationships: [];
+      };
+      notification_reads: {
+        Row: { account_id: string; notification_key: string; read_at: string };
+        Insert: { account_id?: string; notification_key: string; read_at?: string };
+        Update: { account_id?: string; notification_key?: string; read_at?: string };
+        Relationships: [];
       };
     };
     Views: { [_ in never]: never };
@@ -371,6 +404,7 @@ export type Database = {
       is_tree_owner: { Args: { target_tree: string }; Returns: boolean };
       set_progenitor: { Args: { person_id: string }; Returns: undefined };
       set_avatar_photo: { Args: { photo_id: string }; Returns: undefined };
+      link_account_to_person: { Args: { target_tree: string; person_id: string }; Returns: undefined };
       link_parent: { Args: { child_id: string; parent_id: string; link_kind: string }; Returns: undefined };
       link_spouse: { Args: { person_id: string; spouse_id: string }; Returns: undefined };
       rotate_public_link: { Args: { target_tree: string }; Returns: string };

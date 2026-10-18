@@ -8,12 +8,15 @@ import {
   useAddSpouse,
   useAvatarDataUrl,
   useFamily,
+  useLinkAccountToPerson,
   usePersonPhotos,
   useRemovePhoto,
+  useReminderWatch,
   useReorderChildren,
   useSetAvatarPhoto,
   useSetHiddenFromPublic,
   useSetProgenitor,
+  useToggleWatch,
   useTree,
   useUpdateParentLinkKind,
   useUpdatePhotoCaption,
@@ -63,6 +66,7 @@ export const PersonPage = () => {
             graph={family.data}
             person={person}
             canEdit={tree.data.role === 'owner' || tree.data.role === 'editor'}
+            linkedPersonId={tree.data.linkedPersonId}
           />
         )}
       </main>
@@ -70,9 +74,15 @@ export const PersonPage = () => {
   );
 };
 
-type DetailProps = { treeId: string; graph: FamilyGraph<Person>; person: Person; canEdit: boolean };
+type DetailProps = {
+  treeId: string;
+  graph: FamilyGraph<Person>;
+  person: Person;
+  canEdit: boolean;
+  linkedPersonId: string | null;
+};
 
-const PersonDetail = ({ treeId, graph, person, canEdit }: DetailProps) => {
+const PersonDetail = ({ treeId, graph, person, canEdit, linkedPersonId }: DetailProps) => {
   const [action, setAction] = useState<Action>('none');
   const placement = graph.placement(person.id);
   const branchRoot = placement.branchId ? graph.person(placement.branchId) : undefined;
@@ -96,6 +106,7 @@ const PersonDetail = ({ treeId, graph, person, canEdit }: DetailProps) => {
               {branchRoot && <Tag>Chi {branchRoot.full_name}</Tag>}
               {person.birth_order !== null && <Tag>{birthOrderLabel(person.birth_order)}</Tag>}
             </dl>
+            <ReminderControls treeId={treeId} person={person} isMe={linkedPersonId === person.id} />
           </div>
         </div>
         {canEdit && (
@@ -549,6 +560,44 @@ const ReorderableChildren = ({
       })}
       {reorder.isError && <li className="px-5 py-3 text-sm text-danger">{reorder.error.message}</li>}
     </>
+  );
+};
+
+/** "Đây là tôi" (liên kết tài khoản, mồi Danh sách nhắc giỗ) và theo dõi giỗ của riêng Người này. */
+const ReminderControls = ({ treeId, person, isMe }: { treeId: string; person: Person; isMe: boolean }) => {
+  const link = useLinkAccountToPerson(treeId);
+  const watch = useReminderWatch();
+  const toggle = useToggleWatch();
+  const watched = watch.data?.some((row) => row.personId === person.id) ?? false;
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+      {isMe ? (
+        <Tag>Đây là bạn</Tag>
+      ) : (
+        <button
+          type="button"
+          className="font-semibold text-son hover:underline disabled:text-ink-muted"
+          disabled={link.isPending}
+          onClick={() => link.mutate(person.id)}
+        >
+          Đánh dấu đây là tôi
+        </button>
+      )}
+      {watch.isSuccess && (
+        <button
+          type="button"
+          className="font-semibold text-son hover:underline disabled:text-ink-muted"
+          disabled={toggle.add.isPending || toggle.remove.isPending}
+          onClick={() => (watched ? toggle.remove.mutate(person.id) : toggle.add.mutate(person.id))}
+        >
+          {watched ? 'Bỏ khỏi Danh sách nhắc giỗ' : 'Thêm vào Danh sách nhắc giỗ'}
+        </button>
+      )}
+      {(link.isError || toggle.add.isError || toggle.remove.isError) && (
+        <span className="text-danger">{link.error?.message ?? toggle.add.error?.message ?? toggle.remove.error?.message}</span>
+      )}
+    </div>
   );
 };
 

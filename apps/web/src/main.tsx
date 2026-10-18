@@ -17,6 +17,7 @@ import { PhaDoPage } from './pages/PhaDoPage';
 import { PhaKyPage } from './pages/PhaKyPage';
 import { UpcomingPage } from './pages/UpcomingPage';
 import { PublicPersonPage, PublicTreePage } from './pages/PublicTreePage';
+import { RemindersPage } from './pages/RemindersPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { TreePage } from './pages/TreePage';
 import { TreeViewPage } from './pages/TreeViewPage';
@@ -102,6 +103,14 @@ const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <UpcomingPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/nhac-gio',
+    element: (
+      <RequireAuth>
+        <RemindersPage />
       </RequireAuth>
     ),
   },

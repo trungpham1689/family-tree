@@ -142,7 +142,18 @@ describe('seam B: link chia sẻ công khai', () => {
   it('khách công khai không đọc trực tiếp được bảng nào', async () => {
     await enable();
     const anon = db.asAnon();
-    for (const table of ['family_trees', 'persons', 'parent_links', 'unions', 'tree_roles', 'app_settings']) {
+    for (const table of [
+      'family_trees',
+      'persons',
+      'parent_links',
+      'unions',
+      'tree_roles',
+      'app_settings',
+      'person_photos',
+      'reminder_watch',
+      'reminder_prefs',
+      'notification_reads',
+    ]) {
       const rows = await anon.query(`select * from ${table}`).catch(() => []);
       if (table === 'app_settings') continue; // cấu hình chung, không có dữ liệu gia phả
       expect(rows, table).toEqual([]);
