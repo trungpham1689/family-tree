@@ -130,9 +130,9 @@ export const LoginPage = () => {
                 onChange={(event) => setPassword(event.target.value)}
                 className="min-h-12 w-full rounded-xl border border-line bg-surface px-4"
               />
-              {mode === 'sign-up' && (
-                <span className="mt-1 block text-sm text-ink-muted">Ít nhất {MIN_PASSWORD_LENGTH} ký tự.</span>
-              )}
+              <span className={`mt-1 block text-sm text-ink-muted ${mode === 'sign-up' ? '' : 'invisible'}`}>
+                Ít nhất {MIN_PASSWORD_LENGTH} ký tự.
+              </span>
             </label>
 
             {error && (

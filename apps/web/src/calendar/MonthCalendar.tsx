@@ -71,19 +71,25 @@ export const MonthCalendar = ({ year, month, today, selected, onSelect, onShiftM
                   }${kinds.length ? `, có ${kinds.map((kind) => MARK_LABELS[kind]).join(', ')}` : ''}`}
                   onClick={() => onSelect(cell.date)}
                   className={`relative flex min-h-16 flex-col items-center justify-center gap-0.5 border-b border-r border-line p-1 transition-colors last:border-r-0 sm:min-h-20 ${
-                    cell.inMonth ? '' : 'opacity-40'
-                  } ${isSelected ? 'bg-son/10' : 'hover:bg-paper'}`}
+                    isSelected ? 'bg-son/10' : 'hover:bg-paper'
+                  }`}
                 >
                   <span
                     className={`grid size-9 place-items-center rounded-full text-lg font-semibold tabular-nums ${
-                      isToday ? 'bg-son text-white' : isRedDay ? 'text-son' : ''
+                      !cell.inMonth ? 'text-ink-muted font-normal' : isToday ? 'bg-son text-white' : isRedDay ? 'text-son' : ''
                     }`}
                   >
                     {cell.date.day}
                   </span>
                   <span
                     className={`text-xs tabular-nums ${
-                      cell.lunar.day === 1 ? 'font-bold text-son' : cell.lunar.day === 15 ? 'font-bold text-kim' : 'text-ink-muted'
+                      !cell.inMonth
+                        ? 'text-ink-muted'
+                        : cell.lunar.day === 1
+                          ? 'font-bold text-son'
+                          : cell.lunar.day === 15
+                            ? 'font-bold text-kim-text'
+                            : 'text-ink-muted'
                     }`}
                   >
                     {lunarLabel(cell)}
@@ -104,7 +110,7 @@ export const MonthCalendar = ({ year, month, today, selected, onSelect, onShiftM
       </div>
       <p className="mt-2 text-sm text-ink-muted">
         Số nhỏ là ngày âm lịch; <span className="font-bold text-son">đỏ</span> là mùng 1,{' '}
-        <span className="font-bold text-kim">vàng</span> là rằm. Chấm vàng: ngày lễ.
+        <span className="font-bold text-kim-text">vàng</span> là rằm. Chấm vàng: ngày lễ.
       </p>
     </section>
   );

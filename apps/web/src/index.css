@@ -15,6 +15,7 @@
   --color-son-strong: #6e1414;
   --color-kim: #b8892b;
   --color-kim-soft: #f3d79a;
+  --color-kim-text: #8a6a1f;
   --color-la: #2f6f4e;
   --color-tram: #2b5c8a;
   --color-danger: #b42318;
@@ -40,5 +41,13 @@
   :focus-visible {
     outline: 3px solid var(--color-kim);
     outline-offset: 2px;
+  }
+
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
   }
 }
