@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@gia-pha/lunar": "workspace:*",
+    "@gia-pha/reminders": "workspace:*",
     "@gia-pha/tree-layout": "workspace:*",
     "@supabase/supabase-js": "^2.118.0",
     "@tanstack/react-query": "^5.104.3",

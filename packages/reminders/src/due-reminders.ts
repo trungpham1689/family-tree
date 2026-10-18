@@ -1,5 +1,5 @@
 import { julianDay } from '@gia-pha/lunar';
-import type { Occurrence } from '../calendar/occurrences';
+import type { Occurrence } from './occurrences';
 
 /**
  * Nhắc nhở đến hạn, suy trực tiếp từ các occurrence (giỗ/sinh nhật/Sự kiện) đã có, không lưu trùng:

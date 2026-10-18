@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { occurrencesToIcs } from './ics';
-import type { Occurrence } from './occurrences';
+import type { Occurrence } from '@gia-pha/reminders';
 
 const occurrence = (over: Partial<Occurrence> = {}): Occurrence => ({
   date: { year: 2026, month: 3, day: 1 },

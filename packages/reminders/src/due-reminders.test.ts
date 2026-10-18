@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Occurrence } from '../calendar/occurrences';
+import type { Occurrence } from './occurrences';
 import { dueReminders, notificationKey } from './due-reminders';
 
 const occurrence = (extra: Partial<Occurrence>): Occurrence => ({

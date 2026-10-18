@@ -1,4 +1,4 @@
-import { dateKey, type Occurrence } from './occurrences';
+import { dateKey, type Occurrence } from '@gia-pha/reminders';
 
 /** Lịch .ics (iCalendar, RFC 5545) từ các Occurrence đã tính — mỗi dịp là một sự kiện cả ngày. */
 

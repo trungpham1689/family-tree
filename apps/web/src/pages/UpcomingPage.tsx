@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { occurrencesToIcs } from '../calendar/ics';
 import { todayInVietnam } from '../calendar/month-grid';
-import { occurrencesBetween, upcoming } from '../calendar/occurrences';
+import { occurrencesBetween, upcoming } from '@gia-pha/reminders';
 import { OccurrenceList } from '../calendar/OccurrenceList';
 import { useMyCalendar } from '../data/tree-queries';
 import { downloadBlob } from '../lib/download';

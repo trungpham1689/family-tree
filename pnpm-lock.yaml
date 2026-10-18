@@ -38,6 +38,9 @@ importers:
       '@gia-pha/lunar':
         specifier: workspace:*
         version: link:../../packages/lunar
+      '@gia-pha/reminders':
+        specifier: workspace:*
+        version: link:../../packages/reminders
       '@gia-pha/tree-layout':
         specifier: workspace:*
         version: link:../../packages/tree-layout
@@ -117,6 +120,19 @@ importers:
       amlich:
         specifier: ^0.0.2
         version: 0.0.2
+      oxlint:
+        specifier: ^1.88.0
+        version: 1.88.0
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+
+  packages/reminders:
+    dependencies:
+      '@gia-pha/lunar':
+        specifier: workspace:*
+        version: link:../lunar
+    devDependencies:
       oxlint:
         specifier: ^1.88.0
         version: 1.88.0

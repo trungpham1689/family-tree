@@ -65,9 +65,8 @@ describe('seam B: Ảnh tư liệu', () => {
   });
 
   it('quá giới hạn ảnh/người thì bị chặn', async () => {
-    const [{ value: limit }] = await owner.query<{ value: number }>(
-      "select value from app_settings where key = 'max_photos_per_person'",
-    );
+    const [row] = await owner.query<{ value: number }>("select value from app_settings where key = 'max_photos_per_person'");
+    const limit = row!.value;
     for (let index = 0; index < limit; index += 1) await addPhoto(owner, { storage_path: `${treeId}/${personId}/${index}.jpg` });
     await expect(addPhoto(owner, { storage_path: `${treeId}/${personId}/qua-han.jpg` })).rejects.toThrow();
   });

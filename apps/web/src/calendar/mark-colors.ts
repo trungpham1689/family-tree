@@ -1,4 +1,4 @@
-import type { OccurrenceKind } from './occurrences';
+import type { OccurrenceKind } from '@gia-pha/reminders';
 
 export const MARK_COLORS: Record<OccurrenceKind, string> = {
   gio: 'bg-son',

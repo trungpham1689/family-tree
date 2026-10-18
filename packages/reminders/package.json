@@ -1,0 +1,21 @@
+{
+  "name": "@gia-pha/reminders",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Giỗ/sinh nhật/Sự kiện suy từ dữ liệu Người, và nhắc nhở đến hạn — dùng chung giữa web và Worker Cron.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "oxlint src"
+  },
+  "dependencies": {
+    "@gia-pha/lunar": "workspace:*"
+  },
+  "devDependencies": {
+    "oxlint": "^1.88.0",
+    "typescript": "~6.0.3"
+  }
+}

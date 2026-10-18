@@ -5,7 +5,7 @@ import { useAuth } from '../auth/auth-context';
 import { DayDetails } from '../calendar/DayDetails';
 import { MonthCalendar } from '../calendar/MonthCalendar';
 import { parseIsoDate, shiftMonth, todayInVietnam, toIsoDate } from '../calendar/month-grid';
-import { dateKey, groupByDay, occurrencesBetween, type CalendarSource, type Occurrence, type OccurrenceKind } from '../calendar/occurrences';
+import { dateKey, groupByDay, occurrencesBetween, type CalendarSource, type Occurrence, type OccurrenceKind } from '@gia-pha/reminders';
 import { OccurrenceList } from '../calendar/OccurrenceList';
 import { useMyCalendar } from '../data/tree-queries';
 import { ErrorBanner } from '../ui/fields';

@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { Button } from '../ui/Button';
 import { buildMonthGrid, sameDay, WEEKDAY_HEADERS, type DayCell } from './month-grid';
 import { MARK_COLORS, MARK_LABELS } from './mark-colors';
-import type { OccurrenceKind } from './occurrences';
+import type { OccurrenceKind } from '@gia-pha/reminders';
 
 type MonthCalendarProps = {
   year: number;

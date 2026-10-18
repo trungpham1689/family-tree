@@ -1,4 +1,4 @@
-import type { CalendarEvent, CalendarPerson, CalendarSource } from '../calendar/occurrences';
+import type { CalendarEvent, CalendarPerson, CalendarSource } from '@gia-pha/reminders';
 import { supabase } from '../lib/supabase';
 import type { Row } from './database.types';
 import { DataError, listMyTrees } from './trees';

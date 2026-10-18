@@ -2,7 +2,7 @@ import { julianDay, type SolarDate } from '@gia-pha/lunar';
 import { Link } from 'react-router';
 import { MARK_COLORS } from './mark-colors';
 import { weekdayName } from './month-grid';
-import type { Occurrence } from './occurrences';
+import type { Occurrence } from '@gia-pha/reminders';
 
 const hrefOf = (occurrence: Occurrence) =>
   occurrence.personId
