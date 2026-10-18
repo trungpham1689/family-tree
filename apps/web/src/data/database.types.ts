@@ -218,6 +218,36 @@ export type Database = {
         Update: { child_id?: string; created_at?: string; kind?: string; parent_id?: string; tree_id?: string };
         Relationships: [];
       };
+      person_photos: {
+        Row: {
+          id: string;
+          tree_id: string;
+          person_id: string;
+          storage_path: string;
+          caption: string | null;
+          is_avatar: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tree_id?: string;
+          person_id: string;
+          storage_path: string;
+          caption?: string | null;
+          is_avatar?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tree_id?: string;
+          person_id?: string;
+          storage_path?: string;
+          caption?: string | null;
+          is_avatar?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       pha_do_configs: {
         Row: { tree_id: string; config: Json; updated_by: string | null; updated_at: string };
         Insert: { tree_id: string; config: Json; updated_by?: string | null; updated_at?: string };
@@ -340,6 +370,7 @@ export type Database = {
       can_view_tree: { Args: { target_tree: string }; Returns: boolean };
       is_tree_owner: { Args: { target_tree: string }; Returns: boolean };
       set_progenitor: { Args: { person_id: string }; Returns: undefined };
+      set_avatar_photo: { Args: { photo_id: string }; Returns: undefined };
       link_parent: { Args: { child_id: string; parent_id: string; link_kind: string }; Returns: undefined };
       link_spouse: { Args: { person_id: string; spouse_id: string }; Returns: undefined };
       rotate_public_link: { Args: { target_tree: string }; Returns: string };

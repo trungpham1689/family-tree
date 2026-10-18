@@ -3,7 +3,6 @@ import { useAuth } from '../auth/auth-context';
 import { buildFamilyGraph } from '../family/family-graph';
 import type { ImportPayload } from '../excel/import-preview';
 import type { PersonFields } from '../people/person-form';
-import { fetchAvatarDataUrl, removeAvatar, uploadAvatar } from './avatars';
 import { listTreeEvents, loadMyCalendar, removeTreeEvent, saveTreeEvent } from './calendar';
 import { importIntoTree, importNewTree } from './excel-import';
 import { loadPhaDoConfig, savePhaDoConfig } from './pha-do';
@@ -32,6 +31,14 @@ import {
   setTreeOutsideGenerations,
   updatePerson,
 } from './trees';
+import {
+  fetchAvatarDataUrl,
+  listPersonPhotos,
+  removePersonPhoto,
+  setAvatarPhoto,
+  updatePhotoCaption,
+  uploadPersonPhoto,
+} from './photos';
 
 export const treeKeys = {
   mine: (accountId: string) => ['trees', 'mine', accountId] as const,
@@ -125,21 +132,29 @@ export const useDeletePerson = (treeId: string) => {
   });
 };
 
-export const useUploadAvatar = (treeId: string) => {
+const photosKey = (personId: string) => ['photos', personId] as const;
+
+/** Ảnh tư liệu của một Người. */
+export const usePersonPhotos = (personId: string) =>
+  useQuery({ queryKey: photosKey(personId), queryFn: () => listPersonPhotos(personId) });
+
+/** Mọi thao tác đổi ảnh tư liệu đều có thể đổi avatar_path (trigger), nên tải lại cả hai. */
+const usePhotoMutation = <Input, Output>(treeId: string, personId: string, mutationFn: (input: Input) => Promise<Output>) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: uploadAvatar,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) }),
+    mutationFn,
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: photosKey(personId) }),
+        queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) }),
+      ]),
   });
 };
 
-export const useRemoveAvatar = (treeId: string) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: removeAvatar,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) }),
-  });
-};
+export const useUploadPhoto = (treeId: string, personId: string) => usePhotoMutation(treeId, personId, uploadPersonPhoto);
+export const useSetAvatarPhoto = (treeId: string, personId: string) => usePhotoMutation(treeId, personId, setAvatarPhoto);
+export const useUpdatePhotoCaption = (treeId: string, personId: string) => usePhotoMutation(treeId, personId, updatePhotoCaption);
+export const useRemovePhoto = (treeId: string, personId: string) => usePhotoMutation(treeId, personId, removePersonPhoto);
 
 /** Ảnh đại diện của một Người, tải về và chuyển sẵn thành data URL; null khi chưa có ảnh. */
 export const useAvatarDataUrl = (avatarPath: string | null) =>

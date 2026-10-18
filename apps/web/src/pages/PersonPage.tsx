@@ -1,21 +1,24 @@
 import { useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
-import { AVATAR_MIME_TYPES, MAX_AVATAR_BYTES } from '../data/avatars';
+import { AVATAR_MIME_TYPES, MAX_AVATAR_BYTES, type PersonPhoto } from '../data/photos';
 import {
   useAddChild,
   useAddParent,
   useAddSpouse,
   useAvatarDataUrl,
   useFamily,
-  useRemoveAvatar,
+  usePersonPhotos,
+  useRemovePhoto,
   useReorderChildren,
+  useSetAvatarPhoto,
   useSetHiddenFromPublic,
   useSetProgenitor,
   useTree,
   useUpdateParentLinkKind,
+  useUpdatePhotoCaption,
   useUpdateUnion,
-  useUploadAvatar,
+  useUploadPhoto,
 } from '../data/tree-queries';
 import type { Person } from '../data/trees';
 import type { ChildRelative, FamilyGraph, ParentLinkKind, UnionStatus } from '../family/family-graph';
@@ -83,7 +86,7 @@ const PersonDetail = ({ treeId, graph, person, canEdit }: DetailProps) => {
     <article className="mt-3">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-wrap items-start gap-4">
-          <PersonAvatar treeId={treeId} person={person} canEdit={canEdit} />
+          <PersonAvatar person={person} />
           <div>
             <h1 className="font-serif text-3xl font-bold">{person.full_name}</h1>
             <p className="mt-1 text-lg text-ink-muted">{lifespanText(person) || 'Chưa rõ năm sinh'}</p>
@@ -103,6 +106,8 @@ const PersonDetail = ({ treeId, graph, person, canEdit }: DetailProps) => {
       </header>
 
       <ProfileInfo person={person} />
+
+      <PhotoGallery treeId={treeId} person={person} canEdit={canEdit} />
 
       <Section
         title="Cha mẹ"
@@ -547,11 +552,26 @@ const ReorderableChildren = ({
   );
 };
 
-/** Ảnh đại diện: hiện ảnh nếu có (hoặc chữ cái đầu tên), Biên tập viên đổi/xoá được ngay tại đây. */
-const PersonAvatar = ({ treeId, person, canEdit }: { treeId: string; person: Person; canEdit: boolean }) => {
+/** Ảnh đại diện trong đầu trang: chỉ hiện, không sửa ở đây — sửa trong mục "Ảnh tư liệu". */
+const PersonAvatar = ({ person }: { person: Person }) => {
   const avatar = useAvatarDataUrl(person.avatar_path);
-  const upload = useUploadAvatar(treeId);
-  const remove = useRemoveAvatar(treeId);
+  const initial = person.full_name.trim().charAt(0).toUpperCase() || '?';
+
+  return (
+    <div className="size-24 shrink-0 overflow-hidden rounded-full border border-line bg-paper">
+      {avatar.data ? (
+        <img src={avatar.data} alt="" className="size-full object-cover" />
+      ) : (
+        <span className="grid size-full place-items-center text-3xl font-bold text-ink-muted">{initial}</span>
+      )}
+    </div>
+  );
+};
+
+/** Mục "Ảnh tư liệu": tối đa vài ảnh/người (giới hạn ở database), chú thích, chọn một ảnh làm đại diện. */
+const PhotoGallery = ({ treeId, person, canEdit }: { treeId: string; person: Person; canEdit: boolean }) => {
+  const photos = usePersonPhotos(person.id);
+  const upload = useUploadPhoto(treeId, person.id);
   const inputRef = useRef<HTMLInputElement>(null);
   const [pickError, setPickError] = useState<string | null>(null);
 
@@ -568,46 +588,99 @@ const PersonAvatar = ({ treeId, person, canEdit }: { treeId: string; person: Per
       setPickError(`Ảnh tối đa ${Math.floor(MAX_AVATAR_BYTES / (1024 * 1024))}MB.`);
       return;
     }
-    upload.mutate({ treeId, personId: person.id, file });
+    upload.mutate({ treeId, personId: person.id, file, caption: null, setAsAvatar: (photos.data?.length ?? 0) === 0 });
   };
 
-  const initial = person.full_name.trim().charAt(0).toUpperCase() || '?';
-  const error = pickError ?? upload.error?.message ?? remove.error?.message;
+  if (!canEdit && (photos.data?.length ?? 0) === 0) return null;
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="size-24 overflow-hidden rounded-full border border-line bg-paper">
-        {avatar.data ? (
-          <img src={avatar.data} alt="" className="size-full object-cover" />
-        ) : (
-          <span className="grid size-full place-items-center text-3xl font-bold text-ink-muted">{initial}</span>
+    <section className="mt-8">
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="font-serif text-xl font-bold">Ảnh tư liệu</h2>
+        {canEdit && (
+          <Button variant="ghost" disabled={upload.isPending} onClick={() => inputRef.current?.click()}>
+            {upload.isPending ? 'Đang tải lên…' : '+ Thêm ảnh'}
+          </Button>
         )}
       </div>
+      {canEdit && <input ref={inputRef} type="file" accept={AVATAR_MIME_TYPES.join(',')} className="hidden" onChange={pick} />}
+      {(pickError || upload.isError) && <ErrorBanner>{pickError ?? upload.error?.message}</ErrorBanner>}
+      {photos.isSuccess && photos.data.length === 0 && <p className="mt-2 text-ink-muted">Chưa có ảnh.</p>}
+      {photos.isSuccess && photos.data.length > 0 && (
+        <ul className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3">
+          {photos.data.map((photo) => (
+            <PhotoCard key={photo.id} treeId={treeId} personId={person.id} photo={photo} canEdit={canEdit} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+};
+
+const PhotoCard = ({
+  treeId,
+  personId,
+  photo,
+  canEdit,
+}: {
+  treeId: string;
+  personId: string;
+  photo: PersonPhoto;
+  canEdit: boolean;
+}) => {
+  const image = useAvatarDataUrl(photo.storage_path);
+  const setAvatar = useSetAvatarPhoto(treeId, personId);
+  const updateCaption = useUpdatePhotoCaption(treeId, personId);
+  const remove = useRemovePhoto(treeId, personId);
+  const [caption, setCaption] = useState(photo.caption ?? '');
+
+  return (
+    <li className="space-y-1.5">
+      <div className="aspect-square overflow-hidden rounded-xl border border-line bg-paper">
+        {image.data && <img src={image.data} alt={photo.caption ?? ''} className="size-full object-cover" />}
+      </div>
+      {canEdit ? (
+        <input
+          aria-label="Chú thích ảnh"
+          placeholder="Chú thích…"
+          className="w-full rounded-lg border border-line bg-surface px-2 py-1 text-sm"
+          value={caption}
+          onChange={(event) => setCaption(event.target.value)}
+          onBlur={() => {
+            if (caption !== (photo.caption ?? '')) updateCaption.mutate({ photoId: photo.id, caption: caption.trim() || null });
+          }}
+        />
+      ) : (
+        photo.caption && <p className="text-sm text-ink-muted">{photo.caption}</p>
+      )}
       {canEdit && (
-        <div className="flex items-center gap-2 text-sm">
-          <button
-            type="button"
-            className="font-semibold text-son hover:underline disabled:text-ink-muted"
-            disabled={upload.isPending}
-            onClick={() => inputRef.current?.click()}
-          >
-            {upload.isPending ? 'Đang tải lên…' : person.avatar_path ? 'Đổi ảnh' : 'Thêm ảnh'}
-          </button>
-          {person.avatar_path && (
+        <div className="flex items-center justify-between text-sm">
+          {photo.is_avatar ? (
+            <span className="font-semibold text-son">Ảnh đại diện</span>
+          ) : (
             <button
               type="button"
-              className="text-danger hover:underline disabled:text-ink-muted"
-              disabled={remove.isPending}
-              onClick={() => remove.mutate({ personId: person.id, path: person.avatar_path! })}
+              className="font-semibold text-son hover:underline disabled:text-ink-muted"
+              disabled={setAvatar.isPending}
+              onClick={() => setAvatar.mutate(photo.id)}
             >
-              Xoá
+              Đặt làm đại diện
             </button>
           )}
-          <input ref={inputRef} type="file" accept={AVATAR_MIME_TYPES.join(',')} className="hidden" onChange={pick} />
+          <button
+            type="button"
+            className="text-danger hover:underline disabled:text-ink-muted"
+            disabled={remove.isPending}
+            onClick={() => remove.mutate({ photoId: photo.id, path: photo.storage_path })}
+          >
+            Xoá
+          </button>
         </div>
       )}
-      {error && <p className="max-w-40 text-center text-sm text-danger">{error}</p>}
-    </div>
+      {(setAvatar.isError || updateCaption.isError || remove.isError) && (
+        <p className="text-sm text-danger">{setAvatar.error?.message ?? updateCaption.error?.message ?? remove.error?.message}</p>
+      )}
+    </li>
   );
 };
 

@@ -38,6 +38,12 @@ describe('dbErrorMessage', () => {
     expect(dbErrorMessage({ code: '23514', message: 'CANNOT_CHANGE_OWNER' })).toMatch(/Chủ sở hữu/);
   });
 
+  it('giải thích giới hạn số ảnh/người', () => {
+    expect(dbErrorMessage({ code: '23514', message: 'PHOTO_LIMIT_REACHED', details: 'Mỗi người tối đa 5 ảnh.' })).toContain(
+      'Mỗi người tối đa 5 ảnh.',
+    );
+  });
+
   it('có câu mặc định', () => {
     expect(dbErrorMessage({ message: 'lạ' })).toBe('Có lỗi xảy ra. Hãy thử lại sau ít phút.');
   });
