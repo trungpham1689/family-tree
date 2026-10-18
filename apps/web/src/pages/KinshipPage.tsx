@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { useFamily, useTree } from '../data/tree-queries';
 import { relationTerm } from '../family/kinship';
 import { PersonPicker } from '../people/PersonPicker';
 import { personLabel } from '../people/person-label';
+import { TreeTabs } from '../tree/TreeTabs';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { ErrorBanner } from '../ui/fields';
@@ -30,11 +31,9 @@ export const KinshipPage = () => {
   return (
     <>
       <AppHeader email={email} />
+      <TreeTabs treeId={treeId} />
       <main className="mx-auto max-w-2xl px-4 py-8">
-        <Link to={`/gia-pha/${treeId}`} className="text-ink-muted hover:text-son">
-          ← {tree.data?.name ?? 'Gia phả'}
-        </Link>
-        <h1 className="mt-2 font-serif text-3xl font-bold text-son">Tra cứu quan hệ</h1>
+        <h1 className="font-serif text-3xl font-bold text-son">Tra cứu quan hệ</h1>
         <p className="mt-1 text-ink-muted">Chọn hai Người để xem cách xưng hô, suy từ Cha mẹ và Vợ chồng đã ghi.</p>
         {error && <ErrorBanner>{error.message}</ErrorBanner>}
 

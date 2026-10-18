@@ -4,9 +4,7 @@ import type { InvitableRole } from '../data/roles';
 import { useInviteToTree, useRemoveTreeRole, useTreeMembers, useUpdateTreeRole } from '../data/tree-queries';
 import type { TreeWithRole } from '../data/trees';
 import { Button } from '../ui/Button';
-import { ErrorBanner, TextField } from '../ui/fields';
-
-const SELECT = 'min-h-12 rounded-xl border border-line bg-surface px-3';
+import { ErrorBanner, Select, TextField } from '../ui/fields';
 
 /** Chủ sở hữu và Biên tập viên mời người bằng email; chỉ Chủ sở hữu đổi/gỡ vai trò. */
 export const MembersPanel = ({ tree }: { tree: TreeWithRole }) => {
@@ -27,7 +25,11 @@ export const MembersPanel = ({ tree }: { tree: TreeWithRole }) => {
       {inviting && <InviteForm treeId={tree.id} onDone={() => setInviting(false)} />}
 
       {members.isPending && <p className="mt-3 text-ink-muted">Đang tải…</p>}
-      {members.isError && <ErrorBanner>{members.error.message}</ErrorBanner>}
+      {members.isError && (
+        <div className="mt-3">
+          <ErrorBanner>{members.error.message}</ErrorBanner>
+        </div>
+      )}
       {members.isSuccess && (
         <ul className="mt-4 divide-y divide-line">
           {members.data.map((member) => (
@@ -70,10 +72,10 @@ const InviteForm = ({ treeId, onDone }: { treeId: string; onDone: () => void }) 
       />
       <label className="block">
         <span className="mb-1 block font-medium">Vai trò</span>
-        <select className={`${SELECT} w-full`} value={role} onChange={(event) => setRole(event.target.value as InvitableRole)}>
+        <Select className="w-full" value={role} onChange={(event) => setRole(event.target.value as InvitableRole)}>
           <option value="editor">{ROLE_LABELS.editor} — sửa dữ liệu, mời người</option>
           <option value="viewer">{ROLE_LABELS.viewer} — chỉ xem bản đầy đủ</option>
-        </select>
+        </Select>
       </label>
       {invite.isError && <ErrorBanner>{invite.error.message}</ErrorBanner>}
       <div className="flex justify-end gap-2">
@@ -104,7 +106,11 @@ const MemberRow = ({ treeId, member, canManage }: MemberRowProps) => {
     <li className="flex flex-wrap items-center justify-between gap-2 py-3">
       <div>
         <p className="font-medium">{member.email}</p>
-        {error && <ErrorBanner>{error.message}</ErrorBanner>}
+        {error && (
+          <div className="mt-1">
+            <ErrorBanner>{error.message}</ErrorBanner>
+          </div>
+        )}
       </div>
       {canManage ? (
         removing ? (
@@ -123,8 +129,7 @@ const MemberRow = ({ treeId, member, canManage }: MemberRowProps) => {
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <select
-              className={SELECT}
+            <Select
               value={member.role}
               disabled={updateRole.isPending}
               onChange={(event) =>
@@ -133,7 +138,7 @@ const MemberRow = ({ treeId, member, canManage }: MemberRowProps) => {
             >
               <option value="editor">{ROLE_LABELS.editor}</option>
               <option value="viewer">{ROLE_LABELS.viewer}</option>
-            </select>
+            </Select>
             <Button variant="ghost" className="text-danger" onClick={() => setRemoving(true)}>
               Gỡ
             </Button>

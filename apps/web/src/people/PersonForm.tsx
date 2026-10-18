@@ -27,9 +27,9 @@ type PersonFormProps = {
 };
 
 const GENDER_OPTIONS = [
-  ['', 'Chưa rõ'],
   ['nam', 'Nam'],
   ['nu', 'Nữ'],
+  ['', 'Chưa rõ'],
 ] as const;
 
 export const PersonForm = ({
@@ -74,6 +74,7 @@ export const PersonForm = ({
       <TextField
         label="Họ và tên"
         autoFocus
+        required
         maxLength={200}
         value={values.fullName}
         error={errors.fullName}

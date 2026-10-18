@@ -28,8 +28,8 @@ describe('diffPersonFields', () => {
   });
 
   it('gộp các cột ngày thành một dòng', () => {
-    const mine = fieldsOf({ birth: { ...EMPTY_PERSON_FORM.birth, year: '1890' } });
-    const theirs = saved(fieldsOf({ birth: { ...EMPTY_PERSON_FORM.birth, year: '1891' } }));
+    const mine = fieldsOf({ birth: { ...EMPTY_PERSON_FORM.birth, precision: 'nam', year: '1890' } });
+    const theirs = saved(fieldsOf({ birth: { ...EMPTY_PERSON_FORM.birth, precision: 'nam', year: '1891' } }));
     const rows = diffPersonFields(mine, theirs);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ label: 'Ngày sinh' });

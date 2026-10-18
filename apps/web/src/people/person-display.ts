@@ -18,6 +18,13 @@ export const lifespanText = ({ birth_year: birth, death_year: death, is_deceased
 export const ageAtDeath = ({ birth_year: birth, death_year: death, is_deceased: deceased }: LifespanInput): number | null =>
   deceased && birth !== null && death !== null ? death - birth + 1 : null;
 
+/** Dưới 60 tuổi ghi "Hưởng dương", từ 60 trở lên ghi "Hưởng thọ" (theo tục ghi gia phả Việt). */
+export const deathAgeLabel = (age: number): string => (age >= 60 ? 'Hưởng thọ' : 'Hưởng dương');
+
+/** Tuổi hiện tại (tuổi mụ) của người còn sống, tính từ năm sinh. Null khi chưa biết năm sinh hoặc đã mất. */
+export const currentAge = ({ birth_year: birth, is_deceased: deceased }: LifespanInput, todayYear: number): number | null =>
+  !deceased && birth !== null ? todayYear - birth + 1 : null;
+
 /** "05/10/1945 (âm: 30/8/1945)" — kèm lịch còn lại khi biết đủ ngày. */
 export const describeDate = (stored: StoredDate): string | null => {
   const date = fromStoredDate(stored);

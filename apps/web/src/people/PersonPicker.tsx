@@ -32,7 +32,7 @@ export const PersonPicker = ({ graph, label, onPick, exclude }: Props) => {
         onChange={(event) => setQuery(event.target.value)}
       />
       {query.trim() !== '' && (
-        <ul className="mt-2 divide-y divide-line rounded-xl border border-line">
+        <ul className="mt-2 divide-y divide-line overflow-hidden rounded-xl border border-line">
           {results.length === 0 && <li className="px-4 py-3 text-ink-muted">Không thấy ai tên như vậy.</li>}
           {results.map((person) => (
             <li key={person.id}>

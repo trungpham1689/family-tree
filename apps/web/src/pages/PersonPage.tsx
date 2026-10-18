@@ -24,7 +24,7 @@ import { ProfileInfo } from '../people/ProfileInfo';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
-import { ErrorBanner } from '../ui/fields';
+import { ErrorBanner, Select } from '../ui/fields';
 import { FullPageMessage } from '../ui/FullPageMessage';
 
 type Action = 'none' | 'edit' | 'add-child' | 'add-parent' | 'add-spouse' | 'delete';
@@ -251,18 +251,14 @@ const ActionDialogs = ({
   const otherParentPicker = spouses.length > 0 && (
     <label className="block">
       <span className="mb-1 block font-medium">{person.gender === 'nu' ? 'Cha của con' : 'Mẹ của con'}</span>
-      <select
-        className="min-h-12 w-full rounded-xl border border-line bg-surface px-4"
-        value={otherParentId}
-        onChange={(event) => setOtherParentId(event.target.value)}
-      >
+      <Select className="w-full" value={otherParentId} onChange={(event) => setOtherParentId(event.target.value)}>
         {spouses.map((spouse) => (
           <option key={spouse.id} value={spouse.id}>
             {spouse.full_name}
           </option>
         ))}
         <option value="">Không rõ / không ghi</option>
-      </select>
+      </Select>
     </label>
   );
 
@@ -333,16 +329,16 @@ const LinkKindSelect = ({ treeId, childId, parentId, value }: { treeId: string; 
   const update = useUpdateParentLinkKind(treeId);
   return (
     <div>
-      <select
+      <Select
         aria-label="Loại quan hệ"
-        className="min-h-11 rounded-xl border border-line bg-surface px-3"
+        className="min-h-11"
         value={value}
         disabled={update.isPending}
         onChange={(event) => update.mutate({ childId, parentId, kind: event.target.value === 'nuoi' ? 'nuoi' : 'ruot' })}
       >
         <option value="ruot">Ruột</option>
         <option value="nuoi">Nuôi</option>
-      </select>
+      </Select>
       {update.isError && <p className="mt-1 text-sm text-danger">{update.error.message}</p>}
     </div>
   );
@@ -368,9 +364,9 @@ const UnionControls = ({
     <div className="flex flex-wrap items-center gap-2">
       <label className="flex items-center gap-1 text-sm">
         Thứ
-        <select
+        <Select
           aria-label="Thứ tự hôn phối"
-          className="min-h-11 rounded-xl border border-line bg-surface px-2"
+          className="min-h-11 pl-3"
           value={order}
           disabled={update.isPending}
           onChange={(event) => update.mutate({ unionId, viewerId, order: Number(event.target.value) })}
@@ -380,11 +376,11 @@ const UnionControls = ({
               {value}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
-      <select
+      <Select
         aria-label="Trạng thái hôn phối"
-        className="min-h-11 rounded-xl border border-line bg-surface px-3"
+        className="min-h-11"
         value={status}
         disabled={update.isPending}
         onChange={(event) => {
@@ -397,7 +393,7 @@ const UnionControls = ({
             {UNION_STATUS_LABELS[value]}
           </option>
         ))}
-      </select>
+      </Select>
       {update.isError && <p className="w-full text-sm text-danger">{update.error.message}</p>}
     </div>
   );
@@ -432,7 +428,7 @@ const Section = ({ title, action, children }: { title: string; action?: ReactNod
       <h2 className="font-serif text-xl font-bold">{title}</h2>
       {action}
     </div>
-    <ul className="mt-2 divide-y divide-line rounded-2xl border border-line bg-surface">{children}</ul>
+    <ul className="mt-2 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">{children}</ul>
   </section>
 );
 

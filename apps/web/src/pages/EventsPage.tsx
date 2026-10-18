@@ -1,6 +1,6 @@
 import { nextAnniversary } from '@gia-pha/lunar';
 import { useState, type FormEvent } from 'react';
-import { Link, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { todayInVietnam } from '../calendar/month-grid';
 import type { TreeEvent } from '../data/calendar';
@@ -13,6 +13,7 @@ import {
   type EventFormErrors,
   type EventFormValues,
 } from '../events/event-form';
+import { TreeTabs } from '../tree/TreeTabs';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
@@ -34,11 +35,9 @@ export const EventsPage = () => {
   return (
     <>
       <AppHeader email={email} />
+      <TreeTabs treeId={treeId} />
       <main className="mx-auto max-w-3xl px-4 py-8">
-        <Link to={`/gia-pha/${treeId}`} className="text-ink-muted hover:text-son">
-          ← {tree.data?.name ?? 'Gia phả'}
-        </Link>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="font-serif text-3xl font-bold text-son">Sự kiện</h1>
           {canEdit && <Button onClick={() => setEditing('new')}>+ Thêm sự kiện</Button>}
         </div>
@@ -54,7 +53,7 @@ export const EventsPage = () => {
           </p>
         )}
         {events.isSuccess && events.data.length > 0 && (
-          <ul className="mt-6 divide-y divide-line rounded-2xl border border-line bg-surface">
+          <ul className="mt-6 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
             {events.data.map((event) => (
               <EventRow key={event.id} treeId={treeId} event={event} canEdit={canEdit} onEdit={() => setEditing(event)} />
             ))}

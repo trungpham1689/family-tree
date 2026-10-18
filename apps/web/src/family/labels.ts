@@ -16,7 +16,7 @@ export const kindLabel = (kind: PersonKind, gender: string | null): string => {
 
 export const LINK_KIND_LABELS: Record<ParentLinkKind, string> = { ruot: 'Ruột', nuoi: 'Nuôi' };
 
-export const UNION_STATUS_LABELS: Record<UnionStatus, string> = { con: 'Đang chung sống', ly_hon: 'Đã ly hôn', goa: 'Goá' };
+export const UNION_STATUS_LABELS: Record<UnionStatus, string> = { con: 'Đang chung sống', ly_hon: 'Đã ly hôn', goa: 'Đã mất' };
 
 /** "Vợ cả", "Vợ hai", "Chồng"… theo thứ tự hôn phối và giới tính của người kia. */
 export const spouseLabel = (gender: string | null, order: number): string => {

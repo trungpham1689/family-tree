@@ -1,7 +1,7 @@
 import type { Person } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
 import { birthOrderLabel } from '../family/labels';
-import { ageAtDeath, lifespanText } from '../people/person-display';
+import { ageAtDeath, deathAgeLabel, lifespanText } from '../people/person-display';
 
 /**
  * Phả ký: văn bản tường thuật từng Người theo Đời, khác Phả đồ (sơ đồ hình).
@@ -31,7 +31,7 @@ const personNarrative = (graph: FamilyGraph<Person>, person: Person): string => 
 
   if (person.is_deceased) {
     const age = ageAtDeath(person);
-    sentences.push(age !== null ? `Mất, hưởng thọ ${age} tuổi.` : 'Đã mất.');
+    sentences.push(age !== null ? `Mất, ${deathAgeLabel(age).toLowerCase()} ${age} tuổi.` : 'Đã mất.');
   }
 
   if (person.biography) sentences.push(person.biography.trim());

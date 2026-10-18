@@ -1,5 +1,6 @@
 import { formatPartialDate, toOtherCalendar } from '@gia-pha/lunar';
 import { useId } from 'react';
+import { Select } from '../ui/fields';
 import { parseDateInput, type DateInput, type Precision } from './partial-date-input';
 
 const PRECISIONS: [Precision, string][] = [
@@ -40,9 +41,9 @@ export const PartialDateField = ({ label, value, error, onChange }: Props) => {
             {calendar === 'duong' ? 'Dương lịch' : 'Âm lịch'}
           </label>
         ))}
-        <select
+        <Select
           aria-label="Độ chính xác"
-          className="min-h-11 rounded-xl border border-line bg-surface px-3"
+          className="min-h-11"
           value={value.precision}
           onChange={(event) => set('precision', PRECISIONS.find(([key]) => key === event.target.value)?.[0] ?? 'nam')}
         >
@@ -51,7 +52,7 @@ export const PartialDateField = ({ label, value, error, onChange }: Props) => {
               {text}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div className="grid grid-cols-3 gap-2">

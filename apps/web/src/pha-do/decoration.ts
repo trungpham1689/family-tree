@@ -5,12 +5,14 @@ import { PT_PER_MM, type DrawItem } from './drawing';
  * Trả về các phần tử vẽ (mm) và vùng còn trống ở giữa để đặt cây.
  */
 
-export type FrameStyle = 'son-kim' | 'moc' | 'thanh-nha' | 'none';
+export type FrameStyle = 'son-kim' | 'moc' | 'thanh-nha' | 'lam-ngoc' | 'hoang-gia' | 'none';
 
 export const FRAME_LABELS: Record<FrameStyle, string> = {
   'son-kim': 'Đỏ son – vàng kim',
   moc: 'Mộc (nâu gỗ)',
   'thanh-nha': 'Thanh nhã (mực đen)',
+  'lam-ngoc': 'Lam ngọc (xanh ngọc)',
+  'hoang-gia': 'Hoàng gia (tím – vàng)',
   none: 'Không khung',
 };
 
@@ -31,6 +33,8 @@ const PALETTES: Record<FrameStyle, Palette> = {
   'son-kim': { background: '#fbf4e4', outer: '#8a1c1c', inner: '#b8892b', ornament: '#b8892b', title: '#8a1c1c', text: '#5a2a12' },
   moc: { background: '#f3eadb', outer: '#6b4a2b', inner: '#a27b4f', ornament: '#6b4a2b', title: '#4a3018', text: '#4a3018' },
   'thanh-nha': { background: '#ffffff', outer: '#1f1a17', inner: '#1f1a17', ornament: '#1f1a17', title: '#1f1a17', text: '#1f1a17' },
+  'lam-ngoc': { background: '#eef6f3', outer: '#2b5c54', inner: '#3f8f7a', ornament: '#3f8f7a', title: '#1f4a42', text: '#1f4a42' },
+  'hoang-gia': { background: '#f7f0fa', outer: '#5b2a86', inner: '#b8892b', ornament: '#b8892b', title: '#4a1f6e', text: '#3a1a57' },
   none: { background: '#ffffff', outer: '#ffffff', inner: '#ffffff', ornament: '#ffffff', title: '#8a1c1c', text: '#1f1a17' },
 };
 
@@ -94,6 +98,14 @@ const frameItems = (page: { width: number; height: number }, style: FrameStyle, 
     items.push(rect(outerInset, palette.outer, unit * 0.9), rect(outerInset + unit * 1.4, palette.inner, unit * 0.25));
   } else if (style === 'moc') {
     items.push(rect(outerInset, palette.outer, unit * 0.5), rect(outerInset + unit * 0.9, palette.inner, unit * 0.5));
+  } else if (style === 'lam-ngoc') {
+    items.push(rect(outerInset, palette.outer, unit * 0.6), rect(outerInset + unit * 1.1, palette.inner, unit * 0.6));
+  } else if (style === 'hoang-gia') {
+    items.push(
+      rect(outerInset, palette.outer, unit * 1.2),
+      rect(outerInset + unit * 1.8, palette.inner, unit * 0.4),
+      rect(outerInset + unit * 2.3, palette.ornament, unit * 0.15),
+    );
   } else {
     items.push(rect(outerInset, palette.outer, unit * 0.2), rect(outerInset + unit * 0.6, palette.inner, unit * 0.1));
   }

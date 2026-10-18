@@ -1,15 +1,15 @@
 import type { ReactNode } from 'react';
 import { todayInVietnam } from '../calendar/month-grid';
 import type { Person } from '../data/trees';
-import { ageAtDeath, anniversaryText, describeDate } from './person-display';
+import { ageAtDeath, anniversaryText, currentAge, deathAgeLabel, describeDate } from './person-display';
 import { storedBirth, storedDeath } from './person-form';
 
 /** Hồ sơ một Người: chỉ hiện những mục có thông tin. Dùng cho trang có vai trò và trang công khai. */
 export const ProfileInfo = ({ person }: { person: Person }) => {
+  const today = todayInVietnam();
   const age = ageAtDeath(person);
-  const anniversary = person.is_deceased
-    ? anniversaryText({ day: person.anniversary_day, month: person.anniversary_month }, todayInVietnam())
-    : null;
+  const alive = currentAge(person, today.year);
+  const anniversary = person.is_deceased ? anniversaryText({ day: person.anniversary_day, month: person.anniversary_month }, today) : null;
   const rows: [string, ReactNode][] = [
     ['Tên thường gọi', person.common_name],
     ['Tên huý', person.taboo_name],
@@ -17,6 +17,7 @@ export const ProfileInfo = ({ person }: { person: Person }) => {
     ['Tên chữ Hán', person.han_name],
     ['Giới tính', person.gender === 'nam' ? 'Nam' : person.gender === 'nu' ? 'Nữ' : null],
     ['Ngày sinh', describeDate(storedBirth(person))],
+    ['Tuổi', alive !== null ? `${alive} tuổi` : null],
     ['Nơi sinh', person.birth_place],
     ['Quê quán', person.hometown],
     ['Nơi ở', person.residence],
@@ -30,7 +31,7 @@ export const ProfileInfo = ({ person }: { person: Person }) => {
   const deathRows: [string, ReactNode][] = person.is_deceased
     ? [
         ['Ngày mất', describeDate(storedDeath(person)) ?? 'Chưa rõ'],
-        ['Hưởng thọ', age !== null ? `${age} tuổi` : null],
+        [age !== null ? deathAgeLabel(age) : 'Hưởng thọ', age !== null ? `${age} tuổi` : null],
         ['Ngày giỗ', anniversary],
         [
           'Mộ phần',

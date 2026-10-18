@@ -103,7 +103,7 @@ export const EMPTY_PERSON_FORM: PersonFormValues = {
   tabooName: '',
   courtesyName: '',
   hanName: '',
-  birth: EMPTY_DATE_INPUT,
+  birth: { ...EMPTY_DATE_INPUT, precision: 'ngay' },
   birthPlace: '',
   hometown: '',
   residence: '',

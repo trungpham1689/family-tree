@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { loadFontBinary } from '../data/pha-do';
 import { useFamily, usePhaDoConfig, useSavePhaDoConfig, useTree } from '../data/tree-queries';
@@ -19,9 +19,10 @@ import { defaultTitle, FRAME_LABELS, type Decoration, type FrameStyle } from '..
 import { DESKTOP_LIMITS, IOS_LIMITS, isAppleMobile, planPng } from '../pha-do/png';
 import { renderPhaDo } from '../pha-do/render';
 import { drawingToSvg } from '../pha-do/svg';
+import { TreeTabs } from '../tree/TreeTabs';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
-import { ErrorBanner, TextField } from '../ui/fields';
+import { ErrorBanner, Select, TextField } from '../ui/fields';
 import { FullPageMessage } from '../ui/FullPageMessage';
 
 /** Thiết kế bản in Phả đồ: phạm vi, khổ giấy, nội dung ô; xem trước đúng như bản in và xuất PDF vector. */
@@ -39,11 +40,9 @@ export const PhaDoPage = () => {
   return (
     <>
       <AppHeader email={email} />
+      <TreeTabs treeId={treeId} />
       <main className="mx-auto max-w-7xl px-4 py-6">
-        <Link to={`/gia-pha/${treeId}`} className="text-ink-muted hover:text-son">
-          ← {tree.data?.name ?? 'Gia phả'}
-        </Link>
-        <h1 className="mt-2 font-serif text-3xl font-bold text-son">Phả đồ</h1>
+        <h1 className="font-serif text-3xl font-bold text-son">Phả đồ</h1>
         {error && <ErrorBanner>{error.message}</ErrorBanner>}
         {tree.data && family.data && saved.isSuccess && (
           <PhaDoDesigner
@@ -122,17 +121,13 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
 
         <label className="block">
           <span className="mb-1 block font-medium">Hiển thị</span>
-          <select
-            className="min-h-12 w-full rounded-xl border border-line bg-surface px-3"
-            value={config.outsideGenerations}
-            onChange={(event) => update({ outsideGenerations: Number(event.target.value) })}
-          >
+          <Select className="w-full" value={config.outsideGenerations} onChange={(event) => update({ outsideGenerations: Number(event.target.value) })}>
             {[0, 1, 2, 3, 4, 5].map((n) => (
               <option key={n} value={n}>
                 {n === 0 ? 'Chỉ đinh' : `Hiện Cháu ngoại ${n} đời`}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
 
         <PaperSettings config={config} onChange={update} />
@@ -313,9 +308,9 @@ const ScopeSettings = ({
         if (first) onChange({ scope: { kind: 'branch', personId: first.id } });
       })}
       {scope.kind === 'branch' && (
-        <select
+        <Select
           aria-label="Chọn Chi"
-          className="min-h-12 w-full rounded-xl border border-line bg-surface px-3"
+          className="w-full"
           value={scope.personId}
           onChange={(event) => onChange({ scope: { kind: 'branch', personId: event.target.value } })}
         >
@@ -324,7 +319,7 @@ const ScopeSettings = ({
               Chi {person.full_name}
             </option>
           ))}
-        </select>
+        </Select>
       )}
       {option('from-person', 'Từ một người xuống N đời', () =>
         onChange({ scope: { kind: 'from-person', personId: progenitor?.id ?? '', depth: 3 } }),
@@ -357,9 +352,9 @@ const ScopeSettings = ({
 const PaperSettings = ({ config, onChange }: { config: PhaDoConfig; onChange: (patch: Partial<PhaDoConfig>) => void }) => (
   <fieldset className="space-y-2">
     <legend className="mb-1 font-medium">Khổ giấy</legend>
-    <select
+    <Select
       aria-label="Khổ giấy"
-      className="min-h-12 w-full rounded-xl border border-line bg-surface px-3"
+      className="w-full"
       value={config.paper}
       onChange={(event) => onChange({ paper: event.target.value as PaperName })}
     >
@@ -369,7 +364,7 @@ const PaperSettings = ({ config, onChange }: { config: PhaDoConfig; onChange: (p
         </option>
       ))}
       <option value="custom">Tự nhập kích thước</option>
-    </select>
+    </Select>
     {config.paper === 'custom' && (
       <div className="grid grid-cols-2 gap-3">
         <TextField

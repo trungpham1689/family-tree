@@ -125,7 +125,7 @@ const PublicPersonView = ({ data, token }: { data: PublicTree; token: string }) 
         Array.isArray(items) && items.length > 0 ? (
           <section key={String(title)} className="mt-8">
             <h2 className="font-serif text-xl font-bold">{title}</h2>
-            <ul className="mt-2 divide-y divide-line rounded-2xl border border-line bg-surface">{items}</ul>
+            <ul className="mt-2 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">{items}</ul>
           </section>
         ) : null,
       )}

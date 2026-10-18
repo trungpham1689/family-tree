@@ -5,7 +5,7 @@ import type { Person } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
 import { lifespanText } from '../people/person-display';
 import { Button } from '../ui/Button';
-import { ErrorBanner } from '../ui/fields';
+import { ErrorBanner, Select } from '../ui/fields';
 import { FamilyTreeCanvas, type CanvasPerson, type FocusRequest } from './FamilyTreeCanvas';
 import { initialCollapsed } from './initial-collapsed';
 import { PersonSearch } from './PersonSearch';
@@ -141,18 +141,14 @@ export const TreeExplorer = <P extends Person>({ graph, defaultOutside, personHr
         </div>
         <label className="flex flex-col">
           <span className="mb-1 font-medium">Hiển thị</span>
-          <select
-            className="min-h-12 rounded-xl border border-line bg-surface px-3"
-            value={outsideGenerations}
-            onChange={(event) => setOutsideOverride(Number(event.target.value))}
-          >
+          <Select value={outsideGenerations} onChange={(event) => setOutsideOverride(Number(event.target.value))}>
             {OUTSIDE_OPTIONS.map((n) => (
               <option key={n} value={n}>
                 {outsideLabel(n)}
                 {n === defaultOutside ? ' (mặc định)' : ''}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         {saveDefault && differsFromDefault && (
           <Button

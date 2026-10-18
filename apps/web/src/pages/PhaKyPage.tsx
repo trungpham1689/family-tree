@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { loadFontBinary } from '../data/pha-do';
 import { useFamily, useTree } from '../data/tree-queries';
 import { buildNarrative } from '../pha-ky/narrative';
+import { TreeTabs } from '../tree/TreeTabs';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { ErrorBanner } from '../ui/fields';
@@ -45,11 +46,9 @@ export const PhaKyPage = () => {
   return (
     <>
       <AppHeader email={email} />
+      <TreeTabs treeId={treeId} />
       <main className="mx-auto max-w-3xl px-4 py-8">
-        <Link to={`/gia-pha/${treeId}`} className="text-ink-muted hover:text-son">
-          ← {tree.data?.name ?? 'Gia phả'}
-        </Link>
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="font-serif text-3xl font-bold text-son">Phả ký</h1>
           {generations.length > 0 && (
             <Button disabled={exporting} onClick={exportPdf}>

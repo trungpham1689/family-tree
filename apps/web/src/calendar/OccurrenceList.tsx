@@ -18,7 +18,7 @@ type Props = {
 
 /** Danh sách giỗ, sinh nhật, Sự kiện; mỗi dòng dẫn về Người hoặc Sự kiện tương ứng. */
 export const OccurrenceList = ({ occurrences, showDate = false, showTree = false }: Props) => (
-  <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
+  <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
     {occurrences.map((occurrence) => (
       <li key={`${occurrence.kind}-${occurrence.personId ?? occurrence.eventId}-${occurrence.date.year}-${occurrence.date.month}-${occurrence.date.day}`}>
         <Link to={hrefOf(occurrence)} className="flex items-start gap-3 px-4 py-3 hover:bg-paper">

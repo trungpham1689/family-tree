@@ -14,6 +14,7 @@ import { LinkPerson } from '../people/LinkPerson';
 import { TreeStats } from '../family/TreeStats';
 import { MembersPanel } from '../tree/MembersPanel';
 import { PublicLinkPanel } from '../tree/PublicLinkPanel';
+import { TreeTabs } from '../tree/TreeTabs';
 import { PersonForm } from '../people/PersonForm';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
@@ -45,14 +46,11 @@ export const TreePage = () => {
   return (
     <>
       <AppHeader email={email} />
+      <TreeTabs treeId={tree.data.id} />
       <TreeView tree={tree.data} />
     </>
   );
 };
-
-const ACTION_BASE = 'inline-flex min-h-12 items-center rounded-xl border px-5 font-semibold';
-const ACTION = `${ACTION_BASE} border-line bg-surface hover:bg-paper`;
-const PRIMARY_ACTION = `${ACTION_BASE} border-son bg-son text-white hover:bg-son-strong`;
 
 const TreeView = ({ tree }: { tree: TreeWithRole }) => {
   const family = useFamily(tree.id);
@@ -83,38 +81,20 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
             {tree.description && <p className="mt-1 text-ink-muted">{tree.description}</p>}
             <p className="mt-2 text-sm text-ink-muted">Vai trò của bạn: {ROLE_LABELS[tree.role]}</p>
           </div>
-          {isOwner && (
-            <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setRenaming(true)}>
-                Đổi tên
-              </Button>
-              <Button variant="ghost" className="text-danger" onClick={() => setDeleting(true)}>
-                Xoá
-              </Button>
-            </div>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {family.isSuccess && !isEmpty && <ExportButton tree={tree} graph={family.data} />}
+            {isOwner && (
+              <>
+                <Button variant="secondary" onClick={() => setRenaming(true)}>
+                  Đổi tên
+                </Button>
+                <Button variant="ghost" className="text-danger" onClick={() => setDeleting(true)}>
+                  Xoá
+                </Button>
+              </>
+            )}
+          </div>
         </div>
-        <nav aria-label="Việc với gia phả" className="mt-5 flex flex-wrap gap-3">
-          <Link to={`/gia-pha/${tree.id}/cay`} className={PRIMARY_ACTION}>
-            Xem cây gia phả
-          </Link>
-          <Link to={`/gia-pha/${tree.id}/pha-do`} className={ACTION}>
-            Phả đồ (in)
-          </Link>
-          <Link to={`/gia-pha/${tree.id}/pha-ky`} className={ACTION}>
-            Phả ký
-          </Link>
-          <Link to={`/gia-pha/${tree.id}/su-kien`} className={ACTION}>
-            Sự kiện
-          </Link>
-          <Link to={`/gia-pha/${tree.id}/quan-he`} className={ACTION}>
-            Tra cứu quan hệ
-          </Link>
-          <Link to={`/gia-pha/${tree.id}/thieu-thong-tin`} className={ACTION}>
-            Hồ sơ thiếu
-          </Link>
-          {family.isSuccess && !isEmpty && <ExportButton tree={tree} graph={family.data} />}
-        </nav>
         {canEdit && family.isSuccess && !isEmpty && (
           <p className="mt-2 text-sm text-ink-muted">
             Nên bấm “Xuất Excel” định kỳ để giữ bản sao lưu — phần mềm chưa có thùng rác để khôi phục.
@@ -255,7 +235,7 @@ type PersonListProps = {
 };
 
 const PersonList = ({ treeId, graph, persons, action }: PersonListProps) => (
-  <ul className="mt-3 divide-y divide-line rounded-2xl border border-line bg-surface">
+  <ul className="mt-3 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
     {persons.map((person) => {
       const { kind } = graph.placement(person.id);
       return (

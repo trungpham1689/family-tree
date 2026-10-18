@@ -109,7 +109,13 @@ export const LoginPage = () => {
 
           <form onSubmit={submit} className="space-y-4">
             <label className="block">
-              <span className="mb-1 block font-medium">Email</span>
+              <span className="mb-1 block font-medium">
+                Email
+                <span className="text-danger" aria-hidden="true">
+                  {' '}
+                  *
+                </span>
+              </span>
               <input
                 type="email"
                 required
@@ -120,7 +126,13 @@ export const LoginPage = () => {
               />
             </label>
             <label className="block">
-              <span className="mb-1 block font-medium">Mật khẩu</span>
+              <span className="mb-1 block font-medium">
+                Mật khẩu
+                <span className="text-danger" aria-hidden="true">
+                  {' '}
+                  *
+                </span>
+              </span>
               <input
                 type="password"
                 required
