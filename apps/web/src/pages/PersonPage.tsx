@@ -1,19 +1,24 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
+import { AVATAR_MIME_TYPES, MAX_AVATAR_BYTES } from '../data/avatars';
 import {
   useAddChild,
   useAddParent,
   useAddSpouse,
+  useAvatarDataUrl,
   useFamily,
+  useRemoveAvatar,
+  useReorderChildren,
   useSetHiddenFromPublic,
   useSetProgenitor,
   useTree,
   useUpdateParentLinkKind,
   useUpdateUnion,
+  useUploadAvatar,
 } from '../data/tree-queries';
 import type { Person } from '../data/trees';
-import type { FamilyGraph, ParentLinkKind, UnionStatus } from '../family/family-graph';
+import type { ChildRelative, FamilyGraph, ParentLinkKind, UnionStatus } from '../family/family-graph';
 import { birthOrderLabel, kindLabel, LINK_KIND_LABELS, spouseLabel, UNION_STATUS_LABELS } from '../family/labels';
 import { lifespanText } from '../people/person-display';
 import { DeletePerson } from '../people/DeletePerson';
@@ -77,15 +82,18 @@ const PersonDetail = ({ treeId, graph, person, canEdit }: DetailProps) => {
   return (
     <article className="mt-3">
       <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="font-serif text-3xl font-bold">{person.full_name}</h1>
-          <p className="mt-1 text-lg text-ink-muted">{lifespanText(person) || 'Chưa rõ năm sinh'}</p>
-          <dl className="mt-3 flex flex-wrap gap-2 text-sm">
-            <Tag>{kindLabel(placement.kind, person.gender)}</Tag>
-            {placement.generation !== null && <Tag>Đời {placement.generation}</Tag>}
-            {branchRoot && <Tag>Chi {branchRoot.full_name}</Tag>}
-            {person.birth_order !== null && <Tag>{birthOrderLabel(person.birth_order)}</Tag>}
-          </dl>
+        <div className="flex flex-wrap items-start gap-4">
+          <PersonAvatar treeId={treeId} person={person} canEdit={canEdit} />
+          <div>
+            <h1 className="font-serif text-3xl font-bold">{person.full_name}</h1>
+            <p className="mt-1 text-lg text-ink-muted">{lifespanText(person) || 'Chưa rõ năm sinh'}</p>
+            <dl className="mt-3 flex flex-wrap gap-2 text-sm">
+              <Tag>{kindLabel(placement.kind, person.gender)}</Tag>
+              {placement.generation !== null && <Tag>Đời {placement.generation}</Tag>}
+              {branchRoot && <Tag>Chi {branchRoot.full_name}</Tag>}
+              {person.birth_order !== null && <Tag>{birthOrderLabel(person.birth_order)}</Tag>}
+            </dl>
+          </div>
         </div>
         {canEdit && (
           <Button variant="secondary" onClick={() => setAction('edit')}>
@@ -146,14 +154,7 @@ const PersonDetail = ({ treeId, graph, person, canEdit }: DetailProps) => {
         {children.length === 0 ? (
           <Empty>Chưa ghi con.</Empty>
         ) : (
-          children.map(({ person: child, kind }) => (
-            <RelativeRow
-              key={child.id}
-              treeId={treeId}
-              relative={child}
-              caption={[birthOrderLabel(child.birth_order), kind === 'nuoi' ? 'Con nuôi' : ''].filter(Boolean).join(' · ')}
-            />
-          ))
+          <ReorderableChildren treeId={treeId} items={children} canEdit={canEdit} />
         )}
       </Section>
 
@@ -452,6 +453,163 @@ const RelativeRow = ({
     {children}
   </li>
 );
+
+/** Danh sách con kéo thả được để đổi Thứ tự con; số thứ tự tự đánh lại 1..N khi thả, gồm con của mọi vợ/chồng. */
+const ReorderableChildren = ({
+  treeId,
+  items,
+  canEdit,
+}: {
+  treeId: string;
+  items: ChildRelative<Person>[];
+  canEdit: boolean;
+}) => {
+  const reorder = useReorderChildren(treeId);
+  const byId = new Map(items.map((child) => [child.person.id, child]));
+  const sourceOrder = items.map((child) => child.person.id);
+  const sourceKey = sourceOrder.join(',');
+  // Chỉ dùng thứ tự đang kéo khi nó còn khớp dữ liệu hiện có; dữ liệu đổi (thêm/xoá con, lưu xong) thì quay lại thứ tự từ server.
+  const [dragState, setDragState] = useState({ key: sourceKey, order: sourceOrder });
+  const order = dragState.key === sourceKey ? dragState.order : sourceOrder;
+  const rowRefs = useRef(new Map<string, HTMLLIElement>());
+  const draggingId = useRef<string | null>(null);
+  const canDrag = canEdit && items.length > 1;
+
+  const onPointerDown = (id: string) => (event: ReactPointerEvent<HTMLButtonElement>) => {
+    draggingId.current = id;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const id = draggingId.current;
+    if (!id) return;
+    const rows = order.flatMap((childId) => rowRefs.current.get(childId) ?? []);
+    let targetIndex = rows.length - 1;
+    for (let index = 0; index < rows.length; index++) {
+      const rect = rows[index]?.getBoundingClientRect();
+      if (rect && event.clientY < rect.top + rect.height / 2) {
+        targetIndex = index;
+        break;
+      }
+    }
+    const fromIndex = order.indexOf(id);
+    if (fromIndex === -1 || fromIndex === targetIndex) return;
+    const next = order.slice();
+    next.splice(fromIndex, 1);
+    next.splice(targetIndex, 0, id);
+    setDragState({ key: sourceKey, order: next });
+  };
+
+  const onPointerUp = () => {
+    if (!draggingId.current) return;
+    draggingId.current = null;
+    if (order.some((id, index) => id !== sourceOrder[index])) reorder.mutate(order);
+  };
+
+  return (
+    <>
+      {order.flatMap((id, index) => {
+        const child = byId.get(id);
+        if (!child) return [];
+        return (
+          <li
+            key={id}
+            ref={(element) => {
+              if (element) rowRefs.current.set(id, element);
+              else rowRefs.current.delete(id);
+            }}
+            className="flex flex-wrap items-center gap-3 px-5 py-3"
+          >
+            {canDrag && (
+              <button
+                type="button"
+                aria-label="Kéo để đổi thứ tự con"
+                className="cursor-grab touch-none select-none px-1 text-xl text-ink-muted active:cursor-grabbing"
+                onPointerDown={onPointerDown(id)}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+              >
+                ⠿
+              </button>
+            )}
+            <Link to={`/gia-pha/${treeId}/nguoi/${child.person.id}`} className="group min-w-0 flex-1">
+              <span className="block text-sm text-ink-muted">
+                {[birthOrderLabel(index + 1), child.kind === 'nuoi' ? 'Con nuôi' : ''].filter(Boolean).join(' · ')}
+              </span>
+              <span className="text-lg font-semibold group-hover:text-son group-hover:underline">{child.person.full_name}</span>
+              <span className="ml-2 text-ink-muted">{lifespanText(child.person)}</span>
+            </Link>
+          </li>
+        );
+      })}
+      {reorder.isError && <li className="px-5 py-3 text-sm text-danger">{reorder.error.message}</li>}
+    </>
+  );
+};
+
+/** Ảnh đại diện: hiện ảnh nếu có (hoặc chữ cái đầu tên), Biên tập viên đổi/xoá được ngay tại đây. */
+const PersonAvatar = ({ treeId, person, canEdit }: { treeId: string; person: Person; canEdit: boolean }) => {
+  const avatar = useAvatarDataUrl(person.avatar_path);
+  const upload = useUploadAvatar(treeId);
+  const remove = useRemoveAvatar(treeId);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [pickError, setPickError] = useState<string | null>(null);
+
+  const pick = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setPickError(null);
+    if (!AVATAR_MIME_TYPES.includes(file.type)) {
+      setPickError('Chỉ nhận ảnh JPEG, PNG hoặc WEBP.');
+      return;
+    }
+    if (file.size > MAX_AVATAR_BYTES) {
+      setPickError(`Ảnh tối đa ${Math.floor(MAX_AVATAR_BYTES / (1024 * 1024))}MB.`);
+      return;
+    }
+    upload.mutate({ treeId, personId: person.id, file });
+  };
+
+  const initial = person.full_name.trim().charAt(0).toUpperCase() || '?';
+  const error = pickError ?? upload.error?.message ?? remove.error?.message;
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div className="size-24 overflow-hidden rounded-full border border-line bg-paper">
+        {avatar.data ? (
+          <img src={avatar.data} alt="" className="size-full object-cover" />
+        ) : (
+          <span className="grid size-full place-items-center text-3xl font-bold text-ink-muted">{initial}</span>
+        )}
+      </div>
+      {canEdit && (
+        <div className="flex items-center gap-2 text-sm">
+          <button
+            type="button"
+            className="font-semibold text-son hover:underline disabled:text-ink-muted"
+            disabled={upload.isPending}
+            onClick={() => inputRef.current?.click()}
+          >
+            {upload.isPending ? 'Đang tải lên…' : person.avatar_path ? 'Đổi ảnh' : 'Thêm ảnh'}
+          </button>
+          {person.avatar_path && (
+            <button
+              type="button"
+              className="text-danger hover:underline disabled:text-ink-muted"
+              disabled={remove.isPending}
+              onClick={() => remove.mutate({ personId: person.id, path: person.avatar_path! })}
+            >
+              Xoá
+            </button>
+          )}
+          <input ref={inputRef} type="file" accept={AVATAR_MIME_TYPES.join(',')} className="hidden" onChange={pick} />
+        </div>
+      )}
+      {error && <p className="max-w-40 text-center text-sm text-danger">{error}</p>}
+    </div>
+  );
+};
 
 const Empty = ({ children }: { children: ReactNode }) => <li className="px-5 py-3 text-ink-muted">{children}</li>;
 

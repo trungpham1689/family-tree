@@ -17,6 +17,9 @@ export const drawingToSvg = (drawing: Drawing, fonts?: EmbeddedFonts): string =>
         return `<polyline points="${item.points.map(([x, y]) => `${n(x)},${n(y)}`).join(' ')}" fill="none" stroke="${item.stroke}" stroke-width="${n(item.strokeWidth)}"/>`;
       case 'text':
         return `<text x="${n(item.x)}" y="${n(item.y)}" font-size="${n(item.sizePt / PT_PER_MM)}" font-weight="${item.bold ? 700 : 400}" fill="${item.color}" text-anchor="middle" dominant-baseline="central">${escape(item.text)}</text>`;
+      case 'image':
+        // href là data URL (ảnh đã tải sẵn thành base64) nên không cần CORS khi vẽ SVG lên canvas để xuất PNG.
+        return `<image x="${n(item.x)}" y="${n(item.y)}" width="${n(item.width)}" height="${n(item.height)}" href="${item.href}" preserveAspectRatio="xMidYMid slice"/>`;
     }
   });
   return [

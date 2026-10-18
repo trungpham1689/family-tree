@@ -184,7 +184,7 @@ const EventForm = ({ treeId, event, onDone }: { treeId: string; event: TreeEvent
         </label>
       )}
       <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
-        <TextField label="Giờ" placeholder="08:30" value={values.time} error={errors.time} onChange={(e) => set('time', e.target.value)} />
+        <TextField label="Giờ" type="time" value={values.time} error={errors.time} onChange={(e) => set('time', e.target.value)} />
         <TextField label="Địa điểm" value={values.location} onChange={(e) => set('location', e.target.value)} />
       </div>
       <TextAreaField label="Ghi chú" value={values.note} onChange={(e) => set('note', e.target.value)} />

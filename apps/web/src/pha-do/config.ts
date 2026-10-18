@@ -36,6 +36,8 @@ export type PhaDoConfig = {
   customHeightCm: number;
   orientation: 'portrait' | 'landscape';
   extraLines: ExtraLine[];
+  /** Hiện ảnh đại diện trong mỗi ô, với Người đã có ảnh. */
+  showAvatars: boolean;
 };
 
 export const defaultPhaDoConfig = (outsideGenerations: number): PhaDoConfig => ({
@@ -46,6 +48,7 @@ export const defaultPhaDoConfig = (outsideGenerations: number): PhaDoConfig => (
   customHeightCm: 70,
   orientation: 'landscape',
   extraLines: [],
+  showAvatars: false,
   decoration: DEFAULT_DECORATION,
 });
 
@@ -100,5 +103,6 @@ export const readPhaDoConfig = (stored: unknown, outsideGenerations: number): Ph
     extraLines: Array.isArray(stored.extraLines)
       ? [...new Set(stored.extraLines.filter((line): line is ExtraLine => EXTRA_LINES.includes(line as ExtraLine)))].slice(0, 2)
       : [],
+    showAvatars: stored.showAvatars === true,
   };
 };

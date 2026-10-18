@@ -30,7 +30,7 @@ describe('describeDate', () => {
   it('ngày đầy đủ kèm lịch còn lại', () => {
     expect(
       describeDate({ ...NO_DATE, precision: 'ngay', year: 2026, month: 2, day: 17, solarDate: '2026-02-17' }),
-    ).toBe('17/02/2026 (âm: 1/1/2026)');
+    ).toBe('17/02/2026 (âm: 1/1/2026 (năm Bính Ngọ))');
   });
 
   it('chỉ có năm', () => {

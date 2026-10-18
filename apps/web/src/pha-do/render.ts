@@ -18,6 +18,8 @@ const EXTRA_LINE_HEIGHT = 17;
 const NAME_SIZE = 15;
 const SMALL_SIZE = 12;
 const NAME_CHARS = 18;
+const AVATAR_SIZE = 52;
+const AVATAR_GAP = 6;
 
 const COLORS = {
   ink: '#1f1a17',
@@ -66,14 +68,19 @@ const rootOf = (graph: FamilyGraph<Person>, config: PhaDoConfig): { rootId: stri
 };
 
 /** Dựng bản vẽ Phả đồ theo cấu hình: chọn phạm vi, xếp cây, co giãn vừa khổ giấy, kèm cảnh báo chữ nhỏ. */
-export const renderPhaDo = (graph: FamilyGraph<Person>, config: PhaDoConfig, treeName = ''): PhaDoResult => {
+export const renderPhaDo = (
+  graph: FamilyGraph<Person>,
+  config: PhaDoConfig,
+  treeName = '',
+  avatarUrls?: ReadonlyMap<string, string>,
+): PhaDoResult => {
   const page = pageSizeMm(config);
   const { rootId, maxDepth } = rootOf(graph, config);
   const empty = { drawing: { ...page, items: [] }, personCount: 0, namePt: 0, warning: null };
   if (!rootId || !graph.person(rootId)) return { ...empty, missingRoot: true };
 
   const extras = config.extraLines.slice(0, 2);
-  const boxHeight = BASE_BOX_HEIGHT + extras.length * EXTRA_LINE_HEIGHT;
+  const boxHeight = BASE_BOX_HEIGHT + extras.length * EXTRA_LINE_HEIGHT + (config.showAvatars ? AVATAR_SIZE + AVATAR_GAP : 0);
   const layout = layoutTree(graph, {
     rootId,
     ...(maxDepth !== undefined ? { maxDepth } : {}),
@@ -128,11 +135,26 @@ export const renderPhaDo = (graph: FamilyGraph<Person>, config: PhaDoConfig, tre
       lifespanText(person),
       ...extras.map((line) => extraText(line, person, graph.placement(person.id).generation)),
     ].filter((text): text is string => Boolean(text));
+    const avatarUrl = config.showAvatars ? avatarUrls?.get(person.id) : undefined;
     // Xếp các dòng từ trên xuống, căn giữa theo chiều dọc của ô.
     const lineGap = 4;
     const blockHeight =
-      nameLines.length * (NAME_SIZE + lineGap) + detailLines.length * (SMALL_SIZE + lineGap) - lineGap;
+      (avatarUrl ? AVATAR_SIZE + AVATAR_GAP : 0) +
+      nameLines.length * (NAME_SIZE + lineGap) +
+      detailLines.length * (SMALL_SIZE + lineGap) -
+      lineGap;
     let cursor = node.y + (node.height - blockHeight) / 2;
+    if (avatarUrl) {
+      items.push({
+        type: 'image',
+        x: mx(node.x + node.width / 2 - AVATAR_SIZE / 2),
+        y: my(cursor),
+        width: AVATAR_SIZE * scale,
+        height: AVATAR_SIZE * scale,
+        href: avatarUrl,
+      });
+      cursor += AVATAR_SIZE + AVATAR_GAP;
+    }
     for (const text of nameLines) {
       items.push({ type: 'text', x: centerX, y: my(cursor + NAME_SIZE / 2), text, sizePt: namePt, bold: !isSpouse, color: COLORS.ink });
       cursor += NAME_SIZE + lineGap;

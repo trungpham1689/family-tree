@@ -1,4 +1,5 @@
 import type { LunarDayMonth } from './anniversary.ts';
+import { yearCanChi } from './can-chi.ts';
 import { lunarMonthLength, lunarToSolar, solarToLunar } from './convert.ts';
 
 /**
@@ -64,10 +65,10 @@ export const anniversaryFromDeath = (death: PartialDate): LunarDayMonth | null =
   return { day: lunar.day, month: lunar.month };
 };
 
-/** Hiển thị ngắn gọn: "khoảng 1890", "3/1890 ÂL", "12/3 nhuận/1890 ÂL", "05/10/1945". */
+/** Hiển thị ngắn gọn: "khoảng 1890", "3/1890 ÂL (năm Canh Dần)", "12/3 nhuận/1890 ÂL (năm Canh Dần)", "05/10/1945". */
 export const formatPartialDate = (date: PartialDate): string => {
   const prefix = date.approximate ? 'khoảng ' : '';
-  const suffix = date.calendar === 'am' ? ' ÂL' : '';
+  const suffix = date.calendar === 'am' ? ` ÂL (năm ${yearCanChi(date.year)})` : '';
   const pad = (value: number) => (date.calendar === 'duong' ? String(value).padStart(2, '0') : String(value));
   switch (date.precision) {
     case 'nam':

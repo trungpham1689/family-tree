@@ -27,6 +27,7 @@ export const CalendarPage = () => {
 
   // Lấy rộng ra hai bên để cả các ô của tháng trước/sau trên lưới cũng có chấm.
   const byDay = useOccurrencesAroundMonth(calendar.data, viewed.year, viewed.month);
+  const monthOccurrences = useOccurrencesInMonth(calendar.data, viewed.year, viewed.month);
 
   const marks = (date: SolarDate): OccurrenceKind[] => [
     ...new Set((byDay.get(dateKey(date)) ?? []).map((occurrence) => occurrence.kind)),
@@ -71,8 +72,20 @@ export const CalendarPage = () => {
           <DayDetails date={selected} />
           {signedIn && selectedOccurrences.length > 0 && (
             <section aria-label="Trong gia phả của bạn">
-              <h2 className="mb-2 font-serif text-xl font-bold">Trong gia phả của bạn</h2>
-              <OccurrenceList occurrences={selectedOccurrences} showTree={manyTrees} />
+              <h2 className="mb-2 font-serif text-xl font-bold">Ngày {selected.day}/{selected.month}</h2>
+              <OccurrenceList occurrences={selectedOccurrences} today={today} showTree={manyTrees} />
+            </section>
+          )}
+          {signedIn && (
+            <section aria-label="Sự kiện trong tháng">
+              <h2 className="mb-2 font-serif text-xl font-bold">Sự kiện trong tháng {viewed.month}/{viewed.year}</h2>
+              {monthOccurrences.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-line bg-surface px-6 py-8 text-center text-ink-muted">
+                  Tháng này chưa có giỗ, sinh nhật hay sự kiện nào.
+                </p>
+              ) : (
+                <OccurrenceList occurrences={monthOccurrences} showDate today={today} showTree={manyTrees} />
+              )}
             </section>
           )}
         </div>
@@ -87,6 +100,15 @@ const useOccurrencesAroundMonth = (source: CalendarSource | undefined, year: num
     if (!source) return new Map<string, Occurrence[]>();
     const first = julianDay({ year, month, day: 1 });
     return groupByDay(occurrencesBetween(source, fromJulianDay(first - 7), fromJulianDay(first + 45)));
+  }, [source, year, month]);
+
+/** Giỗ, sinh nhật, Sự kiện đúng trong một tháng (để hiện cả danh sách, không chỉ ngày đang chọn). */
+const useOccurrencesInMonth = (source: CalendarSource | undefined, year: number, month: number) =>
+  useMemo(() => {
+    if (!source) return [];
+    const first = julianDay({ year, month, day: 1 });
+    const nextFirst = julianDay(month === 12 ? { year: year + 1, month: 1, day: 1 } : { year, month: month + 1, day: 1 });
+    return occurrencesBetween(source, fromJulianDay(first), fromJulianDay(nextFirst - 1));
   }, [source, year, month]);
 
 const Legend = () => (

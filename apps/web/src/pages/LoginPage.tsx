@@ -17,6 +17,7 @@ export const LoginPage = () => {
   const next = safeRedirectPath(params.get('tiep'));
 
   const [mode, setMode] = useState<Mode>('sign-in');
+  const [forgotPassword, setForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -25,6 +26,22 @@ export const LoginPage = () => {
 
   if (state.status === 'loading') return <FullPageMessage>Đang tải…</FullPageMessage>;
   if (state.status === 'signed-in') return <Navigate to={next} replace />;
+
+  const sendResetEmail = async (event: FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/dat-lai-mat-khau`,
+      });
+      if (resetError) setError(authErrorMessage(resetError));
+      else setNotice(`Đã gửi email đặt lại mật khẩu tới ${email}. Hãy mở thư và làm theo hướng dẫn.`);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const signInWithGoogle = async () => {
     setError(null);
@@ -60,6 +77,7 @@ export const LoginPage = () => {
 
   const switchMode = (target: Mode) => {
     setMode(target);
+    setForgotPassword(false);
     setError(null);
     setNotice(null);
   };
@@ -107,61 +125,125 @@ export const LoginPage = () => {
             <span className="h-px flex-1 bg-line" />
           </div>
 
-          <form onSubmit={submit} className="space-y-4">
-            <label className="block">
-              <span className="mb-1 block font-medium">
-                Email
-                <span className="text-danger" aria-hidden="true">
-                  {' '}
-                  *
+          {forgotPassword ? (
+            <form onSubmit={sendResetEmail} className="space-y-4">
+              <p className="text-ink-muted">Nhập email đã dùng để tạo tài khoản. Chúng tôi sẽ gửi link đặt lại mật khẩu.</p>
+              <label className="block">
+                <span className="mb-1 block font-medium">
+                  Email
+                  <span className="text-danger" aria-hidden="true">
+                    {' '}
+                    *
+                  </span>
                 </span>
-              </span>
-              <input
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className="min-h-12 w-full rounded-xl border border-line bg-surface px-4"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block font-medium">
-                Mật khẩu
-                <span className="text-danger" aria-hidden="true">
-                  {' '}
-                  *
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="min-h-12 w-full rounded-xl border border-line bg-surface px-4"
+                />
+              </label>
+
+              {error && (
+                <p role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-danger">
+                  {error}
+                </p>
+              )}
+              {notice && (
+                <p role="status" className="rounded-xl bg-kim-soft/40 px-4 py-3">
+                  {notice}
+                </p>
+              )}
+
+              <Button type="submit" className="w-full" disabled={busy}>
+                {busy ? 'Đang gửi…' : 'Gửi email đặt lại mật khẩu'}
+              </Button>
+              <button
+                type="button"
+                className="block w-full text-center font-semibold text-son hover:underline"
+                onClick={() => {
+                  setForgotPassword(false);
+                  setError(null);
+                  setNotice(null);
+                }}
+              >
+                ← Quay lại đăng nhập
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={submit} className="space-y-4">
+              <label className="block">
+                <span className="mb-1 block font-medium">
+                  Email
+                  <span className="text-danger" aria-hidden="true">
+                    {' '}
+                    *
+                  </span>
                 </span>
-              </span>
-              <input
-                type="password"
-                required
-                minLength={mode === 'sign-up' ? MIN_PASSWORD_LENGTH : undefined}
-                autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="min-h-12 w-full rounded-xl border border-line bg-surface px-4"
-              />
-              <span className={`mt-1 block text-sm text-ink-muted ${mode === 'sign-up' ? '' : 'invisible'}`}>
-                Ít nhất {MIN_PASSWORD_LENGTH} ký tự.
-              </span>
-            </label>
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="min-h-12 w-full rounded-xl border border-line bg-surface px-4"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 flex items-center justify-between gap-2">
+                  <span className="font-medium">
+                    Mật khẩu
+                    <span className="text-danger" aria-hidden="true">
+                      {' '}
+                      *
+                    </span>
+                  </span>
+                  {mode === 'sign-in' && (
+                    <button
+                      type="button"
+                      className="font-semibold text-son hover:underline"
+                      onClick={() => {
+                        setForgotPassword(true);
+                        setError(null);
+                        setNotice(null);
+                      }}
+                    >
+                      Quên mật khẩu?
+                    </button>
+                  )}
+                </span>
+                <input
+                  type="password"
+                  required
+                  minLength={mode === 'sign-up' ? MIN_PASSWORD_LENGTH : undefined}
+                  autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="min-h-12 w-full rounded-xl border border-line bg-surface px-4"
+                />
+                <span className={`mt-1 block text-sm text-ink-muted ${mode === 'sign-up' ? '' : 'invisible'}`}>
+                  Ít nhất {MIN_PASSWORD_LENGTH} ký tự.
+                </span>
+              </label>
 
-            {error && (
-              <p role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-danger">
-                {error}
-              </p>
-            )}
-            {notice && (
-              <p role="status" className="rounded-xl bg-kim-soft/40 px-4 py-3">
-                {notice}
-              </p>
-            )}
+              {error && (
+                <p role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-danger">
+                  {error}
+                </p>
+              )}
+              {notice && (
+                <p role="status" className="rounded-xl bg-kim-soft/40 px-4 py-3">
+                  {notice}
+                </p>
+              )}
 
-            <Button type="submit" className="w-full" disabled={busy}>
-              {busy ? 'Đang xử lý…' : mode === 'sign-in' ? 'Đăng nhập' : 'Tạo tài khoản'}
-            </Button>
-          </form>
+              <Button type="submit" className="w-full" disabled={busy}>
+                {busy ? 'Đang xử lý…' : mode === 'sign-in' ? 'Đăng nhập' : 'Tạo tài khoản'}
+              </Button>
+            </form>
+          )}
         </section>
 
         <p className="mt-6 text-center">

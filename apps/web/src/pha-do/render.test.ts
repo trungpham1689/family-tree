@@ -68,6 +68,17 @@ describe('seam C: Phả đồ', () => {
     expect(names).toContain('范文');
   });
 
+  it('hiện ảnh đại diện khi bật, chỉ cho Người có ảnh', () => {
+    const avatars = new Map([['con-a', 'data:image/png;base64,AAA']]);
+    const off = renderPhaDo(sample(), { ...base, showAvatars: false }, '', avatars);
+    expect(off.drawing.items.some((item) => item.type === 'image')).toBe(false);
+
+    const on = renderPhaDo(sample(), { ...base, showAvatars: true }, '', avatars);
+    const images = on.drawing.items.filter((item) => item.type === 'image');
+    expect(images).toHaveLength(1);
+    expect(images[0]).toMatchObject({ href: 'data:image/png;base64,AAA' });
+  });
+
   it('gốc không còn tồn tại thì báo thay vì vẽ sai', () => {
     expect(renderPhaDo(sample(), { ...base, scope: { kind: 'branch', personId: 'da-xoa' } }).missingRoot).toBe(true);
   });

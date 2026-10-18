@@ -98,6 +98,7 @@ export type Database = {
           updated_at: string;
           version: number;
           hidden_from_public: boolean;
+          avatar_path: string | null;
         };
         Insert: {
           common_name?: string | null;
@@ -148,6 +149,7 @@ export type Database = {
           updated_at?: string;
           version?: number;
           hidden_from_public?: boolean;
+          avatar_path?: string | null;
         };
         Update: {
           common_name?: string | null;
@@ -198,6 +200,7 @@ export type Database = {
           updated_at?: string;
           version?: number;
           hidden_from_public?: boolean;
+          avatar_path?: string | null;
         };
         Relationships: [
           {

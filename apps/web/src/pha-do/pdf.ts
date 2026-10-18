@@ -57,6 +57,9 @@ export const drawingToPdf = (drawing: Drawing, fonts: PdfFonts, title: string): 
         doc.setTextColor(...hexToRgb(item.color));
         doc.text(item.text, item.x, item.y, { align: 'center', baseline: 'middle' });
         break;
+      case 'image':
+        doc.addImage(item.href, item.x, item.y, item.width, item.height);
+        break;
     }
   }
   return doc;

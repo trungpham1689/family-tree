@@ -50,6 +50,7 @@ export const BLANK_PERSON: Person = {
   created_at: '',
   updated_at: '',
   version: 0,
+  avatar_path: null,
 };
 
 export const blankPerson = (fields: Partial<Person> & { id: string; full_name: string }): Person => ({ ...BLANK_PERSON, ...fields });

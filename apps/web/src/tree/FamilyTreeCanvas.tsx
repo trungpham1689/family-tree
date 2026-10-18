@@ -113,7 +113,12 @@ export const FamilyTreeCanvas = ({
 
   return (
     <div className="relative h-full min-h-[60dvh] overflow-hidden rounded-2xl border border-line bg-paper">
-      <svg ref={svgRef} className="block h-full w-full touch-none select-none" role="img" aria-label="Cây gia phả">
+      <svg
+        ref={svgRef}
+        className="block h-full w-full cursor-grab touch-none select-none active:cursor-grabbing"
+        role="img"
+        aria-label="Cây gia phả"
+      >
         <g ref={groupRef}>
           <g transform={`translate(${PADDING} ${PADDING})`}>
             {layout.lines.map((line, index) => (

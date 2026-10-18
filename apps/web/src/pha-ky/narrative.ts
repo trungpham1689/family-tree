@@ -27,6 +27,7 @@ const personNarrative = (graph: FamilyGraph<Person>, person: Person): string => 
   const spouses = graph.spousesOf(person.id).map((s) => s.person.full_name);
   if (spouses.length > 0) sentences.push(`Kết hôn với ${spouses.join(', ')}.`);
 
+  if (person.title) sentences.push(`${person.title.trim()}.`);
   if (person.occupation) sentences.push(`Nghề nghiệp: ${person.occupation}.`);
 
   if (person.is_deceased) {
@@ -44,3 +45,17 @@ export const buildNarrative = (graph: FamilyGraph<Person>): NarrativeGeneration[
   graph
     .generations()
     .map((group) => ({ generation: group.generation, items: group.persons.map((person) => ({ personId: person.id, text: personNarrative(graph, person) })) }));
+
+export type NotablePerson = { personId: string; fullName: string; title: string; generation: number | null };
+
+/** Người có điền Chức vụ/danh hiệu (chức tước, công trạng, học vị…) — dùng field có sẵn, không phân loại. */
+export const notablePersons = (graph: FamilyGraph<Person>): NotablePerson[] =>
+  graph.persons
+    .filter((person): person is Person & { title: string } => Boolean(person.title?.trim()))
+    .map((person) => ({
+      personId: person.id,
+      fullName: person.full_name,
+      title: person.title.trim(),
+      generation: graph.placement(person.id).generation,
+    }))
+    .sort((a, b) => (a.generation ?? Number.MAX_SAFE_INTEGER) - (b.generation ?? Number.MAX_SAFE_INTEGER));

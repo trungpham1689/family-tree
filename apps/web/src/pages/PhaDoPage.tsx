@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { loadFontBinary } from '../data/pha-do';
-import { useFamily, usePhaDoConfig, useSavePhaDoConfig, useTree } from '../data/tree-queries';
+import { useFamily, usePersonAvatars, usePhaDoConfig, useSavePhaDoConfig, useTree } from '../data/tree-queries';
 import type { Person, TreeWithRole } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
 import { personLabel } from '../people/person-label';
@@ -66,7 +66,11 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
   const save = useSavePhaDoConfig(tree.id);
   const canEdit = tree.role === 'owner' || tree.role === 'editor';
 
-  const result = useMemo(() => renderPhaDo(graph, config, tree.name), [graph, config, tree.name]);
+  const avatars = usePersonAvatars(graph.persons, config.showAvatars);
+  const result = useMemo(
+    () => renderPhaDo(graph, config, tree.name, avatars.data),
+    [graph, config, tree.name, avatars.data],
+  );
   const pngPlan = useMemo(
     () => planPng(result.drawing, isAppleMobile() ? IOS_LIMITS : DESKTOP_LIMITS),
     [result.drawing],
@@ -131,6 +135,16 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
         </label>
 
         <PaperSettings config={config} onChange={update} />
+
+        <label className="flex min-h-12 items-center gap-3">
+          <input
+            type="checkbox"
+            className="size-5 accent-son"
+            checked={config.showAvatars}
+            onChange={(event) => update({ showAvatars: event.target.checked })}
+          />
+          Hiện ảnh đại diện trong mỗi ô
+        </label>
 
         <fieldset>
           <legend className="mb-1 font-medium">Thêm trong mỗi ô (tối đa 2 dòng)</legend>

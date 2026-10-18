@@ -17,6 +17,7 @@ import { PhaDoPage } from './pages/PhaDoPage';
 import { PhaKyPage } from './pages/PhaKyPage';
 import { UpcomingPage } from './pages/UpcomingPage';
 import { PublicPersonPage, PublicTreePage } from './pages/PublicTreePage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { TreePage } from './pages/TreePage';
 import { TreeViewPage } from './pages/TreeViewPage';
 import { FullPageMessage } from './ui/FullPageMessage';
@@ -28,6 +29,7 @@ const queryClient = new QueryClient({
 const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/gia-pha" replace /> },
   { path: '/dang-nhap', element: <LoginPage /> },
+  { path: '/dat-lai-mat-khau', element: <ResetPasswordPage /> },
   { path: '/lich', element: <CalendarPage /> },
   {
     path: '/gia-pha',

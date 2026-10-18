@@ -12,7 +12,9 @@ export type DrawText = {
   color: string;
 };
 
-export type DrawItem = DrawRect | DrawLine | DrawText;
+export type DrawImage = { type: 'image'; x: number; y: number; width: number; height: number; href: string };
+
+export type DrawItem = DrawRect | DrawLine | DrawText | DrawImage;
 
 export type Drawing = { width: number; height: number; items: DrawItem[] };
 

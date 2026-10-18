@@ -219,11 +219,11 @@ describe('Ngày không đầy đủ', () => {
   it('hiển thị theo độ chính xác', () => {
     expect(formatPartialDate({ calendar: 'duong', precision: 'nam', year: 1890, approximate: true })).toBe('khoảng 1890');
     expect(formatPartialDate({ calendar: 'am', precision: 'thang', year: 1890, month: 3, leap: false, approximate: false })).toBe(
-      '3/1890 ÂL',
+      '3/1890 ÂL (năm Canh Dần)',
     );
     expect(
       formatPartialDate({ calendar: 'am', precision: 'ngay', year: 2025, month: 6, day: 12, leap: true, approximate: false }),
-    ).toBe('12/6 nhuận/2025 ÂL');
+    ).toBe('12/6 nhuận/2025 ÂL (năm Ất Tỵ)');
     expect(formatPartialDate({ calendar: 'duong', precision: 'ngay', year: 1945, month: 9, day: 2, leap: false, approximate: false })).toBe(
       '02/09/1945',
     );

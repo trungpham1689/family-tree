@@ -3,6 +3,7 @@ import { useAuth } from '../auth/auth-context';
 import { buildFamilyGraph } from '../family/family-graph';
 import type { ImportPayload } from '../excel/import-preview';
 import type { PersonFields } from '../people/person-form';
+import { fetchAvatarDataUrl, removeAvatar, uploadAvatar } from './avatars';
 import { listTreeEvents, loadMyCalendar, removeTreeEvent, saveTreeEvent } from './calendar';
 import { importIntoTree, importNewTree } from './excel-import';
 import { loadPhaDoConfig, savePhaDoConfig } from './pha-do';
@@ -15,6 +16,7 @@ import {
   linkParent,
   linkSpouse,
   loadFamily,
+  reorderChildren,
   setProgenitor,
   updateParentLinkKind,
   updateUnion,
@@ -123,6 +125,47 @@ export const useDeletePerson = (treeId: string) => {
   });
 };
 
+export const useUploadAvatar = (treeId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: uploadAvatar,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) }),
+  });
+};
+
+export const useRemoveAvatar = (treeId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: removeAvatar,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) }),
+  });
+};
+
+/** Ảnh đại diện của một Người, tải về và chuyển sẵn thành data URL; null khi chưa có ảnh. */
+export const useAvatarDataUrl = (avatarPath: string | null) =>
+  useQuery({
+    queryKey: ['avatar', avatarPath],
+    queryFn: () => fetchAvatarDataUrl(avatarPath!),
+    enabled: avatarPath !== null,
+    staleTime: Infinity,
+  });
+
+/** Ảnh đại diện của nhiều Người cùng lúc (Phả đồ), gom theo personId; chỉ tải khi `enabled`. */
+export const usePersonAvatars = (persons: readonly { id: string; avatar_path: string | null }[], enabled: boolean) => {
+  const withAvatar = persons.filter((person) => person.avatar_path !== null);
+  return useQuery({
+    queryKey: ['avatars', withAvatar.map((person) => `${person.id}:${person.avatar_path}`)],
+    queryFn: async () => {
+      const entries = await Promise.all(
+        withAvatar.map(async (person) => [person.id, await fetchAvatarDataUrl(person.avatar_path!)] as const),
+      );
+      return new Map(entries);
+    },
+    enabled: enabled && withAvatar.length > 0,
+    staleTime: Infinity,
+  });
+};
+
 /** Mọi thao tác thay đổi quan hệ đều tải lại cả Gia phả, vì Đời và Chi có thể đổi theo. */
 const useFamilyMutation = <Input, Output>(treeId: string, mutationFn: (input: Input) => Promise<Output>) => {
   const queryClient = useQueryClient();
@@ -136,6 +179,7 @@ export const useAddChild = (treeId: string) => useFamilyMutation(treeId, addChil
 export const useAddParent = (treeId: string) => useFamilyMutation(treeId, addParent);
 export const useAddSpouse = (treeId: string) => useFamilyMutation(treeId, addSpouse);
 export const useUpdateUnion = (treeId: string) => useFamilyMutation(treeId, updateUnion);
+export const useReorderChildren = (treeId: string) => useFamilyMutation(treeId, reorderChildren);
 export const useUpdateParentLinkKind = (treeId: string) => useFamilyMutation(treeId, updateParentLinkKind);
 export const useSetProgenitor = (treeId: string) => useFamilyMutation(treeId, setProgenitor);
 export const useLinkParent = (treeId: string) => useFamilyMutation(treeId, linkParent);

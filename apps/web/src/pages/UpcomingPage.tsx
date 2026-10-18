@@ -16,7 +16,8 @@ export const UpcomingPage = () => {
   const { state } = useAuth();
   const email = state.status === 'signed-in' ? state.session.user.email : undefined;
   const calendar = useMyCalendar(true);
-  const list = useMemo(() => (calendar.data ? upcoming(calendar.data, todayInVietnam(), 30) : []), [calendar.data]);
+  const today = todayInVietnam();
+  const list = useMemo(() => (calendar.data ? upcoming(calendar.data, today, 30) : []), [calendar.data, today]);
   const [exporting, setExporting] = useState(false);
 
   const exportIcs = () => {
@@ -55,7 +56,7 @@ export const UpcomingPage = () => {
               30 ngày tới chưa có giỗ, sinh nhật hay sự kiện nào.
             </p>
           )}
-          {list.length > 0 && <OccurrenceList occurrences={list} showDate showTree={(calendar.data?.trees.length ?? 0) > 1} />}
+          {list.length > 0 && <OccurrenceList occurrences={list} showDate today={today} showTree={(calendar.data?.trees.length ?? 0) > 1} />}
         </div>
       </main>
     </>

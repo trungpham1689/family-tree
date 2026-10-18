@@ -3,7 +3,7 @@ import { useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { loadFontBinary } from '../data/pha-do';
 import { useFamily, useTree } from '../data/tree-queries';
-import { buildNarrative } from '../pha-ky/narrative';
+import { buildNarrative, notablePersons } from '../pha-ky/narrative';
 import { TreeTabs } from '../tree/TreeTabs';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
@@ -21,6 +21,7 @@ export const PhaKyPage = () => {
   const [exportError, setExportError] = useState<string | null>(null);
 
   const generations = useMemo(() => (family.data ? buildNarrative(family.data) : []), [family.data]);
+  const notable = useMemo(() => (family.data ? notablePersons(family.data) : []), [family.data]);
 
   if (tree.isPending || family.isPending) return <FullPageMessage>Đang tải…</FullPageMessage>;
   const error = tree.error ?? family.error;
@@ -63,12 +64,28 @@ export const PhaKyPage = () => {
         {family.isSuccess && (
           <div className="mt-6 space-y-8">
             {generations.length === 0 && <p className="text-ink-muted">Gia phả chưa có ai.</p>}
+            {notable.length > 0 && (
+              <section aria-label="Người có chức tước, công trạng" className="rounded-2xl border border-line bg-surface p-5">
+                <h2 className="font-serif text-xl font-bold">Người có chức tước, công trạng</h2>
+                <p className="mt-1 text-sm text-ink-muted">Theo ô "Chức vụ / danh hiệu" trong hồ sơ từng người.</p>
+                <ul className="mt-3 space-y-2">
+                  {notable.map((person) => (
+                    <li key={person.personId}>
+                      <a href={`#${person.personId}`} className="font-semibold text-son hover:underline">
+                        {person.fullName}
+                      </a>
+                      <span className="text-ink-muted"> — {person.title}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
             {generations.map((group) => (
               <section key={group.generation}>
                 <h2 className="font-serif text-2xl font-bold">Đời {group.generation}</h2>
                 <div className="mt-3 space-y-3">
                   {group.items.map((item) => (
-                    <p key={item.personId} className="leading-relaxed">
+                    <p key={item.personId} id={item.personId} className="leading-relaxed target:bg-kim-soft/40">
                       {item.text}
                     </p>
                   ))}

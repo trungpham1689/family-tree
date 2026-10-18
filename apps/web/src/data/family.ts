@@ -86,6 +86,15 @@ export const updateParentLinkKind = async (input: { childId: string; parentId: s
   if (error) throw new DataError(error);
 };
 
+/** Đổi Thứ tự con: ghi lại liên tục 1..N theo danh sách đã kéo thả (gồm con của mọi vợ/chồng). */
+export const reorderChildren = async (orderedChildIds: string[]): Promise<void> => {
+  const results = await Promise.all(
+    orderedChildIds.map((childId, index) => supabase.from('persons').update({ birth_order: index + 1 }).eq('id', childId)),
+  );
+  const failed = results.find((result) => result.error);
+  if (failed?.error) throw new DataError(failed.error);
+};
+
 export const setProgenitor = async (personId: string): Promise<void> => {
   const { error } = await supabase.rpc('set_progenitor', { person_id: personId });
   if (error) throw new DataError(error);

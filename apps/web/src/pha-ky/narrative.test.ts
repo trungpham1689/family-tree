@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { blankPerson } from '../data/blank-person';
 import { buildFamilyGraph } from '../family/family-graph';
-import { buildNarrative } from './narrative';
+import { buildNarrative, notablePersons } from './narrative';
 
 const sample = () =>
   buildFamilyGraph({
@@ -15,6 +15,7 @@ const sample = () =>
         birth_year: 1875,
         birth_order: 1,
         occupation: 'Lý trưởng',
+        title: 'Liệt sĩ chống Pháp',
         biography: 'Người có công khai khẩn đất làng.',
       }),
     ],
@@ -46,12 +47,20 @@ describe('buildNarrative', () => {
     expect(text).toContain('Kết hôn với Trần Thị Hoa');
   });
 
-  it('con: thứ tự con, cha mẹ, nghề nghiệp, tiểu sử', () => {
+  it('con: thứ tự con, cha mẹ, chức tước, nghề nghiệp, tiểu sử', () => {
     const generations = buildNarrative(sample());
     const text = generations[1]!.items[0]!.text;
     expect(text).toContain('Con trưởng.');
     expect(text).toContain('Con của Nguyễn Văn Tổ và Trần Thị Hoa.');
+    expect(text).toContain('Liệt sĩ chống Pháp.');
     expect(text).toContain('Nghề nghiệp: Lý trưởng.');
     expect(text).toContain('Người có công khai khẩn đất làng.');
+  });
+});
+
+describe('notablePersons', () => {
+  it('chỉ lấy người có điền Chức vụ/danh hiệu, kèm Đời', () => {
+    const result = notablePersons(sample());
+    expect(result).toEqual([{ personId: 'con', fullName: 'Nguyễn Văn An', title: 'Liệt sĩ chống Pháp', generation: 2 }]);
   });
 });

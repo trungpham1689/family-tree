@@ -14,6 +14,8 @@ const MESSAGES_BY_CODE: Record<string, string> = {
   over_email_send_rate_limit: 'Đã gửi quá nhiều email. Hãy đợi vài phút rồi thử lại.',
   validation_failed: 'Email hoặc mật khẩu chưa hợp lệ.',
   signup_disabled: 'Hiện chưa mở đăng ký tài khoản mới.',
+  same_password: 'Mật khẩu mới phải khác mật khẩu cũ.',
+  user_not_found: 'Không tìm thấy tài khoản với email này.',
 };
 
 const MESSAGES_BY_TEXT: Array<[RegExp, string]> = [
