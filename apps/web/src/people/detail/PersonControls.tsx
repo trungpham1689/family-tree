@@ -7,6 +7,7 @@ import {
   useSetHiddenFromPublic,
   useToggleGioMute,
 } from '../../data/tree-queries';
+import type { PersonRights } from '../../data/permissions';
 import type { Person } from '../../data/trees';
 import { nameInitial } from '../person-display';
 import { Button } from '../../ui/Button';
@@ -40,13 +41,11 @@ export const HiddenFromPublicToggle = ({ treeId, person }: { treeId: string; per
 export const PendingDeleteBanner = ({
   treeId,
   person,
-  isOwner,
-  accountId,
+  rights,
 }: {
   treeId: string;
   person: Person;
-  isOwner: boolean;
-  accountId: string | null;
+  rights: PersonRights;
 }) => {
   const approve = useApproveDeletePerson(treeId);
   const reject = useRejectDeletePerson(treeId);
@@ -54,11 +53,11 @@ export const PendingDeleteBanner = ({
   return (
     <div className="mt-6 rounded-xl bg-kim-soft px-4 py-3">
       <p className="font-medium">
-        {isOwner || person.pending_delete_by === accountId
+        {rights.involvedInDeletion
           ? 'Đang chờ Chủ sở hữu duyệt yêu cầu xoá người này.'
           : 'Người này đang chờ duyệt xoá.'}
       </p>
-      {isOwner && (
+      {rights.reviewDeletion && (
         <div className="mt-2 flex gap-2">
           <Button variant="secondary" disabled={reject.isPending} onClick={() => reject.mutate(person.id)}>
             Từ chối

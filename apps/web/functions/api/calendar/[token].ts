@@ -5,7 +5,7 @@
  */
 import { parseCalendarSource } from '@gia-pha/reminders';
 import { feedToIcs } from '../../../src/calendar/feed';
-import { todayInVietnam } from '../../../src/calendar/month-grid';
+import { todayInVietnam } from '@gia-pha/lunar';
 
 type Env = { VITE_SUPABASE_URL?: string; VITE_SUPABASE_PUBLISHABLE_KEY?: string };
 type Context = { request: Request; env: Env; params: { token?: string }; waitUntil: (promise: Promise<unknown>) => void };

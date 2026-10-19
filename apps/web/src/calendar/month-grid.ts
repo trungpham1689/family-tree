@@ -41,17 +41,7 @@ export const buildMonthGrid = (year: number, month: number): DayCell[][] => {
   return weeks;
 };
 
-/** Ngày hôm nay theo giờ Việt Nam, bất kể máy người dùng đặt múi giờ nào. */
-export const todayInVietnam = (now: Date = new Date()): SolarDate => {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Ho_Chi_Minh',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(now);
-  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value);
-  return { year: value('year'), month: value('month'), day: value('day') };
-};
+export { todayInVietnam } from '@gia-pha/lunar';
 
 export const sameDay = (a: SolarDate, b: SolarDate): boolean => a.year === b.year && a.month === b.month && a.day === b.day;
 

@@ -18,9 +18,8 @@ export {
   CALENDAR_PERSON_COLUMNS,
   CALENDAR_PERSON_FILTER,
   isCalendarPerson,
-  marriageNames,
   parseCalendarSource,
   toCalendarMarriages,
   type MarriageRow,
 } from './calendar-source.ts';
-export { bellReminders, digestOccurrences, MAX_OFFSET_DAYS, type TreeReminderPrefs } from './reminder-policy.ts';
+export { bellReminders, digestOccurrences, type TreeReminderPrefs } from './reminder-policy.ts';

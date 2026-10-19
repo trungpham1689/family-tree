@@ -1,10 +1,6 @@
-import type { SolarDate } from '@gia-pha/lunar';
+import type { SolarDate } from './convert.ts';
 
-/**
- * Ngày hôm nay theo giờ Việt Nam, bất kể Worker chạy ở vùng nào.
- * Bản sao nhỏ của apps/web/src/calendar/month-grid.ts#todayInVietnam — phần còn lại của file đó
- * (lưới lịch tháng, tên thứ…) là chuyện hiển thị, không liên quan tới Worker này.
- */
+/** Ngày hôm nay theo giờ Việt Nam, bất kể máy hoặc vùng chạy mã đặt múi giờ nào (trình duyệt, Worker, Pages Function). */
 export const todayInVietnam = (now: Date = new Date()): SolarDate => {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Ho_Chi_Minh',

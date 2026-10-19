@@ -1,9 +1,9 @@
-import { canEditTree, isTreeOwner } from '../data/permissions';
+import { canEditTree, isTreeOwner, personPermissions } from '../data/permissions';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { useFamily, useSetFoundsBranch, useSetProgenitor, useTree } from '../data/tree-queries';
-import type { Person } from '../data/trees';
+import type { Person, TreeRole } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
 import { birthOrderLabel, kindLabel } from '../family/labels';
 import { lifespanText } from '../people/person-display';
@@ -53,6 +53,7 @@ export const PersonPage = () => {
             viewer={{
               canEdit: canEditTree(tree.data.role),
               isOwner: isTreeOwner(tree.data.role),
+              role: tree.data.role,
               accountId,
               linkedPersonId: tree.data.linkedPersonId,
             }}
@@ -68,6 +69,7 @@ export const PersonPage = () => {
 type Viewer = {
   canEdit: boolean;
   isOwner: boolean;
+  role: TreeRole;
   accountId: string | null;
   linkedPersonId: string | null;
 };
@@ -91,7 +93,8 @@ const PersonDetail = ({ treeId, graph, person, viewer }: DetailProps) => {
   const setFoundsBranch = useSetFoundsBranch(treeId);
   const close = () => setAction('none');
   // Biên tập viên chỉ thêm/sửa/xoá Người do chính mình tạo; Chủ sở hữu sửa/xoá được mọi Người.
-  const canEditThisPerson = isOwner || (canEdit && person.created_by === accountId);
+  const rights = personPermissions(viewer.role, accountId, person);
+  const canEditThisPerson = rights.edit;
 
   return (
     <article className="mt-3">
@@ -118,7 +121,7 @@ const PersonDetail = ({ treeId, graph, person, viewer }: DetailProps) => {
       </header>
 
       {person.pending_delete_by && (
-        <PendingDeleteBanner treeId={treeId} person={person} isOwner={isOwner} accountId={accountId} />
+        <PendingDeleteBanner treeId={treeId} person={person} rights={rights} />
       )}
 
       <ProfileInfo person={person} graph={graph} />
@@ -197,7 +200,7 @@ const PersonDetail = ({ treeId, graph, person, viewer }: DetailProps) => {
           )}
           <HiddenFromPublicToggle treeId={treeId} person={person} />
           <Button variant="secondary" onClick={() => setAction('delete')}>
-            {isOwner ? 'Xoá người này' : 'Gửi yêu cầu xoá'}
+            {rights.deleteNow ? 'Xoá người này' : 'Gửi yêu cầu xoá'}
           </Button>
         </div>
       )}

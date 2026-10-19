@@ -8,8 +8,9 @@ export {
   type LunarDate,
   type SolarDate,
 } from './convert.ts';
-export { CAN, CHI, dayCanChi, firstHourCanChi, monthCanChi, yearCanChi, zodiacHours, type ZodiacHour } from './can-chi.ts';
-export { SOLAR_TERMS, solarTermOf, solarTermStartingOn, type SolarTerm } from './solar-terms.ts';
+export { dayCanChi, monthCanChi, yearCanChi, zodiacHours } from './can-chi.ts';
+export { todayInVietnam } from './today.ts';
+export { solarTermOf, solarTermStartingOn, type SolarTerm } from './solar-terms.ts';
 export { holidaysOn, type Holiday } from './holidays.ts';
 export { anniversariesBetween, anniversaryInLunarYear, nextAnniversary, type LunarDayMonth } from './anniversary.ts';
 export {

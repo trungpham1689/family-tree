@@ -2,7 +2,7 @@ import { buildDigests, isDigestDay } from './digest.ts';
 import { loadReminderData } from './fetch-data.ts';
 import { renderDigestHtml, renderDigestText } from './render-email.ts';
 import { sendEmail } from './send.ts';
-import { todayInVietnam } from './vietnam-today.ts';
+import { todayInVietnam } from '@gia-pha/lunar';
 
 export interface Env {
   SUPABASE_URL: string;

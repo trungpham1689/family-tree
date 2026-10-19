@@ -1,68 +1,56 @@
-import { isTreeOwner } from '../data/permissions';
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { useFamily, useMergePersons, useTree } from '../data/tree-queries';
+import { useMergePersons } from '../data/tree-queries';
+import { TreePageShell } from '../tree/TreePageShell';
 import type { Person } from '../data/trees';
 import { duplicateGroups } from '../people/duplicate-check';
 import { lifespanText } from '../people/person-display';
-import { TreeTabs } from '../tree/TreeTabs';
-import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
 import { ErrorBanner } from '../ui/fields';
-import { Footer } from '../ui/Footer';
-import { FullPageMessage } from '../ui/FullPageMessage';
 import type { FamilyGraph } from '../family/family-graph';
 
 /** Gộp những Người nhập trùng làm một (chỉ Chủ sở hữu). Quan hệ, ảnh, hồ sơ được dồn về người được giữ. */
 export const DuplicatesPage = () => {
   const { treeId = '' } = useParams();
-  const tree = useTree(treeId);
-  const family = useFamily(treeId);
-  const merge = useMergePersons(treeId);
-  const groups = useMemo(() => (family.data ? duplicateGroups(family.data.persons) : []), [family.data]);
-  const graph = family.data ?? null;
+  return <TreePageShell treeId={treeId}>{({ graph, isOwner }) => <DuplicatesBody treeId={treeId} graph={graph} isOwner={isOwner} />}</TreePageShell>;
+};
 
-  if (tree.isPending || family.isPending) return <FullPageMessage>Đang tải…</FullPageMessage>;
-  const error = tree.error ?? family.error;
+const DuplicatesBody = ({ treeId, graph, isOwner }: { treeId: string; graph: FamilyGraph<Person>; isOwner: boolean }) => {
+  const merge = useMergePersons(treeId);
+  const groups = useMemo(() => duplicateGroups(graph.persons), [graph]);
 
   return (
     <>
-      <AppHeader />
-      <TreeTabs treeId={treeId} />
-      <main className="mx-auto max-w-2xl px-4 py-8">
-        <h1 className="font-serif text-3xl font-bold text-son">Người trùng</h1>
-        <p className="mt-1 text-ink-muted">
-          Những Người cùng tên (và năm sinh không mâu thuẫn) có thể là một người nhập hai lần, thường sau khi nhập Excel. Chọn người
-          cần giữ, phần còn lại sẽ được gộp vào.
+      <h1 className="font-serif text-3xl font-bold text-son">Người trùng</h1>
+      <p className="mt-1 text-ink-muted">
+        Những Người cùng tên (và năm sinh không mâu thuẫn) có thể là một người nhập hai lần, thường sau khi nhập Excel. Chọn người
+        cần giữ, phần còn lại sẽ được gộp vào.
+      </p>
+      {!isOwner && <ErrorBanner>Chỉ Chủ sở hữu gia phả mới gộp được Người trùng.</ErrorBanner>}
+
+      {groups.length === 0 && (
+        <p className="mt-6 rounded-2xl border border-dashed border-line bg-surface px-6 py-10 text-center text-ink-muted">
+          Không thấy Người nào nghi trùng.
         </p>
-        {error && <ErrorBanner>{error.message}</ErrorBanner>}
-        {tree.data && !isTreeOwner(tree.data.role) && <ErrorBanner>Chỉ Chủ sở hữu gia phả mới gộp được Người trùng.</ErrorBanner>}
+      )}
 
-        {family.isSuccess && groups.length === 0 && (
-          <p className="mt-6 rounded-2xl border border-dashed border-line bg-surface px-6 py-10 text-center text-ink-muted">
-            Không thấy Người nào nghi trùng.
-          </p>
-        )}
-
-        {isTreeOwner(tree.data?.role) && graph && (
-          <div className="mt-6 space-y-6">
-            {groups.map((group) => (
-              <GroupCard
-                key={group.map((person) => person.id).join('-')}
-                treeId={treeId}
-                group={group}
-                graph={graph}
-                busy={merge.isPending}
-                error={merge.error?.message ?? null}
-                // Gộp cả nhóm trong một lần (tải lại gia phả một lần); lỗi hiện ở `merge.error`.
-                onMerge={(keepId, dropIds, done) => merge.mutate({ keepId, dropIds }, { onSuccess: done })}
-              />
-            ))}
-          </div>
-        )}
-      </main>
-      <Footer />
+      {isOwner && (
+        <div className="mt-6 space-y-6">
+          {groups.map((group) => (
+            <GroupCard
+              key={group.map((person) => person.id).join('-')}
+              treeId={treeId}
+              group={group}
+              graph={graph}
+              busy={merge.isPending}
+              error={merge.error?.message ?? null}
+              // Gộp cả nhóm trong một lần (tải lại gia phả một lần); lỗi hiện ở `merge.error`.
+              onMerge={(keepId, dropIds, done) => merge.mutate({ keepId, dropIds }, { onSuccess: done })}
+            />
+          ))}
+        </div>
+      )}
     </>
   );
 };
