@@ -15,5 +15,5 @@
     "noUnusedParameters": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["functions", "src/share/og-meta.ts", "src/drive", "src/calendar/feed.ts"]
+  "include": ["functions", "src/share/og-meta.ts", "src/drive", "src/calendar/feed.ts", "src/edge"]
 }

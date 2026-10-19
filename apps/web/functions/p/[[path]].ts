@@ -5,30 +5,26 @@
  * Cần đặt biến môi trường VITE_SUPABASE_URL và VITE_SUPABASE_PUBLISHABLE_KEY cho cả Functions
  * (Cloudflare Pages → Settings → Environment variables), giống lúc build.
  */
+import { supabaseRest, type EdgeEnv } from '../../src/edge/supabase-rest';
 import { injectOpenGraph, type PublicCard } from '../../src/share/og-meta';
 
-type Env = {
-  ASSETS: { fetch: (request: Request) => Promise<Response> };
-  VITE_SUPABASE_URL?: string;
-  VITE_SUPABASE_PUBLISHABLE_KEY?: string;
-};
+type Env = EdgeEnv & { ASSETS: { fetch: (request: Request) => Promise<Response> } };
 
 type Context = { request: Request; env: Env; params: { path?: string[] } };
 
+const isCard = (value: unknown): value is PublicCard =>
+  typeof value === 'object' && value !== null && typeof (value as PublicCard).name === 'string' && typeof (value as PublicCard).persons === 'number';
+
+/** Thẻ xem trước; lỗi hoặc dữ liệu sai hình dạng thì null (trang vẫn mở được, chỉ thiếu thẻ đẹp) và ghi log. */
 const fetchCard = async (env: Env, token: string): Promise<PublicCard | null> => {
-  if (!env.VITE_SUPABASE_URL || !env.VITE_SUPABASE_PUBLISHABLE_KEY || !/^[0-9a-f]{32}$/.test(token)) return null;
+  const rest = supabaseRest(env);
+  if (!rest || !/^[0-9a-f]{32}$/.test(token)) return null;
   try {
-    const response = await fetch(`${env.VITE_SUPABASE_URL}/rest/v1/rpc/public_tree_card`, {
-      method: 'POST',
-      headers: {
-        apikey: env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({ token }),
-    });
-    if (!response.ok) return null;
-    return (await response.json()) as PublicCard | null;
-  } catch {
+    const { data } = await rest.rpc<unknown>('public_tree_card', { token });
+    if (data !== null && !isCard(data)) console.error('public_tree_card trả dữ liệu sai hình dạng');
+    return isCard(data) ? data : null;
+  } catch (error) {
+    console.error('Không đọc được thẻ xem trước', error);
     return null;
   }
 };

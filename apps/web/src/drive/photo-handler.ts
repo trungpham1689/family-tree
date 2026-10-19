@@ -1,3 +1,4 @@
+import { EdgeError, supabaseRest, type EdgeEnv, type SupabaseRest } from '../edge/supabase-rest';
 import {
   deleteFileById,
   deleteImage,
@@ -17,7 +18,7 @@ import {
  * dùng khoá Drive của chủ app. Trình duyệt không bao giờ thấy khoá Drive.
  */
 
-export type PhotoEnv = DriveEnv & { VITE_SUPABASE_URL: string; VITE_SUPABASE_PUBLISHABLE_KEY: string };
+export type PhotoEnv = DriveEnv & EdgeEnv;
 export type PhotoKind = 'member' | 'tree';
 
 /** Chặn cứng phía server; trình duyệt đã nén ảnh xuống vài trăm KB nên mức này rất rộng rãi. */
@@ -34,60 +35,63 @@ type Rule = { fn: 'can_view_tree' | 'can_edit_tree' | 'is_tree_owner' | 'can_edi
 
 const treeRule = (fn: 'can_view_tree' | 'can_edit_tree' | 'is_tree_owner', treeId: string): Rule => ({ fn, args: { target_tree: treeId } });
 
-const rpcAllowed = async (env: PhotoEnv, jwt: string, rule: Rule, doFetch: typeof fetch) => {
-  const response = await doFetch(`${env.VITE_SUPABASE_URL}/rest/v1/rpc/${rule.fn}`, {
-    method: 'POST',
-    headers: { apikey: env.VITE_SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
-    body: JSON.stringify(rule.args),
-  });
-  if (response.status === 401) return null;
-  return response.ok && (await response.json()) === true;
+const restOf = (env: PhotoEnv, doFetch: typeof fetch): SupabaseRest => {
+  const rest = supabaseRest(env, doFetch);
+  if (!rest) throw new EdgeError(500, 'Máy chủ chưa cấu hình Supabase.');
+  return rest;
 };
 
-/** Đọc bảng bằng quyền người gọi (RLS áp dụng); lỗi thì coi như không có dòng nào. */
-const restRows = async <Row>(env: PhotoEnv, jwt: string, query: string, doFetch: typeof fetch): Promise<Row[]> => {
-  const response = await doFetch(`${env.VITE_SUPABASE_URL}/rest/v1/${query}`, {
-    headers: { apikey: env.VITE_SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${jwt}` },
-  });
-  return response.ok ? ((await response.json()) as Row[]) : [];
+const rpcAllowed = async (rest: SupabaseRest, jwt: string, rule: Rule): Promise<boolean | null> => {
+  const { unauthorized, data } = await rest.rpc<boolean>(rule.fn, rule.args, jwt);
+  return unauthorized ? null : data === true;
 };
 
-const treeName = async (env: PhotoEnv, jwt: string, treeId: string, doFetch: typeof fetch): Promise<string> =>
-  (await restRows<{ name: string }>(env, jwt, `family_trees?id=eq.${treeId}&select=name`, doFetch))[0]?.name ?? treeId;
+const treeName = async (rest: SupabaseRest, jwt: string, treeId: string): Promise<string> =>
+  (await rest.rows<{ name: string }>(`family_trees?id=eq.${treeId}&select=name`, jwt))[0]?.name ?? treeId;
 
 /**
  * Quy tắc xoá một file ảnh, đúng như RLS của dòng dữ liệu trỏ tới file đó:
  * ảnh của Người → `can_edit_person`; ảnh bìa gia phả → Chủ sở hữu; chưa có dòng nào (file mồ côi vừa tải lên,
  * trình duyệt đang dọn sau khi lưu dòng lỗi) → Biên tập viên của gia phả.
  */
-const deletionRule = async (env: PhotoEnv, jwt: string, treeId: string, fileId: string, doFetch: typeof fetch): Promise<Rule> => {
+const deletionRule = async (rest: SupabaseRest, jwt: string, treeId: string, fileId: string): Promise<Rule> => {
   const path = encodeURIComponent(`${treeId}/${fileId}`);
-  const [photo] = await restRows<{ person_id: string }>(env, jwt, `person_photos?storage_path=eq.${path}&select=person_id`, doFetch);
+  const [photo] = await rest.rows<{ person_id: string }>(`person_photos?storage_path=eq.${path}&select=person_id`, jwt);
   if (photo) return { fn: 'can_edit_person', args: { target_person: photo.person_id } };
-  const cover = await restRows<{ id: string }>(env, jwt, `family_trees?id=eq.${treeId}&photo_path=eq.${path}&select=id`, doFetch);
+  const cover = await rest.rows<{ id: string }>(`family_trees?id=eq.${treeId}&photo_path=eq.${path}&select=id`, jwt);
   return treeRule(cover.length > 0 ? 'is_tree_owner' : 'can_edit_tree', treeId);
 };
 
-/** Trả Response lỗi nếu không đủ quyền, null nếu được phép. `rule` có thể là hàm để tra thêm dữ liệu sau khi biết người gọi. */
+/**
+ * Trả Response lỗi nếu không đủ quyền, null nếu được phép. `rule` có thể là hàm để tra thêm dữ liệu sau khi biết người gọi.
+ * Tra cứu quyền lỗi (Supabase không trả lời) thì từ chối bằng 502, không bao giờ "coi như được phép".
+ */
 const authorize = async (
   request: Request,
   env: PhotoEnv,
   treeId: string,
-  rule: Rule | ((jwt: string) => Promise<Rule | Response>),
+  rule: Rule | ((jwt: string, rest: SupabaseRest) => Promise<Rule | Response>),
   doFetch: typeof fetch,
 ): Promise<Response | null> => {
   const jwt = bearer(request);
   if (!jwt) return json({ error: 'Cần đăng nhập.' }, 401);
   if (!UUID.test(treeId)) return json({ error: 'Gia phả không hợp lệ.' }, 400);
-  const resolved = typeof rule === 'function' ? await rule(jwt) : rule;
-  if (resolved instanceof Response) return resolved;
-  const allowed = await rpcAllowed(env, jwt, resolved, doFetch);
-  if (allowed === null) return json({ error: 'Phiên đăng nhập hết hạn. Hãy đăng nhập lại.' }, 401);
-  return allowed ? null : json({ error: 'Bạn không có quyền với ảnh này.' }, 403);
+  try {
+    const rest = restOf(env, doFetch);
+    const resolved = typeof rule === 'function' ? await rule(jwt, rest) : rule;
+    if (resolved instanceof Response) return resolved;
+    const allowed = await rpcAllowed(rest, jwt, resolved);
+    if (allowed === null) return json({ error: 'Phiên đăng nhập hết hạn. Hãy đăng nhập lại.' }, 401);
+    return allowed ? null : json({ error: 'Bạn không có quyền với ảnh này.' }, 403);
+  } catch (error) {
+    return failure(error);
+  }
 };
 
 const failure = (error: unknown): Response =>
-  error instanceof DriveError ? json({ error: error.message }, error.status) : json({ error: 'Không xử lý được ảnh. Hãy thử lại.' }, 500);
+  error instanceof DriveError || error instanceof EdgeError
+    ? json({ error: error.message }, error.status)
+    : json({ error: 'Không xử lý được ảnh. Hãy thử lại.' }, 500);
 
 /** POST /api/photos?treeId=…&kind=member|tree[&personId=…] — thân yêu cầu là chính file ảnh. Trả { fileId }. */
 export const handleUpload = async (request: Request, env: PhotoEnv, doFetch: typeof fetch = fetch): Promise<Response> => {
@@ -105,8 +109,8 @@ export const handleUpload = async (request: Request, env: PhotoEnv, doFetch: typ
     treeId,
     kind === 'tree'
       ? treeRule('is_tree_owner', treeId)
-      : async (jwt) => {
-          const [person] = await restRows<{ tree_id: string }>(env, jwt, `persons?id=eq.${personId}&select=tree_id`, doFetch);
+      : async (jwt, rest) => {
+          const [person] = await rest.rows<{ tree_id: string }>(`persons?id=eq.${personId}&select=tree_id`, jwt);
           // Người phải thuộc đúng gia phả của thư mục sẽ nhận file.
           return person?.tree_id === treeId ? { fn: 'can_edit_person', args: { target_person: personId! } } : json({ error: 'Không tìm thấy Người trong gia phả này.' }, 404);
         },
@@ -125,7 +129,7 @@ export const handleUpload = async (request: Request, env: PhotoEnv, doFetch: typ
 
   try {
     const token = await getAccessToken(env, doFetch);
-    const folders = await ensureTreeFolders(token, treeId, await treeName(env, bearer(request)!, treeId, doFetch), doFetch);
+    const folders = await ensureTreeFolders(token, treeId, await treeName(restOf(env, doFetch), bearer(request)!, treeId), doFetch);
     const extension = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
     const fileId = await uploadImage(
       token,
@@ -169,30 +173,13 @@ export const handleDownload = async (request: Request, env: PhotoEnv, fileId: st
 export const handleDelete = async (request: Request, env: PhotoEnv, fileId: string, doFetch: typeof fetch = fetch): Promise<Response> => {
   const treeId = new URL(request.url).searchParams.get('treeId') ?? '';
   if (!DRIVE_ID.test(fileId)) return json({ error: 'Ảnh không hợp lệ.' }, 400);
-  const denied = await authorize(request, env, treeId, (jwt) => deletionRule(env, jwt, treeId, fileId, doFetch), doFetch);
+  const denied = await authorize(request, env, treeId, (jwt, rest) => deletionRule(rest, jwt, treeId, fileId), doFetch);
   if (denied) return denied;
   try {
     await deleteImage(await getAccessToken(env, doFetch), fileId, treeId, doFetch);
     return new Response(null, { status: 204 });
   } catch (error) {
     return failure(error);
-  }
-};
-
-/**
- * Đọc hết một truy vấn nhiều dòng của PostgREST bằng quyền người gọi (RLS áp dụng), từng trang theo header Range.
- * Lỗi thì ném ra: ở đây "không đọc được" không được coi là "không có dòng nào" (sẽ làm dọn nhầm).
- */
-const restAll = async <Row>(env: PhotoEnv, jwt: string, query: string, doFetch: typeof fetch): Promise<Row[]> => {
-  const rows: Row[] = [];
-  for (let from = 0; ; from += 1000) {
-    const response = await doFetch(`${env.VITE_SUPABASE_URL}/rest/v1/${query}`, {
-      headers: { apikey: env.VITE_SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${jwt}`, 'range-unit': 'items', range: `${from}-${from + 999}` },
-    });
-    if (!response.ok) throw new DriveError(502, 'Không đọc được dữ liệu ảnh.');
-    const page = (await response.json()) as Row[];
-    rows.push(...page);
-    if (page.length < 1000) return rows;
   }
 };
 
@@ -205,11 +192,12 @@ export const handleDeleteTree = async (request: Request, env: PhotoEnv, doFetch:
   const denied = await authorize(request, env, treeId, treeRule('is_tree_owner', treeId), doFetch);
   if (denied) return denied;
 
-  const deleted = await doFetch(`${env.VITE_SUPABASE_URL}/rest/v1/family_trees?id=eq.${treeId}`, {
-    method: 'DELETE',
-    headers: { apikey: env.VITE_SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${bearer(request)}`, prefer: 'return=representation' },
-  });
-  if (!deleted.ok || ((await deleted.json()) as unknown[]).length === 0) return json({ error: 'Không xoá được gia phả.' }, deleted.ok ? 404 : 502);
+  try {
+    const removed = await restOf(env, doFetch).remove<unknown>(`family_trees?id=eq.${treeId}`, bearer(request)!);
+    if (removed.length === 0) return json({ error: 'Không xoá được gia phả.' }, 404);
+  } catch (error) {
+    return failure(error);
+  }
 
   try {
     await deleteTreeFolder(await getAccessToken(env, doFetch), treeId, doFetch);
@@ -230,9 +218,10 @@ export const handleSweep = async (request: Request, env: PhotoEnv, doFetch: type
   if (denied) return denied;
   const jwt = bearer(request)!;
   try {
+    const rest = restOf(env, doFetch);
     const referenced = new Set([
-      ...(await restAll<{ storage_path: string }>(env, jwt, `person_photos?tree_id=eq.${treeId}&select=storage_path&order=id`, doFetch)).map((row) => row.storage_path),
-      ...(await restAll<{ photo_path: string | null }>(env, jwt, `family_trees?id=eq.${treeId}&select=photo_path`, doFetch)).flatMap((row) => (row.photo_path ? [row.photo_path] : [])),
+      ...(await rest.all<{ storage_path: string }>(`person_photos?tree_id=eq.${treeId}&select=storage_path&order=id`, jwt)).map((row) => row.storage_path),
+      ...(await rest.all<{ photo_path: string | null }>(`family_trees?id=eq.${treeId}&select=photo_path`, jwt)).flatMap((row) => (row.photo_path ? [row.photo_path] : [])),
     ]);
     const token = await getAccessToken(env, doFetch);
     const orphans = (await listTreeFileIds(token, treeId, doFetch)).filter((fileId) => !referenced.has(`${treeId}/${fileId}`));

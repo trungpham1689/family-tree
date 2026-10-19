@@ -14,7 +14,7 @@ import {
 
 export type ReminderData = {
   source: { trees: { id: string; name: string }[]; persons: CalendarPerson[]; events: CalendarEvent[]; marriages: CalendarMarriage[] };
-  /** Email người nhận theo Gia phả: Chủ sở hữu + Biên tập viên đã duyệt, chưa tắt email ở Gia phả đó. */
+  /** Email người nhận theo Gia phả, do hàm SQL `digest_recipients` quyết định. */
   recipientsByTree: Map<string, string[]>;
 };
 
@@ -31,35 +31,24 @@ export const loadReminderData = async (supabaseUrl: string, serviceRoleKey: stri
     if (error) throw new Error(`${table}: ${error.message}`);
     return data ?? [];
   };
-  const [trees, persons, events, unions, roles, prefs, approvals] = await Promise.all([
+  const [trees, persons, events, unions, recipientRows] = await Promise.all([
     readAll<{ id: string; name: string }>('family_trees', 'id, name', ['id']),
     readAll<CalendarPerson>('persons', CALENDAR_PERSON_COLUMNS, ['id']),
     readAll<CalendarEvent>('tree_events', CALENDAR_EVENT_COLUMNS, ['id']),
     readAll<MarriageRow>('unions', CALENDAR_MARRIAGE_COLUMNS, ['id']),
-    readAll<{ account_id: string; tree_id: string; role: string }>('tree_roles', 'account_id, tree_id, role', ['tree_id', 'account_id']),
-    readAll<{ account_id: string; tree_id: string; email_enabled: boolean }>('reminder_prefs', 'account_id, tree_id, email_enabled', ['account_id', 'tree_id']),
-    readAll<{ account_id: string; approved: boolean }>('account_approvals', 'account_id, approved', ['account_id']),
+    // Người nhận do database tính (Chủ sở hữu + Biên tập viên đã duyệt, chưa tắt email): một nơi giữ quy tắc.
+    fetchAll<{ tree_id: string; email: string }>((from, to) =>
+      supabase.rpc('digest_recipients').order('tree_id').order('email').range(from, to) as unknown as PromiseLike<{
+        data: { tree_id: string; email: string }[] | null;
+        error: { message?: string } | null;
+      }>,
+    ).then(({ data, error }) => {
+      if (error) throw new Error(`digest_recipients: ${error.message}`);
+      return data ?? [];
+    }),
   ]);
 
-  // Email không nằm trong schema public (auth.users không lộ qua PostgREST) — dùng Admin API.
-  const emailByAccount = new Map<string, string>();
-  const PER_PAGE = 200;
-  for (let page = 1; ; page += 1) {
-    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: PER_PAGE });
-    if (error) throw new Error(error.message);
-    for (const user of data.users) if (user.email) emailByAccount.set(user.id, user.email);
-    if (data.users.length < PER_PAGE) break;
-  }
-
-  // Tài khoản chưa được duyệt không dùng được app nên không nhận email; Người xem không nhận.
-  const approved = new Set(approvals.filter((row) => row.approved).map((row) => row.account_id));
-  const emailOff = new Set(prefs.filter((row) => !row.email_enabled).map((row) => `${row.account_id}:${row.tree_id}`));
   const recipientsByTree = new Map<string, string[]>();
-  for (const role of roles) {
-    const email = emailByAccount.get(role.account_id);
-    if (!email || !approved.has(role.account_id) || emailOff.has(`${role.account_id}:${role.tree_id}`)) continue;
-    if (role.role !== 'owner' && role.role !== 'editor') continue;
-    recipientsByTree.set(role.tree_id, [...(recipientsByTree.get(role.tree_id) ?? []), email]);
-  }
+  for (const { tree_id, email } of recipientRows) recipientsByTree.set(tree_id, [...(recipientsByTree.get(tree_id) ?? []), email]);
   return { source: { trees, persons: persons.filter(isCalendarPerson), events, marriages: toCalendarMarriages(unions) }, recipientsByTree };
 };

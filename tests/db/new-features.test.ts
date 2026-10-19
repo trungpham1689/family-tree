@@ -232,4 +232,35 @@ describe('seam B: ngày cưới, lịch đăng ký, gộp người trùng', () =
       expect(photos.filter((p) => p.is_avatar).map((p) => p.storage_path)).toEqual([`${treeId}/dup-photo-${limit - 1}`]);
     });
   });
+
+  describe('người nhận bản tin email', () => {
+    it('digest_recipients: Chủ sở hữu + Biên tập viên đã duyệt, trừ Người xem, chưa duyệt, hoặc đã tắt email', async () => {
+      const mk = async (role: 'editor' | 'viewer', options?: { approved?: boolean }) => {
+        const user = await db.createUser(`${role}-${crypto.randomUUID()}@example.com`, options);
+        await db.admin.query("insert into tree_roles (tree_id, account_id, role) values ($1, $2, $3)", [treeId, user.id, role]);
+        return user;
+      };
+      const editor = await mk('editor');
+      await mk('viewer');
+      await mk('editor', { approved: false });
+      const muted = await mk('editor');
+      await db.admin.query("insert into reminder_prefs (account_id, tree_id, email_enabled) values ($1, $2, false)", [muted.id, treeId]);
+
+      const rows = (await db.admin.query<{ tree_id: string; email: string }>("select tree_id, email from public.digest_recipients() where tree_id = $1", [treeId])).rows;
+      const emails = rows.map((r) => r.email);
+      expect(emails).toContain(editor.email);
+      expect(emails.some((e) => e.startsWith('viewer-'))).toBe(false);
+      expect(emails).not.toContain(muted.email);
+      expect(emails.length).toBe(2); // chủ sở hữu + biên tập viên đã duyệt, chưa tắt
+    });
+
+    it('chỉ service_role gọi được digest_recipients', async () => {
+      const [row] = (await db.admin.query<{ anon: boolean; authenticated: boolean; service: boolean }>(
+        `select has_function_privilege('anon', 'public.digest_recipients()', 'execute') as anon,
+                has_function_privilege('authenticated', 'public.digest_recipients()', 'execute') as authenticated,
+                has_function_privilege('service_role', 'public.digest_recipients()', 'execute') as service`,
+      )).rows;
+      expect(row).toEqual({ anon: false, authenticated: false, service: true });
+    });
+  });
 });

@@ -37,8 +37,10 @@ const sectionHtml = ({ section, items }: ReturnType<typeof groups>[number]) =>
   items.map((item) => row(item, section.accent)).join('') +
   `</table>`;
 
-export const renderDigestHtml = (occurrences: readonly Occurrence[], appUrl: string): string => {
-  const treeName = occurrences[0]?.treeName ?? '';
+export type DigestMeta = { treeName: string; days: number };
+
+export const renderDigestHtml = (occurrences: readonly Occurrence[], appUrl: string, meta: DigestMeta): string => {
+  const { treeName, days } = meta;
   return (
     `<!doctype html><html lang="vi"><body style="margin:0;padding:0;background:#f6f1e7;">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f1e7;"><tr><td align="center" style="padding:24px 12px;">` +
@@ -46,7 +48,7 @@ export const renderDigestHtml = (occurrences: readonly Occurrence[], appUrl: str
     `<tr><td style="background:#8a1c1c;border-radius:12px 12px 0 0;padding:20px 24px;color:#ffffff;">` +
     `<div style="font-size:13px;letter-spacing:1px;text-transform:uppercase;opacity:.85;">Gia Phả</div>` +
     `<div style="font-size:22px;font-weight:700;margin-top:4px;">${escapeHtml(treeName)}</div>` +
-    `<div style="font-size:14px;margin-top:4px;opacity:.9;">Nhắc nhở trong 5 ngày tới</div></td></tr>` +
+    `<div style="font-size:14px;margin-top:4px;opacity:.9;">Nhắc nhở trong ${days} ngày tới</div></td></tr>` +
     `<tr><td style="background:#faf7f0;padding:20px 16px 4px;border-radius:0 0 12px 12px;">` +
     groups(occurrences).map(sectionHtml).join('') +
     `<p style="text-align:center;margin:8px 0 20px;"><a href="${escapeHtml(appUrl)}/nhac-gio" style="display:inline-block;background:#8a1c1c;color:#ffffff;text-decoration:none;font-weight:600;border-radius:8px;padding:10px 20px;">Xem trên Gia Phả</a></p>` +
@@ -56,9 +58,9 @@ export const renderDigestHtml = (occurrences: readonly Occurrence[], appUrl: str
   );
 };
 
-export const renderDigestText = (occurrences: readonly Occurrence[]): string =>
+export const renderDigestText = (occurrences: readonly Occurrence[], meta: DigestMeta): string =>
   [
-    `Gia Phả ${occurrences[0]?.treeName ?? ''} — nhắc nhở trong 5 ngày tới`,
+    `Gia Phả ${meta.treeName} — nhắc nhở trong ${meta.days} ngày tới`,
     ...groups(occurrences).flatMap(({ section, items }) => [
       '',
       `${section.icon} ${section.title.toUpperCase()} (${items.length}) — ${section.hint}`,

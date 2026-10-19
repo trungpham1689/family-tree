@@ -14,7 +14,7 @@ const env: PhotoEnv = {
 type Call = { url: string; method: string };
 
 /** Giả Supabase + Drive: `roles` là các hàm vai trò trả true; Drive giữ thư mục/file trong bộ nhớ. */
-const fakeServer = (options: { allow?: string[]; fileTree?: string; personTree?: string; photoRow?: boolean; coverPhoto?: boolean; referenced?: string[]; driveFiles?: string[]; treeDeletable?: boolean } = {}) => {
+const fakeServer = (options: { allow?: string[]; fileTree?: string; personTree?: string; photoRow?: boolean; coverPhoto?: boolean; referenced?: string[]; driveFiles?: string[]; treeDeletable?: boolean; lookupFails?: boolean } = {}) => {
   const allow = new Set(options.allow ?? []);
   const calls: Call[] = [];
   let folderCount = 0;
@@ -36,6 +36,7 @@ const fakeServer = (options: { allow?: string[]; fileTree?: string; personTree?:
       return json({ files: (options.driveFiles ?? []).map((id) => ({ id })) });
     }
     if (url.startsWith('https://db.test/rest/v1/persons')) return json([{ tree_id: options.personTree ?? TREE }]);
+    if (options.lookupFails && url.startsWith('https://db.test/rest/v1/person_photos')) return new Response('down', { status: 503 });
     if (url.startsWith('https://db.test/rest/v1/person_photos')) return json(options.photoRow ? [{ person_id: PERSON }] : []);
     if (url.startsWith('https://db.test/rest/v1/family_trees') && url.includes('photo_path')) return json(options.coverPhoto ? [{ id: TREE }] : []);
     if (url.startsWith('https://db.test/rest/v1/family_trees')) return json([{ name: 'Họ Phạm' }]);
@@ -141,6 +142,13 @@ describe('/api/photos', () => {
     expect((await handleDelete(request(), env, 'driveFileId123', denied.doFetch)).status).toBe(403);
     expect(denied.calls.some((call) => call.method === 'DELETE' && call.url.includes('googleapis'))).toBe(false);
     expect((await handleDelete(request(), env, 'driveFileId123', fakeServer({ allow: ['can_edit_person'], photoRow: true }).doFetch)).status).toBe(204);
+  });
+
+  it('tra cứu quyền lỗi (Supabase không trả lời) thì từ chối 502, không coi như được phép xoá', async () => {
+    const request = new Request(`https://app.test/api/photos/driveFileId123?treeId=${TREE}`, { method: 'DELETE', headers: { authorization: 'Bearer user' } });
+    const server = fakeServer({ allow: ['can_edit_tree', 'can_edit_person'], lookupFails: true });
+    expect((await handleDelete(request, env, 'driveFileId123', server.doFetch)).status).toBe(502);
+    expect(server.calls.some((call) => call.method === 'DELETE' && call.url.includes('googleapis'))).toBe(false);
   });
 
   it('ảnh bìa gia phả chỉ Chủ sở hữu xoá được', async () => {

@@ -3,11 +3,12 @@
  * App lịch không đăng nhập được, nên quyền nằm ở token bí mật trong URL (tạo lại được, xem migration lich_dang_ky);
  * database chỉ trả tên + ngày của các gia phả mà tài khoản đó có vai trò.
  */
+import { todayInVietnam } from '@gia-pha/lunar';
 import { parseCalendarSource } from '@gia-pha/reminders';
 import { feedToIcs } from '../../../src/calendar/feed';
-import { todayInVietnam } from '@gia-pha/lunar';
+import { EdgeError, supabaseRest, type EdgeEnv } from '../../../src/edge/supabase-rest';
 
-type Env = { VITE_SUPABASE_URL?: string; VITE_SUPABASE_PUBLISHABLE_KEY?: string };
+type Env = EdgeEnv;
 type Context = { request: Request; env: Env; params: { token?: string }; waitUntil: (promise: Promise<unknown>) => void };
 
 // Dựng lịch tốn CPU (đổi âm–dương cho từng người) và app lịch hỏi lại nhiều lần: giữ bản dựng sẵn một lúc.
@@ -24,24 +25,24 @@ const NOT_FOUND = new Response('Không tìm thấy lịch.', { status: 404, head
 
 export const onRequestGet = async ({ request, env, params, waitUntil }: Context): Promise<Response> => {
   const token = (params.token ?? '').replace(/\.ics$/, '');
-  if (!env.VITE_SUPABASE_URL || !env.VITE_SUPABASE_PUBLISHABLE_KEY || !/^[0-9a-f]{32}$/.test(token)) return NOT_FOUND.clone();
-  const edgeCache = (caches as unknown as { default?: Cache }).default;
+  const rest = supabaseRest(env);
+  if (!rest || !/^[0-9a-f]{32}$/.test(token)) return NOT_FOUND.clone();
+  const edgeCache = typeof caches === 'undefined' ? undefined : (caches as unknown as { default?: Cache }).default;
   const hit = await edgeCache?.match(request.url);
   if (hit) return new Response(hit.body, { headers: CLIENT_HEADERS });
 
-  const response = await fetch(`${env.VITE_SUPABASE_URL}/rest/v1/rpc/calendar_feed`, {
-    method: 'POST',
-    headers: { apikey: env.VITE_SUPABASE_PUBLISHABLE_KEY, 'content-type': 'application/json' },
-    body: JSON.stringify({ token }),
-  });
-  if (!response.ok) return new Response('Không đọc được lịch lúc này.', { status: 502, headers: { 'content-type': 'text/plain; charset=utf-8' } });
-  const payload: unknown = await response.json();
-  if (payload === null) return NOT_FOUND.clone();
-  const source = parseCalendarSource(payload);
-  if (!source) return new Response('Dữ liệu lịch không đúng định dạng.', { status: 502, headers: { 'content-type': 'text/plain; charset=utf-8' } });
-  const body = feedToIcs(source, todayInVietnam());
-  if (edgeCache) {
-    waitUntil(edgeCache.put(request.url, new Response(body, { headers: { 'content-type': CLIENT_HEADERS['content-type'], 'cache-control': `public, max-age=${CACHE_SECONDS}` } })));
+  try {
+    const { data } = await rest.rpc<unknown>('calendar_feed', { token });
+    if (data === null) return NOT_FOUND.clone();
+    const source = parseCalendarSource(data);
+    if (!source) return new Response('Dữ liệu lịch không đúng định dạng.', { status: 502, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+    const body = feedToIcs(source, todayInVietnam());
+    if (edgeCache) {
+      waitUntil(edgeCache.put(request.url, new Response(body, { headers: { 'content-type': CLIENT_HEADERS['content-type'], 'cache-control': `public, max-age=${CACHE_SECONDS}` } })));
+    }
+    return new Response(body, { headers: CLIENT_HEADERS });
+  } catch (error) {
+    if (!(error instanceof EdgeError)) throw error;
+    return new Response('Không đọc được lịch lúc này.', { status: error.status, headers: { 'content-type': 'text/plain; charset=utf-8' } });
   }
-  return new Response(body, { headers: CLIENT_HEADERS });
 };
