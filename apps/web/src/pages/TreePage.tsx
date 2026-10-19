@@ -353,6 +353,7 @@ const GenerationCard = ({
   const { kind } = graph.placement(person.id);
   const parents = graph.parentsOf(person.id);
   const primaryParent = parents[0];
+  const adopted = parents.some((parent) => parent.kind === 'nuoi');
   const spouseCount = graph.spousesOf(person.id).length;
   const childCount = graph.childrenOf(person.id).length;
   const [adding, setAdding] = useState(false);
@@ -373,13 +374,25 @@ const GenerationCard = ({
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-lg font-bold">{person.full_name}</span>
-            <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-white/80">
-              <span>{person.gender === 'nam' ? 'Nam' : person.gender === 'nu' ? 'Nữ' : 'Chưa rõ'}</span>
-              {kind !== 'dinh' && <span>{kindLabel(kind, person.gender)}</span>}
+            <span className="mt-1 flex flex-wrap items-center gap-1.5">
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                  person.gender === 'nam' ? 'bg-kim-soft text-ink' : person.gender === 'nu' ? 'bg-white text-son' : 'border border-white/40 text-white/90'
+                }`}
+              >
+                {person.gender === 'nam' ? '♂ Nam' : person.gender === 'nu' ? '♀ Nữ' : 'Chưa rõ giới tính'}
+              </span>
+              {kind !== 'dinh' && (
+                <span className="rounded-full border border-white/50 px-2.5 py-0.5 text-xs font-semibold text-white">
+                  {kindLabel(kind, person.gender)}
+                </span>
+              )}
+              {adopted && <span className="rounded-full border border-white/50 px-2.5 py-0.5 text-xs font-semibold text-white">Con nuôi</span>}
             </span>
             {(spouseCount > 0 || childCount > 0) && (
-              <span className="mt-1 flex flex-wrap gap-x-3 text-sm font-semibold text-kim-soft">
+              <span className="mt-1.5 flex flex-wrap items-center gap-x-2 text-sm font-semibold text-kim-soft">
                 {spouseCount > 0 && <span>{spouseCount} vợ/chồng</span>}
+                {spouseCount > 0 && childCount > 0 && <span aria-hidden="true">·</span>}
                 {childCount > 0 && <span>{childCount} con</span>}
               </span>
             )}

@@ -14,7 +14,7 @@ export const drawingToSvg = (drawing: Drawing, fonts?: EmbeddedFonts, previewFon
       case 'rect':
         return `<rect x="${n(item.x)}" y="${n(item.y)}" width="${n(item.width)}" height="${n(item.height)}" rx="${n(item.radius)}" fill="${item.fill}" stroke="${item.stroke}" stroke-width="${n(item.strokeWidth)}"${item.dash ? ` stroke-dasharray="${item.dash.map(n).join(' ')}"` : ''}/>`;
       case 'line':
-        return `<polyline points="${item.points.map(([x, y]) => `${n(x)},${n(y)}`).join(' ')}" fill="none" stroke="${item.stroke}" stroke-width="${n(item.strokeWidth)}"/>`;
+        return `<polyline points="${item.points.map(([x, y]) => `${n(x)},${n(y)}`).join(' ')}" fill="none" stroke="${item.stroke}" stroke-width="${n(item.strokeWidth)}"${item.seamless ? ' stroke-linecap="square" stroke-linejoin="miter"' : ''}/>`;
       case 'text':
         return `<text x="${n(item.x)}" y="${n(item.y)}" font-size="${n(item.sizePt / PT_PER_MM)}" font-weight="${item.bold ? 700 : 400}" fill="${item.color}" text-anchor="${item.align === 'start' ? 'start' : 'middle'}" dominant-baseline="central">${escape(item.text)}</text>`;
       case 'image': {

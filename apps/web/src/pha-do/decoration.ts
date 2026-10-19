@@ -45,14 +45,17 @@ const PALETTES: Record<FrameStyle, Palette> = {
 /** Khung có dải hồi văn chữ công chạy quanh 4 cạnh (ngoài hoạ tiết góc) — kiểu trang trọng, cổ điển hơn. */
 const RUNNING_BORDER_STYLES = new Set<FrameStyle>(['son-kim', 'moc', 'lam-ngoc', 'hoang-gia', 'trieu-nguyen', 'tram-huong']);
 
-/** Một đơn vị hồi văn (bậc thang vuông góc) lặp lại, dạng điểm cục bộ (dọc theo cạnh, lệch vào trong). */
+/**
+ * Dải hồi văn chữ công, dạng điểm cục bộ (dọc theo cạnh, lệch vào trong). Bắt đầu và kết thúc trên đường nền
+ * (lệch 0) để nối thẳng vào cạnh của hoạ tiết góc; mỗi nhịp đối xứng: nền 1/4, nhô 1/2, nền 1/4.
+ */
 const meanderPoints = (length: number, idealUnit: number, h: number): [number, number][] => {
   const count = Math.max(2, Math.round(length / idealUnit));
   const u = length / count;
   const points: [number, number][] = [[0, 0]];
   for (let i = 0; i < count; i += 1) {
     const x0 = i * u;
-    points.push([x0, h], [x0 + u * 0.55, h], [x0 + u * 0.55, 0], [x0 + u, 0]);
+    points.push([x0 + u * 0.25, 0], [x0 + u * 0.25, h], [x0 + u * 0.75, h], [x0 + u * 0.75, 0], [x0 + u, 0]);
   }
   return points;
 };
@@ -76,7 +79,7 @@ const runningBorder = (page: { width: number; height: number }, unit: number, ru
     placeStrip([band, runStart], [0, 1], [1, 0], meanderPoints(sideLen, idealUnit, h)),
     placeStrip([page.width - band, runStart], [0, 1], [-1, 0], meanderPoints(sideLen, idealUnit, h)),
   ];
-  return strips.map((points) => ({ type: 'line', stroke: color, strokeWidth: width, points }));
+  return strips.map((points) => ({ type: 'line', stroke: color, strokeWidth: width, points, seamless: true }));
 };
 
 export type Region = { x: number; y: number; width: number; height: number };
@@ -101,6 +104,7 @@ const cornerKey = (cx: number, cy: number, size: number, sx: 1 | -1, sy: 1 | -1,
       type: 'line',
       stroke: color,
       strokeWidth: width,
+      seamless: true,
       points: [p(0, size), p(0, 0), p(size, 0), p(size, step), p(step, step), p(step, size - step), p(size - step, size - step), p(size - step, step * 2), p(step * 2, step * 2)],
     },
   ];
@@ -166,11 +170,13 @@ const frameItems = (page: { width: number; height: number }, style: FrameStyle, 
     items.push(rect(outerInset, palette.outer, unit * 0.2), rect(outerInset + unit * 0.6, palette.inner, unit * 0.1));
   }
 
-  const cornerInset = outerInset + unit * 2.2;
+  // Hoạ tiết góc nằm trong khung trong cùng, cách một khoảng đều cho mọi kiểu khung.
+  const cornerInset = innerRectInset + unit * 1.2;
   const size = unit * 5;
   const width = style === 'thanh-nha' ? unit * 0.12 : unit * 0.3;
   if (RUNNING_BORDER_STYLES.has(style)) {
-    items.push(...runningBorder(page, unit, cornerInset + size + unit, innerRectInset + unit * 1.6, palette.ornament, width * 1.15));
+    // Dải chạy cùng đường nền với cạnh hoạ tiết góc và bắt đầu đúng chỗ cạnh đó kết thúc → liền một nét.
+    items.push(...runningBorder(page, unit, cornerInset + size, cornerInset, palette.ornament, width));
   }
   items.push(
     ...cornerKey(cornerInset, cornerInset, size, 1, 1, palette.ornament, width),

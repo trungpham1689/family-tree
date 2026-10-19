@@ -37,4 +37,23 @@ describe('layoutDecoration', () => {
     expect(layout.below.some((item) => item.type === 'rect' && item.stroke !== item.fill)).toBe(false);
     expect(layout.content.width).toBeGreaterThan(0);
   });
+
+  it.each(['son-kim', 'moc', 'lam-ngoc', 'hoang-gia', 'trieu-nguyen', 'tram-huong'] as FrameStyle[])(
+    '%s: dải hồi văn nối liền với hoạ tiết góc ở cả hai đầu, không hở',
+    (frame) => {
+      const lines = layoutDecoration(PAGE, { ...DEFAULT_DECORATION, frame }, 'họ Nguyễn').below.filter((item) => item.type === 'line');
+      const strips = lines.filter((line) => line.points.length > 20);
+      const corners = lines.filter((line) => line.points.length <= 20);
+      expect(strips).toHaveLength(4);
+      expect(corners).toHaveLength(4);
+      const cornerVertices = corners.flatMap((corner) => corner.points);
+      for (const strip of strips) {
+        expect(strip.seamless).toBe(true);
+        for (const end of [strip.points[0]!, strip.points.at(-1)!]) {
+          const touches = cornerVertices.some(([x, y]) => Math.abs(x - end[0]) < 1e-6 && Math.abs(y - end[1]) < 1e-6);
+          expect(touches).toBe(true);
+        }
+      }
+    },
+  );
 });

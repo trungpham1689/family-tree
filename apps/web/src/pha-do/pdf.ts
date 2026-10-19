@@ -46,10 +46,25 @@ export const drawingToPdf = (drawing: Drawing, fonts: PdfFonts, title: string): 
       case 'line': {
         doc.setDrawColor(...hexToRgb(item.stroke));
         doc.setLineWidth(item.strokeWidth);
-        for (let index = 1; index < item.points.length; index += 1) {
-          const [x1, y1] = item.points[index - 1]!;
-          const [x2, y2] = item.points[index]!;
-          doc.line(x1, y1, x2, y2);
+        if (item.seamless) {
+          // Một đường liền (không phải từng đoạn rời): góc được nối nhọn, hai đầu vuông nên giáp nhau không hở.
+          const [startX, startY] = item.points[0] ?? [0, 0];
+          let previous: [number, number] = [startX, startY];
+          const deltas = item.points.slice(1).map(([x, y]): [number, number] => {
+            const delta: [number, number] = [x - previous[0], y - previous[1]];
+            previous = [x, y];
+            return delta;
+          });
+          doc.setLineCap('square');
+          doc.setLineJoin('miter');
+          doc.lines(deltas, startX, startY, [1, 1], 'S', false);
+          doc.setLineCap('butt');
+        } else {
+          for (let index = 1; index < item.points.length; index += 1) {
+            const [x1, y1] = item.points[index - 1]!;
+            const [x2, y2] = item.points[index]!;
+            doc.line(x1, y1, x2, y2);
+          }
         }
         break;
       }

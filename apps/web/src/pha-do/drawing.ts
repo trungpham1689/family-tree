@@ -12,7 +12,14 @@ export type DrawRect = {
   /** Viền đứt khi có (mm bật/tắt xen kẽ) — ví dụ đánh dấu Dâu/Rể. */
   dash?: readonly number[];
 };
-export type DrawLine = { type: 'line'; points: [number, number][]; stroke: string; strokeWidth: number };
+export type DrawLine = {
+  type: 'line';
+  points: [number, number][];
+  stroke: string;
+  strokeWidth: number;
+  /** Đầu nét vuông + góc nhọn, để các nét trang trí nối nhau liền mạch, không hở ở góc hay chỗ giáp. */
+  seamless?: boolean;
+};
 export type DrawText = {
   type: 'text';
   x: number;
