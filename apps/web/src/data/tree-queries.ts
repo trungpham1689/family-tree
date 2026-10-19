@@ -24,7 +24,6 @@ import {
   createPerson,
   createTree,
   deletePerson,
-  deleteTree,
   getTree,
   listMyTrees,
   listPendingDeletions,
@@ -39,7 +38,8 @@ import {
   listPersonPhotos,
   discardStoredFiles,
   listPersonPhotoPaths,
-  purgeTreePhotos,
+  deleteTreeWithPhotos,
+  sweepOrphanPhotos,
   removePersonPhoto,
   removeTreePhoto,
   setAvatarPhoto,
@@ -84,16 +84,16 @@ export const useSetOutsideGenerations = (treeId: string) =>
 export const useDeleteTree = (treeId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
-      await purgeTreePhotos(treeId);
-      return deleteTree(treeId);
-    },
+    // Server xoá gia phả rồi mới dọn ảnh trên Drive (xem handleDeleteTree).
+    mutationFn: () => deleteTreeWithPhotos(treeId),
     onSuccess: () => {
       queryClient.removeQueries({ queryKey: queryKeys.detail(treeId) });
       return queryClient.invalidateQueries({ queryKey: ['trees'] });
     },
   });
 };
+
+export const useSweepOrphanPhotos = (treeId: string) => useMutation({ mutationFn: () => sweepOrphanPhotos(treeId) });
 
 export const useCreatePerson = (treeId: string) =>
   useMutationWithEffects((fields: PersonFields) => createPerson(treeId, fields), () => effects.family(treeId));

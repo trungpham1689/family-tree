@@ -216,9 +216,15 @@ export const discardStoredFiles = async (paths: readonly string[]): Promise<void
   await Promise.allSettled(paths.map(removeStored));
 };
 
-/** Xoá cả thư mục ảnh của gia phả trên Drive (gọi trước khi xoá gia phả). */
-export const purgeTreePhotos = async (treeId: string): Promise<void> => {
+/** Xoá gia phả: server xoá dòng trong database (quyền Chủ sở hữu) rồi mới dọn thư mục ảnh trên Drive. */
+export const deleteTreeWithPhotos = async (treeId: string): Promise<void> => {
   await photoRequest(`?${new URLSearchParams({ treeId })}`, { method: 'DELETE' });
+};
+
+/** Dọn file ảnh mồ côi trên Drive của một gia phả; trả số file đã xoá. */
+export const sweepOrphanPhotos = async (treeId: string): Promise<number> => {
+  const response = await photoRequest(`/sweep?${new URLSearchParams({ treeId })}`, { method: 'POST' });
+  return ((await response.json()) as { deleted: number }).deleted;
 };
 
 /** Đặt (hoặc thay) ảnh đại diện của cả gia phả; ảnh cũ trên Drive được xoá sau khi ảnh mới đã lưu. */

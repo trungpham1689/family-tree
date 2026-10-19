@@ -29,6 +29,7 @@ import { Button } from '../ui/Button';
 import { Collapsible } from '../ui/Collapsible';
 import { ErrorBanner, Select } from '../ui/fields';
 import { Footer } from '../ui/Footer';
+import { useExport } from '../lib/use-export';
 import { exportFileName } from '../lib/download';
 import { FullPageMessage } from '../ui/FullPageMessage';
 import { DecorationSettings, ScopeSettings, PaperSettings, FontSettings } from '../pha-do/PhaDoSettings';
@@ -68,8 +69,7 @@ type Zoom = 'fit' | 1 | 2 | 4;
 const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: FamilyGraph<Person>; initial: PhaDoConfig }) => {
   const [config, setConfig] = useState(initial);
   const [zoom, setZoom] = useState<Zoom>('fit');
-  const [exporting, setExporting] = useState<'pdf' | 'png' | null>(null);
-  const [exportError, setExportError] = useState<string | null>(null);
+  const { running: exporting, error: exportError, run: runExport } = useExport<'pdf' | 'png'>();
   const save = useSavePhaDoConfig(tree.id);
   const canEdit = canEditTree(tree.role);
 
@@ -92,38 +92,28 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
     return { regular, bold };
   };
 
-  const exportPdf = async () => {
-    setExporting('pdf');
-    setExportError(null);
-    try {
-      const [{ drawingToPdf }, fonts] = await Promise.all([import('../pha-do/pdf'), loadFonts()]);
-      drawingToPdf(result.drawing, fonts, `Gia phả ${tree.name}`).save(exportFileName('Pha-do', tree.name, exportDate, 'pdf'));
-    } catch {
-      setExportError('Không tạo được file PDF. Hãy thử lại.');
-    } finally {
-      setExporting(null);
-    }
-  };
+  const exportPdf = () =>
+    runExport(
+      'pdf',
+      async () => {
+        const [{ drawingToPdf }, fonts] = await Promise.all([import('../pha-do/pdf'), loadFonts()]);
+        drawingToPdf(result.drawing, fonts, `Gia phả ${tree.name}`).save(exportFileName('Pha-do', tree.name, exportDate, 'pdf'));
+      },
+      'Không tạo được file PDF. Hãy thử lại.',
+    );
 
-  const exportPng = async () => {
-    setExporting('png');
-    setExportError(null);
-    try {
-      const [{ renderPng }, { downloadBlob }, fonts] = await Promise.all([
-        import('../pha-do/png-export'),
-        import('../lib/download'),
-        loadFonts(),
-      ]);
-      downloadBlob(
-        await renderPng(result.drawing, fonts, pngPlan),
-        exportFileName('Pha-do', tree.name, `${exportDate}-${pngPlan.dpi}dpi`, 'png'),
-      );
-    } catch {
-      setExportError('Không tạo được ảnh PNG (trình duyệt có thể thiếu bộ nhớ). Hãy thử khổ nhỏ hơn hoặc dùng PDF.');
-    } finally {
-      setExporting(null);
-    }
-  };
+  const exportPng = () =>
+    runExport(
+      'png',
+      async () => {
+        const [{ renderPng }, { downloadBlob }, fonts] = await Promise.all([import('../pha-do/png-export'), import('../lib/download'), loadFonts()]);
+        downloadBlob(
+          await renderPng(result.drawing, fonts, pngPlan),
+          exportFileName('Pha-do', tree.name, `${exportDate}-${pngPlan.dpi}dpi`, 'png'),
+        );
+      },
+      'Không tạo được ảnh PNG (trình duyệt có thể thiếu bộ nhớ). Hãy thử khổ nhỏ hơn hoặc dùng PDF.',
+    );
 
   return (
     <div className="mt-4 grid gap-6 lg:grid-cols-[22rem_1fr]">

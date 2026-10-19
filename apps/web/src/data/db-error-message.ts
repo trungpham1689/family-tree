@@ -24,6 +24,7 @@ export const BUSINESS_MESSAGES: Record<string, (details?: string | null) => stri
   ACCOUNT_NOT_FOUND: () => 'Chưa có tài khoản dùng email này. Mời họ tạo tài khoản trước rồi mời lại.',
   ALREADY_OWNER: () => 'Người này đã là Chủ sở hữu của gia phả.',
   CANNOT_CHANGE_OWNER: () => 'Không thể đổi hay gỡ vai trò của Chủ sở hữu.',
+  TOO_MANY_ATTEMPTS: () => 'Nhập sai mật khẩu quá nhiều lần. Hãy thử lại sau 10 phút.',
   NOT_ALLOWED: () => 'Bạn không có quyền làm việc này trong gia phả.',
   NOT_TREE_MEMBER: () => 'Bạn chưa có vai trò trong gia phả này.',
   INVALID_ROLE: () => 'Vai trò không hợp lệ. Chỉ mời được Biên tập viên hoặc Người xem.',

@@ -17,7 +17,7 @@ import { ErrorBanner } from '../ui/fields';
 import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
 import { GenerationList } from '../family/GenerationList';
-import { BackupButton, ExportButton, RenameForm, DeleteForm } from '../tree/TreeActions';
+import { BackupButton, DeleteForm, ExportButton, RenameForm, SweepPhotosButton } from '../tree/TreeActions';
 
 export const TreePage = () => {
   const { treeId = '' } = useParams();
@@ -145,6 +145,7 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
         {isOwner && family.isSuccess && !isEmpty && (
           <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-line pt-6">
             <BackupButton tree={tree} />
+            <SweepPhotosButton tree={tree} />
           </div>
         )}
       </section>

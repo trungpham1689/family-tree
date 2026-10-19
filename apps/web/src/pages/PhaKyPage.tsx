@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useParams } from 'react-router';
 import { toIsoDate, todayInVietnam } from '../calendar/month-grid';
 import { loadFontBinary } from '../data/pha-do';
 import { useAvatarDataUrl, useFamily, usePersonAvatars, useTree } from '../data/tree-queries';
 import { kindLabel } from '../family/labels';
 import { exportFileName } from '../lib/download';
+import { useExport } from '../lib/use-export';
 import { branchSummaries, buildNarrative, closingNote, notablePersons, originSummary } from '../pha-ky/narrative';
 import { buildFrontSections, toPdfSections, type PhaKySection } from '../pha-ky/sections';
 import { TreeTabs } from '../tree/TreeTabs';
@@ -19,8 +20,8 @@ export const PhaKyPage = () => {
   const { treeId = '' } = useParams();
   const tree = useTree(treeId);
   const family = useFamily(treeId);
-  const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
+  const { running, error: exportError, run: runExport } = useExport();
+  const exporting = running !== null;
 
   const today = todayInVietnam();
   const generations = useMemo(() => (family.data ? buildNarrative(family.data) : []), [family.data]);
@@ -39,32 +40,25 @@ export const PhaKyPage = () => {
   if (tree.isPending || family.isPending) return <FullPageMessage>Đang tải…</FullPageMessage>;
   const error = tree.error ?? family.error;
 
-  const exportPdf = async () => {
-    if (!tree.data) return;
-    setExporting(true);
-    setExportError(null);
-    try {
-      const [{ narrativeToPdf }, regular, bold] = await Promise.all([
-        import('../pha-ky/pdf'),
-        loadFontBinary('/fonts/NotoSerif-400Regular.ttf'),
-        loadFontBinary('/fonts/NotoSerif-700Bold.ttf'),
-      ]);
-
-      const before = toPdfSections(frontSections);
-
-      const after = generations.length > 0 ? [{ heading: 'Lời kết', paragraphs: [closingNote(today)] }] : [];
-
-      narrativeToPdf(generations, { regular, bold }, `Phả ký ${tree.data.name}`, before, after, {
-        cover: cover.data,
-        people: avatars.data,
-      }).save(
-        exportFileName('Pha-ky', tree.data.name, toIsoDate(today), 'pdf'),
-      );
-    } catch {
-      setExportError('Không tạo được file PDF. Hãy thử lại.');
-    } finally {
-      setExporting(false);
-    }
+  const exportPdf = () => {
+    const data = tree.data;
+    if (!data) return Promise.resolve();
+    return runExport(
+      'export',
+      async () => {
+        const [{ narrativeToPdf }, regular, bold] = await Promise.all([
+          import('../pha-ky/pdf'),
+          loadFontBinary('/fonts/NotoSerif-400Regular.ttf'),
+          loadFontBinary('/fonts/NotoSerif-700Bold.ttf'),
+        ]);
+        const after = generations.length > 0 ? [{ heading: 'Lời kết', paragraphs: [closingNote(today)] }] : [];
+        narrativeToPdf(generations, { regular, bold }, `Phả ký ${data.name}`, toPdfSections(frontSections), after, {
+          cover: cover.data,
+          people: avatars.data,
+        }).save(exportFileName('Pha-ky', data.name, toIsoDate(today), 'pdf'));
+      },
+      'Không tạo được file PDF. Hãy thử lại.',
+    );
   };
 
   return (

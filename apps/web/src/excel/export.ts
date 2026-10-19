@@ -4,54 +4,17 @@
  * nên xuất → nhập lại → xuất lần nữa cho ra cùng một file.
  */
 import type { SheetData } from 'write-excel-file/universal';
+import type { Row } from '../data/database.types';
+import { PERSON_FIELD_KEYS } from '../people/person-form';
 import { COLUMNS, type RawRow } from './columns';
 import { GUIDE_SHEET, DATA_SHEET, templateSheets } from './template';
 
-export type ExportPerson = {
-  id: string;
-  full_name: string;
-  gender: string | null;
-  is_progenitor: boolean;
-  birth_order: number | null;
-  common_name: string | null;
-  taboo_name: string | null;
-  courtesy_name: string | null;
-  han_name: string | null;
-  birth_calendar: string;
-  birth_precision: string | null;
-  birth_year: number | null;
-  birth_month: number | null;
-  birth_day: number | null;
-  birth_leap: boolean;
-  birth_approx: boolean;
-  birth_place: string | null;
-  hometown: string | null;
-  residence: string | null;
-  occupation: string | null;
-  education: string | null;
-  title: string | null;
-  phone: string | null;
-  email: string | null;
-  biography: string | null;
-  role_note: string | null;
-  is_deceased: boolean;
-  death_calendar: string;
-  death_precision: string | null;
-  death_year: number | null;
-  death_month: number | null;
-  death_day: number | null;
-  death_leap: boolean;
-  death_approx: boolean;
-  anniversary_day: number | null;
-  anniversary_month: number | null;
-  anniversary_manual: boolean;
-  burial_place: string | null;
-  burial_map_url: string | null;
-  worship_place: string | null;
-  worship_keeper_id: string | null;
-  hidden_from_public: boolean;
-  founds_branch: boolean;
-};
+/**
+ * Người trong file xuất: mọi trường hồ sơ (PERSON_FIELD_KEYS, nguồn duy nhất) trừ hai ngày dương tự tính, cộng id và các cờ
+ * hệ thống mà Excel mang theo. Thêm một trường hồ sơ thì kiểu này đòi hỏi nó ngay ở chỗ dựng dữ liệu.
+ */
+export type ExportPerson = Pick<Row<'persons'>, 'id' | 'is_progenitor' | 'hidden_from_public' | 'founds_branch'> &
+  Pick<Row<'persons'>, Exclude<(typeof PERSON_FIELD_KEYS)[number], 'birth_solar_date' | 'death_solar_date'>>;
 
 export type ExportData = {
   persons: readonly ExportPerson[];

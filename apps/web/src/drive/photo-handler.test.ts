@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { handleDelete, handleDeleteTree, handleDownload, handleUpload, type PhotoEnv } from './photo-handler';
+import { handleDelete, handleDeleteTree, handleDownload, handleSweep, handleUpload, type PhotoEnv } from './photo-handler';
 
 const TREE = '11111111-1111-1111-1111-111111111111';
 const PERSON = '22222222-2222-2222-2222-222222222222';
@@ -14,7 +14,7 @@ const env: PhotoEnv = {
 type Call = { url: string; method: string };
 
 /** Giả Supabase + Drive: `roles` là các hàm vai trò trả true; Drive giữ thư mục/file trong bộ nhớ. */
-const fakeServer = (options: { allow?: string[]; fileTree?: string; personTree?: string; photoRow?: boolean; coverPhoto?: boolean } = {}) => {
+const fakeServer = (options: { allow?: string[]; fileTree?: string; personTree?: string; photoRow?: boolean; coverPhoto?: boolean; referenced?: string[]; driveFiles?: string[]; treeDeletable?: boolean } = {}) => {
   const allow = new Set(options.allow ?? []);
   const calls: Call[] = [];
   let folderCount = 0;
@@ -28,6 +28,12 @@ const fakeServer = (options: { allow?: string[]; fileTree?: string; personTree?:
       const fn = url.split('/').pop()!;
       const authorization = (init?.headers as Record<string, string> | undefined)?.authorization;
       return authorization === 'Bearer bad' ? json({}, 401) : json(allow.has(fn));
+    }
+    if (method === 'DELETE' && url.startsWith('https://db.test/rest/v1/family_trees')) return json(options.treeDeletable === false ? [] : [{ id: TREE }]);
+    if (url.includes('select=storage_path')) return json((options.referenced ?? []).map((storage_path) => ({ storage_path })));
+    if (url.startsWith('https://db.test/rest/v1/family_trees') && url.includes('select=photo_path')) return json([{ photo_path: null }]);
+    if (url.startsWith('https://www.googleapis.com/drive/v3/files?q=') && decodeURIComponent(url).includes('mimeType!=')) {
+      return json({ files: (options.driveFiles ?? []).map((id) => ({ id })) });
     }
     if (url.startsWith('https://db.test/rest/v1/persons')) return json([{ tree_id: options.personTree ?? TREE }]);
     if (url.startsWith('https://db.test/rest/v1/person_photos')) return json(options.photoRow ? [{ person_id: PERSON }] : []);
@@ -150,7 +156,7 @@ describe('/api/photos', () => {
     expect(server.calls).toContainEqual({ url: 'https://www.googleapis.com/drive/v3/files/driveFileId123', method: 'DELETE' });
   });
 
-  it('xoá gia phả: chỉ Chủ sở hữu, xoá cả thư mục gia phả trên Drive', async () => {
+  it('xoá gia phả: chỉ Chủ sở hữu; database xoá trước, chỉ khi xoá được mới dọn thư mục Drive', async () => {
     const request = () => new Request(`https://app.test/api/photos?treeId=${TREE}`, { method: 'DELETE', headers: { authorization: 'Bearer user' } });
     expect((await handleDeleteTree(request(), env, fakeServer({ allow: ['can_edit_tree'] }).doFetch)).status).toBe(403);
 
@@ -159,5 +165,22 @@ describe('/api/photos', () => {
     const response = await handleDeleteTree(request(), env, server.doFetch);
     expect(response.status).toBe(204);
     expect(server.calls.filter((call) => call.method === 'DELETE' && call.url.includes('/files/folder-'))).toHaveLength(1);
+
+    // Database không xoá được (RLS trả về không dòng nào): Drive không bị đụng tới.
+    const refused = fakeServer({ allow: ['is_tree_owner', 'can_edit_person'], treeDeletable: false });
+    await handleUpload(upload(MEMBER_QUERY_FOR_TREE), env, refused.doFetch);
+    expect((await handleDeleteTree(request(), env, refused.doFetch)).status).toBe(404);
+    expect(refused.calls.some((call) => call.method === 'DELETE' && call.url.includes('googleapis'))).toBe(false);
+  });
+
+  it('dọn ảnh mồ côi: chỉ Chủ sở hữu; xoá đúng file Drive không còn dòng nào trỏ tới', async () => {
+    const request = () => new Request(`https://app.test/api/photos/sweep?treeId=${TREE}`, { method: 'POST', headers: { authorization: 'Bearer user' } });
+    expect((await handleSweep(request(), env, fakeServer({ allow: ['can_edit_tree'] }).doFetch)).status).toBe(403);
+
+    const server = fakeServer({ allow: ['is_tree_owner'], referenced: [`${TREE}/keepFile0001`], driveFiles: ['keepFile0001', 'orphanFile01', 'orphanFile02'] });
+    const response = await handleSweep(request(), env, server.doFetch);
+    expect(await response.json()).toEqual({ deleted: 2 });
+    const deletes = server.calls.filter((call) => call.method === 'DELETE').map((call) => call.url.split('/').pop());
+    expect(deletes.sort()).toEqual(['orphanFile01', 'orphanFile02']);
   });
 });

@@ -216,4 +216,20 @@ describe('seam B: ngày cưới, lịch đăng ký, gộp người trùng', () =
       await expect(owner.rpc('update_union', { target_union: crypto.randomUUID(), viewer: rootId, new_status: 'con' })).rejects.toThrow(/UNION_NOT_FOUND/);
     });
   });
+
+  describe('gộp người trùng và giới hạn ảnh', () => {
+    it('không vượt giới hạn ảnh mỗi Người; ảnh đại diện của người bị gộp đi trước', async () => {
+      const [{ value: limit }] = await owner.query<{ value: number }>("select value from app_settings where key = 'max_photos_per_person'") as [{ value: number }];
+      const keep = await person('Giữ');
+      const dup = await person('Trùng');
+      await owner.query('insert into person_photos (person_id, storage_path) values ($1, $2)', [keep, `${treeId}/keep-photo-1`]);
+      for (let index = 0; index < limit; index += 1) {
+        await owner.query('insert into person_photos (person_id, storage_path, is_avatar) values ($1, $2, $3)', [dup, `${treeId}/dup-photo-${index}`, index === limit - 1]);
+      }
+      await owner.rpc('merge_persons', { keep_person: keep, drop_person: dup });
+      const photos = await owner.query<{ storage_path: string; is_avatar: boolean }>('select storage_path, is_avatar from person_photos where person_id = $1', [keep]);
+      expect(photos).toHaveLength(limit);
+      expect(photos.filter((p) => p.is_avatar).map((p) => p.storage_path)).toEqual([`${treeId}/dup-photo-${limit - 1}`]);
+    });
+  });
 });

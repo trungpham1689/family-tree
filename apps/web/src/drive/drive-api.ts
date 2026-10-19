@@ -147,3 +147,29 @@ export const deleteTreeFolder = async (token: string, treeId: string, doFetch: F
   if (!folderId) return;
   await check(await doFetch(`${API}/files/${encodeURIComponent(folderId)}`, authed(token, { method: 'DELETE' })), 'xoá thư mục gia phả');
 };
+
+/** Id mọi file ảnh (không phải thư mục) của một gia phả trên Drive, theo appProperties.treeId. */
+export const listTreeFileIds = async (token: string, treeId: string, doFetch: Fetch = fetch): Promise<string[]> => {
+  const ids: string[] = [];
+  let pageToken: string | undefined;
+  do {
+    const query = new URLSearchParams({
+      q: `mimeType!='${FOLDER_MIME}' and trashed=false and appProperties has { key='treeId' and value='${treeId}' }`,
+      fields: 'nextPageToken, files(id)',
+      pageSize: '1000',
+      ...(pageToken ? { pageToken } : {}),
+    });
+    const page = (await (await check(await doFetch(`${API}/files?${query}`, authed(token)), 'liệt kê ảnh')).json()) as {
+      files: DriveFile[];
+      nextPageToken?: string;
+    };
+    ids.push(...page.files.map((file) => file.id));
+    pageToken = page.nextPageToken;
+  } while (pageToken);
+  return ids;
+};
+
+/** Xoá một file ảnh theo id, không kiểm gia phả (chỉ dùng sau khi đã chọn từ `listTreeFileIds`). */
+export const deleteFileById = async (token: string, fileId: string, doFetch: Fetch = fetch): Promise<void> => {
+  await check(await doFetch(`${API}/files/${encodeURIComponent(fileId)}`, authed(token, { method: 'DELETE' })), 'xoá ảnh');
+};

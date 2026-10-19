@@ -1,10 +1,12 @@
 import {
+  deleteFileById,
   deleteImage,
   deleteTreeFolder,
   downloadImage,
   DriveError,
   ensureTreeFolders,
   getAccessToken,
+  listTreeFileIds,
   uploadImage,
   type DriveEnv,
 } from './drive-api';
@@ -177,14 +179,65 @@ export const handleDelete = async (request: Request, env: PhotoEnv, fileId: stri
   }
 };
 
-/** DELETE /api/photos?treeId=… — xoá cả thư mục ảnh của gia phả trên Drive; chỉ Chủ sở hữu (dùng khi xoá gia phả). */
+/**
+ * Đọc hết một truy vấn nhiều dòng của PostgREST bằng quyền người gọi (RLS áp dụng), từng trang theo header Range.
+ * Lỗi thì ném ra: ở đây "không đọc được" không được coi là "không có dòng nào" (sẽ làm dọn nhầm).
+ */
+const restAll = async <Row>(env: PhotoEnv, jwt: string, query: string, doFetch: typeof fetch): Promise<Row[]> => {
+  const rows: Row[] = [];
+  for (let from = 0; ; from += 1000) {
+    const response = await doFetch(`${env.VITE_SUPABASE_URL}/rest/v1/${query}`, {
+      headers: { apikey: env.VITE_SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${jwt}`, 'range-unit': 'items', range: `${from}-${from + 999}` },
+    });
+    if (!response.ok) throw new DriveError(502, 'Không đọc được dữ liệu ảnh.');
+    const page = (await response.json()) as Row[];
+    rows.push(...page);
+    if (page.length < 1000) return rows;
+  }
+};
+
+/**
+ * DELETE /api/photos?treeId=… — Chủ sở hữu xoá gia phả. Database quyết định trước (xoá dòng bằng quyền người gọi, RLS áp dụng),
+ * chỉ khi xoá được mới dọn thư mục ảnh trên Drive; nhờ vậy không bao giờ mất ảnh mà gia phả vẫn còn.
+ */
 export const handleDeleteTree = async (request: Request, env: PhotoEnv, doFetch: typeof fetch = fetch): Promise<Response> => {
   const treeId = new URL(request.url).searchParams.get('treeId') ?? '';
   const denied = await authorize(request, env, treeId, treeRule('is_tree_owner', treeId), doFetch);
   if (denied) return denied;
+
+  const deleted = await doFetch(`${env.VITE_SUPABASE_URL}/rest/v1/family_trees?id=eq.${treeId}`, {
+    method: 'DELETE',
+    headers: { apikey: env.VITE_SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${bearer(request)}`, prefer: 'return=representation' },
+  });
+  if (!deleted.ok || ((await deleted.json()) as unknown[]).length === 0) return json({ error: 'Không xoá được gia phả.' }, deleted.ok ? 404 : 502);
+
   try {
     await deleteTreeFolder(await getAccessToken(env, doFetch), treeId, doFetch);
-    return new Response(null, { status: 204 });
+  } catch (error) {
+    // Gia phả đã xoá; thư mục ảnh còn lại chỉ là rác trên Drive, không chặn người dùng.
+    console.error('Không xoá được thư mục Drive của gia phả', treeId, error);
+  }
+  return new Response(null, { status: 204 });
+};
+
+/**
+ * POST /api/photos/sweep?treeId=… — Chủ sở hữu dọn ảnh mồ côi: file của gia phả trên Drive không còn dòng nào trỏ tới
+ * (sót lại khi xoá file lỗi, hoặc ảnh dư khi gộp người trùng). Trả { deleted }.
+ */
+export const handleSweep = async (request: Request, env: PhotoEnv, doFetch: typeof fetch = fetch): Promise<Response> => {
+  const treeId = new URL(request.url).searchParams.get('treeId') ?? '';
+  const denied = await authorize(request, env, treeId, treeRule('is_tree_owner', treeId), doFetch);
+  if (denied) return denied;
+  const jwt = bearer(request)!;
+  try {
+    const referenced = new Set([
+      ...(await restAll<{ storage_path: string }>(env, jwt, `person_photos?tree_id=eq.${treeId}&select=storage_path&order=id`, doFetch)).map((row) => row.storage_path),
+      ...(await restAll<{ photo_path: string | null }>(env, jwt, `family_trees?id=eq.${treeId}&select=photo_path`, doFetch)).flatMap((row) => (row.photo_path ? [row.photo_path] : [])),
+    ]);
+    const token = await getAccessToken(env, doFetch);
+    const orphans = (await listTreeFileIds(token, treeId, doFetch)).filter((fileId) => !referenced.has(`${treeId}/${fileId}`));
+    for (const fileId of orphans) await deleteFileById(token, fileId, doFetch);
+    return json({ deleted: orphans.length }, 200);
   } catch (error) {
     return failure(error);
   }

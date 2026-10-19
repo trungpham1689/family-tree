@@ -296,153 +296,128 @@ export const layoutGenerations = (input: {
   return { progenitorCode, generation };
 };
 
-export const buildImportPreview = (table: readonly (readonly CellValue[])[]): ImportPreview => {
-  const errors: ImportError[] = [];
-  const fail = (row: number, column: ColumnKey | null, message: string) =>
-    errors.push({ row, column: column ? HEADER_OF[column] : null, message });
+type Fail = (row: number, column: ColumnKey | null, message: string) => void;
 
-  const { rows, missing } = readTable(table);
-  if (missing.length > 0) {
-    errors.push({ row: 1, column: null, message: `Không thấy cột ${missing.map((name) => `"${name}"`).join(', ')}. Hãy dùng file mẫu.` });
-    return emptyPreview(errors);
-  }
-  if (rows.length === 0) {
-    errors.push({ row: 2, column: null, message: 'File chưa có dòng dữ liệu nào.' });
-    return emptyPreview(errors);
-  }
-  if (rows.length > MAX_ROWS) {
-    errors.push({ row: rows[MAX_ROWS]!.row, column: null, message: `Một gia phả có tối đa ${MAX_ROWS} người; file có ${rows.length} người.` });
-    return emptyPreview(errors);
-  }
-
-  // ---- Từng dòng ----
-  const byCode = new Map<string, ParsedRow>();
-  const parsed: ParsedRow[] = [];
-  for (const { row, data } of rows) {
-    const code = data.code?.trim() ?? '';
-    if (code === '') {
-      fail(row, 'code', 'Thiếu mã. Mỗi người cần một mã riêng để nối quan hệ.');
-      continue;
+/** Một dòng Excel → `ParsedRow` (các ô đã đọc thành giá trị, lỗi từng ô báo qua `fail`). */
+const parseRow = (row: number, data: RawRow, code: string, fail: Fail): ParsedRow => {
+  const gender = parseGender(data.gender);
+  if (gender === null) fail(row, 'gender', `Giới tính "${data.gender}" không hiểu được. Ghi Nam hoặc Nữ.`);
+  const deceasedFlag = parseYes(data.deceased);
+  if (deceasedFlag === null) fail(row, 'deceased', `Cột Đã mất ghi "${data.deceased}" không hiểu được. Ghi Có hoặc để trống.`);
+  const birthOrder = parseOrder(data.birthOrder);
+  if (birthOrder === 'invalid') fail(row, 'birthOrder', 'Thứ tự con là số từ 1 (con trưởng).');
+  const spouseOrders = splitList(data.spouseOrder).map(parseOrder);
+  if (spouseOrders.includes('invalid')) fail(row, 'spouseOrder', 'Thứ tự hôn phối là số từ 1 (vợ/chồng cả).');
+  const spouseStatuses = splitCells(data.spouseStatus).map((text) => {
+    const status = parseStatus(text);
+    if (!status) fail(row, 'spouseStatus', `Tình trạng "${text}" không hiểu được. Ghi Còn, Ly hôn hoặc Goá.`);
+    return status ?? 'con';
+  });
+  const marriages = splitCells(data.marriageDate).map((text): Marriage => {
+    if (text === '-' || text === '') return { year: null, month: null, day: null };
+    const input = parseDateText(text, { calendar: 'duong', leap: false });
+    const year = input ? Number(input.year) : NaN;
+    const month = input?.month ? Number(input.month) : null;
+    const day = input?.day ? Number(input.day) : null;
+    if (!input || year < 1 || year > 2200 || (month !== null && (month < 1 || month > 12)) || (day !== null && (day < 1 || day > 31))) {
+      fail(row, 'marriageDate', `Ngày cưới "${text}" không đúng cách ghi. Ví dụ: 15/8/1950, 8/1950, 1950 hoặc dấu - nếu chưa biết.`);
+      return { year: null, month: null, day: null };
     }
-    const duplicate = byCode.get(code);
-    if (duplicate) {
-      fail(row, 'code', `Mã "${code}" trùng với dòng ${duplicate.row}.`);
-      continue;
+    return { year, month, day };
+  });
+  const hiddenFlag = parseYes(data.hiddenFromPublic);
+  if (hiddenFlag === null) fail(row, 'hiddenFromPublic', `Cột Ẩn khỏi link công khai ghi "${data.hiddenFromPublic}" không hiểu được. Ghi Có hoặc để trống.`);
+  const foundsFlag = parseYes(data.foundsBranch);
+  if (foundsFlag === null) fail(row, 'foundsBranch', `Cột Lập chi mới ghi "${data.foundsBranch}" không hiểu được. Ghi Có hoặc để trống.`);
+  const kindText = normalizeName(data.parentKind ?? '');
+  if (!['', 'ruot', 'nuoi'].includes(kindText)) fail(row, 'parentKind', 'Ghi Ruột hoặc Nuôi.');
+
+  const date = (textKey: 'birthDate' | 'deathDate', calendarKey: 'birthCalendar' | 'deathCalendar'): DateInput => {
+    const calendar = parseCalendar(data[calendarKey]);
+    if (!calendar) {
+      fail(row, calendarKey, `Lịch "${data[calendarKey]}" không hiểu được. Ghi Dương, Âm hoặc Âm nhuận.`);
+      return EMPTY_DATE_INPUT;
     }
-
-    const gender = parseGender(data.gender);
-    if (gender === null) fail(row, 'gender', `Giới tính "${data.gender}" không hiểu được. Ghi Nam hoặc Nữ.`);
-    const deceasedFlag = parseYes(data.deceased);
-    if (deceasedFlag === null) fail(row, 'deceased', `Cột Đã mất ghi "${data.deceased}" không hiểu được. Ghi Có hoặc để trống.`);
-    const birthOrder = parseOrder(data.birthOrder);
-    if (birthOrder === 'invalid') fail(row, 'birthOrder', 'Thứ tự con là số từ 1 (con trưởng).');
-    const spouseOrders = splitList(data.spouseOrder).map(parseOrder);
-    if (spouseOrders.includes('invalid')) fail(row, 'spouseOrder', 'Thứ tự hôn phối là số từ 1 (vợ/chồng cả).');
-    const spouseStatuses = splitCells(data.spouseStatus).map((text) => {
-      const status = parseStatus(text);
-      if (!status) fail(row, 'spouseStatus', `Tình trạng "${text}" không hiểu được. Ghi Còn, Ly hôn hoặc Goá.`);
-      return status ?? 'con';
-    });
-    const marriages = splitCells(data.marriageDate).map((text): Marriage => {
-      if (text === '-' || text === '') return { year: null, month: null, day: null };
-      const input = parseDateText(text, { calendar: 'duong', leap: false });
-      const year = input ? Number(input.year) : NaN;
-      const month = input?.month ? Number(input.month) : null;
-      const day = input?.day ? Number(input.day) : null;
-      if (!input || year < 1 || year > 2200 || (month !== null && (month < 1 || month > 12)) || (day !== null && (day < 1 || day > 31))) {
-        fail(row, 'marriageDate', `Ngày cưới "${text}" không đúng cách ghi. Ví dụ: 15/8/1950, 8/1950, 1950 hoặc dấu - nếu chưa biết.`);
-        return { year: null, month: null, day: null };
-      }
-      return { year, month, day };
-    });
-    const hiddenFlag = parseYes(data.hiddenFromPublic);
-    if (hiddenFlag === null) fail(row, 'hiddenFromPublic', `Cột Ẩn khỏi link công khai ghi "${data.hiddenFromPublic}" không hiểu được. Ghi Có hoặc để trống.`);
-    const foundsFlag = parseYes(data.foundsBranch);
-    if (foundsFlag === null) fail(row, 'foundsBranch', `Cột Lập chi mới ghi "${data.foundsBranch}" không hiểu được. Ghi Có hoặc để trống.`);
-    const kindText = normalizeName(data.parentKind ?? '');
-    if (!['', 'ruot', 'nuoi'].includes(kindText)) fail(row, 'parentKind', 'Ghi Ruột hoặc Nuôi.');
-
-    const date = (textKey: 'birthDate' | 'deathDate', calendarKey: 'birthCalendar' | 'deathCalendar'): DateInput => {
-      const calendar = parseCalendar(data[calendarKey]);
-      if (!calendar) {
-        fail(row, calendarKey, `Lịch "${data[calendarKey]}" không hiểu được. Ghi Dương, Âm hoặc Âm nhuận.`);
-        return EMPTY_DATE_INPUT;
-      }
-      const text = data[textKey];
-      if (!text) return { ...EMPTY_DATE_INPUT, calendar: calendar.calendar };
-      const input = parseDateText(text, calendar);
-      if (!input) {
-        fail(row, textKey, `Ngày "${text}" không đúng cách ghi. Ví dụ: 15/8/1920, 8/1920 hoặc 1920.`);
-        return EMPTY_DATE_INPUT;
-      }
-      return input;
-    };
-    const birth = date('birthDate', 'birthCalendar');
-    const death = date('deathDate', 'deathCalendar');
-
-    let anniversary = { manual: false, day: '', month: '' };
-    if (data.anniversary) {
-      const match = /^(\d{1,2})\s*\/\s*(\d{1,2})$/.exec(data.anniversary);
-      if (match) anniversary = { manual: true, day: match[1]!, month: match[2]! };
-      else fail(row, 'anniversary', 'Ngày giỗ ghi dạng ngày/tháng âm lịch, ví dụ 7/8.');
+    const text = data[textKey];
+    if (!text) return { ...EMPTY_DATE_INPUT, calendar: calendar.calendar };
+    const input = parseDateText(text, calendar);
+    if (!input) {
+      fail(row, textKey, `Ngày "${text}" không đúng cách ghi. Ví dụ: 15/8/1920, 8/1920 hoặc 1920.`);
+      return EMPTY_DATE_INPUT;
     }
+    return input;
+  };
+  const birth = date('birthDate', 'birthCalendar');
+  const death = date('deathDate', 'deathCalendar');
 
-    const values: PersonFormValues = {
-      ...EMPTY_PERSON_FORM,
-      fullName: data.fullName ?? '',
-      gender: gender ?? '',
-      birthOrder: typeof birthOrder === 'number' ? String(birthOrder) : '',
-      commonName: data.commonName ?? '',
-      tabooName: data.tabooName ?? '',
-      courtesyName: data.courtesyName ?? '',
-      hanName: data.hanName ?? '',
-      birth,
-      birthPlace: data.birthPlace ?? '',
-      hometown: data.hometown ?? '',
-      residence: data.residence ?? '',
-      occupation: data.occupation ?? '',
-      education: data.education ?? '',
-      title: data.title ?? '',
-      phone: data.phone ?? '',
-      email: data.email ?? '',
-      biography: data.biography ?? '',
-      roleNote: data.roleNote ?? '',
-      isDeceased: deceasedFlag === true || death.year !== '' || anniversary.manual,
-      death,
-      anniversaryManual: anniversary.manual,
-      anniversaryDay: anniversary.day,
-      anniversaryMonth: anniversary.month,
-      burialPlace: data.burialPlace ?? '',
-      burialMapUrl: data.burialMapUrl ?? '',
-      worshipPlace: data.worshipPlace ?? '',
-      // Người phụ trách cúng giỗ giờ là một Người được chọn trong app, không nhập tên tay qua Excel.
-      worshipKeeperId: null,
-    };
-    const result = parsePersonForm(values);
-    if (!result.ok) {
-      for (const [key, message] of Object.entries(result.errors)) {
-        const column = FORM_ERROR_COLUMN[key as keyof PersonFormValues] ?? null;
-        fail(row, column, key === 'fullName' ? 'Thiếu họ tên.' : (message ?? 'Giá trị chưa hợp lệ.'));
-      }
-    }
-
-    const entry: ParsedRow = {
-      row,
-      code,
-      data,
-      fields: result.ok ? result.fields : null,
-      gender: gender ?? '',
-      spouseOrders: spouseOrders.map((order) => (typeof order === 'number' ? order : null)),
-      spouseStatuses,
-      marriages,
-      parentKind: kindText === 'nuoi' ? 'nuoi' : 'ruot',
-      hiddenFromPublic: hiddenFlag === true,
-      foundsBranch: foundsFlag === true,
-    };
-    byCode.set(code, entry);
-    parsed.push(entry);
+  let anniversary = { manual: false, day: '', month: '' };
+  if (data.anniversary) {
+    const match = /^(\d{1,2})\s*\/\s*(\d{1,2})$/.exec(data.anniversary);
+    if (match) anniversary = { manual: true, day: match[1]!, month: match[2]! };
+    else fail(row, 'anniversary', 'Ngày giỗ ghi dạng ngày/tháng âm lịch, ví dụ 7/8.');
   }
 
+  const values: PersonFormValues = {
+    ...EMPTY_PERSON_FORM,
+    fullName: data.fullName ?? '',
+    gender: gender ?? '',
+    birthOrder: typeof birthOrder === 'number' ? String(birthOrder) : '',
+    commonName: data.commonName ?? '',
+    tabooName: data.tabooName ?? '',
+    courtesyName: data.courtesyName ?? '',
+    hanName: data.hanName ?? '',
+    birth,
+    birthPlace: data.birthPlace ?? '',
+    hometown: data.hometown ?? '',
+    residence: data.residence ?? '',
+    occupation: data.occupation ?? '',
+    education: data.education ?? '',
+    title: data.title ?? '',
+    phone: data.phone ?? '',
+    email: data.email ?? '',
+    biography: data.biography ?? '',
+    roleNote: data.roleNote ?? '',
+    isDeceased: deceasedFlag === true || death.year !== '' || anniversary.manual,
+    death,
+    anniversaryManual: anniversary.manual,
+    anniversaryDay: anniversary.day,
+    anniversaryMonth: anniversary.month,
+    burialPlace: data.burialPlace ?? '',
+    burialMapUrl: data.burialMapUrl ?? '',
+    worshipPlace: data.worshipPlace ?? '',
+    // Người phụ trách cúng giỗ giờ là một Người được chọn trong app, không nhập tên tay qua Excel.
+    worshipKeeperId: null,
+  };
+  const result = parsePersonForm(values);
+  if (!result.ok) {
+    for (const [key, message] of Object.entries(result.errors)) {
+      const column = FORM_ERROR_COLUMN[key as keyof PersonFormValues] ?? null;
+      fail(row, column, key === 'fullName' ? 'Thiếu họ tên.' : (message ?? 'Giá trị chưa hợp lệ.'));
+    }
+  }
+
+  const entry: ParsedRow = {
+    row,
+    code,
+    data,
+    fields: result.ok ? result.fields : null,
+    gender: gender ?? '',
+    spouseOrders: spouseOrders.map((order) => (typeof order === 'number' ? order : null)),
+    spouseStatuses,
+    marriages,
+    parentKind: kindText === 'nuoi' ? 'nuoi' : 'ruot',
+    hiddenFromPublic: hiddenFlag === true,
+    foundsBranch: foundsFlag === true,
+  };
+  return entry;
+};
+
+/** Quan hệ cha mẹ – con và hôn phối từ các cột mã (kèm kiểm tra mã tồn tại); lỗi báo qua `fail`. */
+const buildRelations = (
+  parsed: readonly ParsedRow[],
+  byCode: ReadonlyMap<string, ParsedRow>,
+  fail: Fail,
+): { parentLinks: ImportPayload['parentLinks']; unions: ImportPayload['unions'] } => {
   // ---- Quan hệ ----
   const parentLinks: ImportPayload['parentLinks'] = [];
   const unions: ImportPayload['unions'] = [];
@@ -524,6 +499,49 @@ export const buildImportPreview = (table: readonly (readonly CellValue[])[]): Im
     if (keeper === entry.code) fail(entry.row, 'worshipKeeperCode', 'Người phụ trách cúng giỗ không thể là chính người này.');
     else if (!byCode.has(keeper)) fail(entry.row, 'worshipKeeperCode', `Mã người phụ trách cúng giỗ "${keeper}" không có trong file.`);
   }
+  return { parentLinks, unions };
+};
+
+export const buildImportPreview = (table: readonly (readonly CellValue[])[]): ImportPreview => {
+  const errors: ImportError[] = [];
+  const fail = (row: number, column: ColumnKey | null, message: string) =>
+    errors.push({ row, column: column ? HEADER_OF[column] : null, message });
+
+  const { rows, missing } = readTable(table);
+  if (missing.length > 0) {
+    errors.push({ row: 1, column: null, message: `Không thấy cột ${missing.map((name) => `"${name}"`).join(', ')}. Hãy dùng file mẫu.` });
+    return emptyPreview(errors);
+  }
+  if (rows.length === 0) {
+    errors.push({ row: 2, column: null, message: 'File chưa có dòng dữ liệu nào.' });
+    return emptyPreview(errors);
+  }
+  if (rows.length > MAX_ROWS) {
+    errors.push({ row: rows[MAX_ROWS]!.row, column: null, message: `Một gia phả có tối đa ${MAX_ROWS} người; file có ${rows.length} người.` });
+    return emptyPreview(errors);
+  }
+
+  // ---- Từng dòng ----
+  const byCode = new Map<string, ParsedRow>();
+  const parsed: ParsedRow[] = [];
+  for (const { row, data } of rows) {
+    const code = data.code?.trim() ?? '';
+    if (code === '') {
+      fail(row, 'code', 'Thiếu mã. Mỗi người cần một mã riêng để nối quan hệ.');
+      continue;
+    }
+    const duplicate = byCode.get(code);
+    if (duplicate) {
+      fail(row, 'code', `Mã "${code}" trùng với dòng ${duplicate.row}.`);
+      continue;
+    }
+
+    const entry = parseRow(row, data, code, fail);
+    byCode.set(code, entry);
+    parsed.push(entry);
+  }
+
+  const { parentLinks, unions } = buildRelations(parsed, byCode, fail);
 
   // ---- Vòng lặp tổ tiên ----
   const cycles = findAncestorCycles(parsed.map((entry) => entry.code), parentLinks);

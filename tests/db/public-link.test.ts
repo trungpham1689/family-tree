@@ -210,4 +210,23 @@ describe('seam B: link chia sẻ công khai', () => {
     });
     expect(await db.asAnon().rpc('public_tree_card', { token: '1'.repeat(32) })).toBeNull();
   });
+
+  describe('chống dò mật khẩu', () => {
+    it('sai 10 lần thì khoá 10 phút (kể cả nhập đúng); gia phả khác không bị ảnh hưởng', async () => {
+      const token = await me.rpc<string>('rotate_public_link', { target_tree: treeId, password: 'dung-mat-khau' });
+      const anon = db.asAnon();
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        expect(await anon.rpc('public_tree', { token, password: 'sai' })).toEqual({ wrong_password: true });
+      }
+      await expect(anon.rpc('public_tree', { token, password: 'dung-mat-khau' })).rejects.toThrow(/TOO_MANY_ATTEMPTS/);
+
+      const [other] = await me.query<{ id: string }>("insert into family_trees (name) values ('Họ khác') returning id");
+      const otherToken = await me.rpc<string>('rotate_public_link', { target_tree: other!.id, password: 'mat-khau-2' });
+      expect(await anon.rpc('public_tree', { token: otherToken, password: 'mat-khau-2' })).toMatchObject({ tree: { name: 'Họ khác' } });
+
+      // Hết 10 phút (giả lập bằng cách lùi mốc các lần sai) thì vào lại được.
+      await db.admin.query("update public_share.password_failures set failed_at = now() - interval '11 minutes'");
+      expect(await anon.rpc('public_tree', { token, password: 'dung-mat-khau' })).toMatchObject({ tree: { name: 'Họ Phạm làng Đông' } });
+    });
+  });
 });
