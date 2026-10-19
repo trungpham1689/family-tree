@@ -104,6 +104,35 @@ describe('seam B: ngày cưới, lịch đăng ký, gộp người trùng', () =
       expect(row!.is_progenitor).toBe(true);
     });
 
+    it.each([
+      ['giữ người có đủ hai cha mẹ', 2, 1],
+      ['giữ người có một cha', 1, 2],
+      ['hai người cùng đủ hai cha mẹ', 2, 2],
+    ])('con trùng cùng cha mẹ: %s', async (_name, keepParents, dropParents) => {
+      const father = await person('Cha');
+      const mother = await owner.rpc<string>('add_spouse', { person_id: father, union_order: null, person: { full_name: 'Mẹ' } });
+      const addChild = (parents: number) =>
+        owner.rpc<string>('add_child', { parent_id: father, other_parent_id: parents === 2 ? mother : null, link_kind: 'ruot', person: { full_name: 'Phạm Văn Con' } });
+      const keep = await addChild(keepParents);
+      const dup = await addChild(dropParents);
+      await owner.rpc('merge_persons', { keep_person: keep, drop_person: dup });
+      const links = await owner.query<{ parent_id: string }>('select parent_id from parent_links where child_id = $1', [keep]);
+      expect(links.map((link) => link.parent_id).sort()).toEqual((keepParents === 2 || dropParents === 2 ? [father, mother] : [father]).sort());
+    });
+
+    it('người bị gộp có vợ và con: con vẫn đủ hai cha mẹ sau khi gộp', async () => {
+      const father = await person('Cha');
+      const mother = await owner.rpc<string>('add_spouse', { person_id: father, union_order: null, person: { full_name: 'Mẹ' } });
+      const addSon = () => owner.rpc<string>('add_child', { parent_id: father, other_parent_id: mother, link_kind: 'ruot', person: { full_name: 'Phạm Văn Con' } });
+      const keep = await addSon();
+      const dup = await addSon();
+      const wife = await owner.rpc<string>('add_spouse', { person_id: dup, union_order: null, person: { full_name: 'Dâu' } });
+      const grandchild = await owner.rpc<string>('add_child', { parent_id: dup, other_parent_id: wife, link_kind: 'ruot', person: { full_name: 'Cháu' } });
+      await owner.rpc('merge_persons', { keep_person: keep, drop_person: dup });
+      const parents = await owner.query<{ parent_id: string }>('select parent_id from parent_links where child_id = $1', [grandchild]);
+      expect(parents.map((link) => link.parent_id).sort()).toEqual([keep, wife].sort());
+    });
+
     it('chỉ Chủ sở hữu gộp; không gộp người ở gia phả khác; không gộp với chính mình', async () => {
       const a = await person('A');
       const b = await person('B');

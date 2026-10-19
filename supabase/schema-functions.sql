@@ -111,6 +111,7 @@ begin
   if new.kind = 'ruot' and (
     select count(*) from public.parent_links
     where child_id = new.child_id and kind = 'ruot' and parent_id <> new.parent_id
+      and (tg_op = 'INSERT' or (child_id, parent_id) <> (old.child_id, old.parent_id))
   ) >= 2 then
     raise exception 'TOO_MANY_PARENTS'
       using detail = 'Một người có tối đa hai cha mẹ ruột.', errcode = 'check_violation';

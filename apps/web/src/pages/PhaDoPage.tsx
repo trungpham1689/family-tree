@@ -37,8 +37,11 @@ export const PhaDoPage = () => {
   const tree = useTree(treeId);
   const family = useFamily(treeId);
   const saved = usePhaDoConfig(treeId);
+  // Form chỉ lấy cấu hình lúc dựng; bản khôi phục từ bộ nhớ đệm có thể cũ hơn bản vừa lưu, nên chờ lượt tải lại đầu tiên xong.
+  const [settled, setSettled] = useState(false);
+  if (!settled && saved.isSuccess && !saved.isFetching) setSettled(true);
 
-  if (tree.isPending || family.isPending || saved.isPending) return <FullPageMessage>Đang tải…</FullPageMessage>;
+  if (tree.isPending || family.isPending || saved.isPending || (saved.isSuccess && !settled)) return <FullPageMessage>Đang tải…</FullPageMessage>;
   const error = tree.error ?? family.error ?? saved.error;
 
   return (

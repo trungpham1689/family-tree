@@ -14,7 +14,7 @@ await step('mở app → chuyển tới đăng nhập', async () => {
 await step('đăng ký tài khoản', async () => {
   await page.getByRole('tab', { name: 'Tạo tài khoản' }).click();
   await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Mật khẩu', { exact: false }).first().fill('matkhau123');
+  await page.locator('input[type=password]').first().fill('matkhau123');
   await page.getByRole('button', { name: 'Tạo tài khoản' }).last().click();
   await page.waitForURL(/\/gia-pha$/);
   await shot('02-my-trees-empty');
@@ -56,7 +56,7 @@ await step('thêm con', async () => {
 });
 await step('xem cây', async () => {
   await page.getByRole('link', { name: /←/ }).first().click();
-  await page.getByRole('link', { name: 'Xem cây gia phả' }).click();
+  await page.getByRole('link', { name: 'Cây gia phả', exact: true }).click();
   await page.waitForURL(/\/cay$/);
   await page.waitForTimeout(800);
   await shot('09-tree-view');

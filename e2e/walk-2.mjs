@@ -18,12 +18,13 @@ const PNG_SIGNATURE = '89504e470d0a1a0a';
 const email = `excel-${Date.now()}@example.com`;
 let treeUrl = '';
 let publicUrl = '';
+const PUBLIC_PASSWORD = 'matkhau-chung';
 
 await step('đăng ký', async () => {
   await page.goto(`${APP}/dang-nhap`);
   await page.getByRole('tab', { name: 'Tạo tài khoản' }).click();
   await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Mật khẩu').first().fill('matkhau123');
+  await page.locator('input[type=password]').first().fill('matkhau123');
   await page.getByRole('button', { name: 'Tạo tài khoản' }).last().click();
   await page.waitForURL(/\/gia-pha$/);
 });
@@ -44,7 +45,8 @@ await step('tải lên file mẫu → xem trước → lưu', async () => {
   await page.getByRole('button', { name: 'Xác nhận & lưu' }).click();
   await page.waitForURL(/\/gia-pha\/[0-9a-f-]{36}$/, { timeout: 20000 });
   treeUrl = page.url();
-  await page.getByText('Phạm Văn Bình').first().waitFor();
+  await page.getByRole('heading', { name: 'Họ Phạm (nhập Excel)' }).waitFor();
+  await page.getByText('Phạm Văn Tổ').locator('visible=true').first().waitFor();
   await shot('21-tree-after-import');
 });
 
@@ -139,7 +141,7 @@ await step('Lịch của tôi và Sắp tới', async () => {
   await page.goto(`${APP}/lich?thang=2026-11`);
   await page.waitForTimeout(800);
   await shot('26-calendar');
-  await page.goto(`${APP}/sap-toi`);
+  await page.goto(`${APP}/su-kien`);
   await page.waitForTimeout(800);
   await shot('27-upcoming');
   const [ics] = await Promise.all([
@@ -155,6 +157,8 @@ await step('Lịch của tôi và Sắp tới', async () => {
 await step('bật link công khai', async () => {
   await page.goto(treeUrl);
   await page.getByRole('button', { name: 'Bật link công khai' }).click();
+  await page.getByLabel('Đặt mật khẩu cho link').fill(PUBLIC_PASSWORD);
+  await page.getByRole('button', { name: 'Bật link công khai' }).last().click();
   const input = page.getByRole('textbox', { name: 'Link chia sẻ công khai' });
   await input.waitFor();
   publicUrl = (await input.inputValue()).replace(/^https?:\/\/[^/]+/, APP);
@@ -165,6 +169,8 @@ await step('khách chưa đăng nhập mở link, không thấy thông tin riên
   const guest = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const guestPage = await guest.newPage();
   await guestPage.goto(publicUrl);
+  await guestPage.getByLabel('Mật khẩu').fill(PUBLIC_PASSWORD);
+  await guestPage.getByRole('button', { name: 'Xem gia phả' }).click();
   await guestPage.getByRole('heading', { name: /Họ Phạm/ }).waitFor();
   await guestPage.waitForTimeout(600);
   await shot('28-public-tree', guestPage);
@@ -188,12 +194,12 @@ await step('mời Biên tập viên bằng email; họ thấy gia phả với đ
   await editorPage.goto(`${APP}/dang-nhap`);
   await editorPage.getByRole('tab', { name: 'Tạo tài khoản' }).click();
   await editorPage.getByLabel('Email').fill(editorEmail);
-  await editorPage.getByLabel('Mật khẩu').first().fill('matkhau123');
+  await editorPage.locator('input[type=password]').first().fill('matkhau123');
   await editorPage.getByRole('button', { name: 'Tạo tài khoản' }).last().click();
   await editorPage.waitForURL(/\/gia-pha$/);
 
   await page.goto(treeUrl);
-  await page.getByRole('button', { name: '+ Mời người' }).click();
+  await page.getByRole('button', { name: '+ Thêm quản trị' }).click();
   await page.getByLabel('Email tài khoản').fill(editorEmail);
   await page.getByLabel('Vai trò').selectOption('viewer');
   await page.getByRole('button', { name: 'Mời', exact: true }).click();
@@ -210,6 +216,7 @@ await step('Phả đồ: xem trước, xuất PDF và PNG', async () => {
   await page.getByLabel('Phụ đề').fill('Kính dâng tổ tiên – năm 2026');
   await page.getByLabel('Câu đối – vế bên trái').fill('Uống nước nhớ nguồn');
   await page.getByLabel('Câu đối – vế bên phải').fill('Ăn quả nhớ kẻ trồng cây');
+  await page.getByText('Khổ giấy & chữ').click();
   await page.getByLabel('Khổ giấy').selectOption('A2');
   await page.waitForTimeout(500);
   await shot('30-pha-do');
@@ -231,8 +238,12 @@ await step('lưu cấu hình Phả đồ và mở lại', async () => {
   await page.getByRole('button', { name: /Lưu cấu hình/ }).click();
   await page.getByRole('button', { name: 'Đã lưu cấu hình' }).waitFor();
   await page.reload();
-  const value = await page.getByLabel('Phụ đề').inputValue();
-  if (value !== 'Kính dâng tổ tiên – năm 2026') throw new Error(`mở lại ra "${value}"`);
+  // Cấu hình đã lưu được nạp bất đồng bộ sau khi trang hiện.
+  await page
+    .waitForFunction(() => [...document.querySelectorAll('input')].some((input) => input.value === 'Kính dâng tổ tiên – năm 2026'), null, { timeout: 15000 })
+    .catch(async () => {
+      throw new Error(`mở lại ra "${await page.getByLabel('Phụ đề').inputValue()}"`);
+    });
 });
 
 await step('xuất Excel', async () => {
@@ -243,7 +254,8 @@ await step('xuất Excel', async () => {
 });
 
 await step('xoá người có con cháu đòi gõ tên', async () => {
-  await page.getByRole('link', { name: /Phạm Văn Trưởng/ }).first().click();
+  await page.getByRole('link', { name: /Phạm Văn Tổ/ }).first().click();
+  await page.getByRole('main').getByRole('link', { name: /Phạm Văn (?!Tổ)/ }).first().click();
   await page.getByRole('button', { name: 'Xoá người này' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByText('không còn nối vào cây').waitFor();

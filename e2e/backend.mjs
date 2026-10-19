@@ -12,6 +12,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { createServer, request as httpRequest } from 'node:http';
 import { join } from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
+import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket';
 
 const ROOT = join(import.meta.dirname, '..');
@@ -20,7 +21,8 @@ const PG_PORT = API_PORT + 1;
 const REST_PORT = API_PORT + 2;
 const JWT_SECRET = 'e2e-secret-chi-dung-cho-kiem-thu-cuc-bo-0123456789';
 
-const db = await PGlite.create();
+// pgcrypto: migration mật khẩu link công khai cần (giống tests/db/harness.ts).
+const db = await PGlite.create({ extensions: { pgcrypto } });
 await db.exec(await readFile(join(ROOT, 'tests/db/supabase-shim.sql'), 'utf8'));
 for (const file of (await readdir(join(ROOT, 'supabase/migrations'))).filter((f) => f.endsWith('.sql')).sort()) {
   await db.exec(await readFile(join(ROOT, 'supabase/migrations', file), 'utf8'));

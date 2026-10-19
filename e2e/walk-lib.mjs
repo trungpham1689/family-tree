@@ -21,7 +21,7 @@ export const makeStep = (getPage) => async (name, work) => {
     console.log(`OK   ${name}${note ? ` — ${note}` : ''}`);
   } catch (error) {
     process.exitCode = 1;
-    console.log(`FAIL ${name} — ${error.message.split('\n')[0]}`);
+    console.log(`FAIL ${name} — ${error.message.split('\n').slice(0, 3).join(' | ')}`);
     await getPage()
       .screenshot({ path: `${SHOTS}/FAIL-${name.replace(/[^a-z0-9]+/gi, '-')}.png`, fullPage: true })
       .catch(() => {});
@@ -44,9 +44,10 @@ export const openBrowser = async ({ mobile = false } = {}) => {
     if (msg.type() === 'error' || msg.type() === 'warning') problems.push(`[console.${msg.type()}] ${msg.text()}`);
   });
   page.on('pageerror', (error) => problems.push(`[pageerror] ${error.message}`));
-  page.on('response', (response) => {
+  page.on('response', async (response) => {
     if (response.status() >= 400 && !response.url().includes('/auth/v1/user')) {
-      problems.push(`[http ${response.status()}] ${response.request().method()} ${response.url()}`);
+      const body = await response.text().catch(() => '');
+      problems.push(`[http ${response.status()}] ${response.request().method()} ${response.url()} ${body.slice(0, 200)}`);
     }
   });
   return { browser, context, page, problems };

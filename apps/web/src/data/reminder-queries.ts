@@ -7,6 +7,7 @@ import {
   listMutedGioPersons,
   listNotificationReads,
   listReminderPrefs,
+  prefsByTree,
   markNotificationsRead,
   muteGioReminder,
   setEmailEnabled,
@@ -43,7 +44,11 @@ export const useToggleGioMute = () => {
   return { mute, unmute };
 };
 
-export const useReminderPrefs = () => useQuery({ queryKey: queryKeys.reminderPrefs, queryFn: listReminderPrefs });
+// `select` có tham chiếu cố định (xem useFamily); dữ liệu lưu dạng mảng JSON để giữ offline được.
+const toPrefsMap = prefsByTree;
+const toReadSet = (keys: readonly string[]): Set<string> => new Set(keys);
+
+export const useReminderPrefs = () => useQuery({ queryKey: queryKeys.reminderPrefs, queryFn: listReminderPrefs, select: toPrefsMap });
 
 export const useSetReminderOffset = () => {
   const queryClient = useQueryClient();
@@ -82,7 +87,7 @@ export const useDueReminders = () => {
   const calendar = useMyCalendar(true);
   const muted = useMutedGioPersons();
   const prefs = useReminderPrefs();
-  const reads = useQuery({ queryKey: queryKeys.notificationReads, queryFn: listNotificationReads });
+  const reads = useQuery({ queryKey: queryKeys.notificationReads, queryFn: listNotificationReads, select: toReadSet });
 
   const due = useMemo(() => {
     if (!calendar.data) return [];

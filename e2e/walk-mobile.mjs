@@ -8,7 +8,7 @@ const { browser, page, problems } = await openBrowser({ mobile: true });
 
 await page.goto(`${APP}/dang-nhap`);
 await page.getByLabel('Email').fill(email);
-await page.getByLabel('Mật khẩu').first().fill('matkhau123');
+await page.locator('input[type=password]').first().fill('matkhau123');
 await page.getByRole('button', { name: 'Đăng nhập' }).last().click();
 await page.waitForURL(/\/gia-pha$/);
 

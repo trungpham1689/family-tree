@@ -158,6 +158,9 @@ createRoot(rootElement).render(
         buster: OFFLINE_CACHE_VERSION,
         dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
       }}
+      // Bản đã lưu có thể cũ vài giây (lưu theo nhịp 2 giây) nhưng vẫn "còn tươi" theo staleTime: tải lại ngay khi khôi phục xong,
+      // để không hiện dữ liệu cũ sau khi vừa sửa (offline thì lần tải lại tạm dừng và bản đã lưu vẫn hiện).
+      onSuccess={() => void queryClient.invalidateQueries()}
     >
       <AuthProvider>
         <RouterProvider router={router} />

@@ -41,12 +41,17 @@ export type ReminderOffset = (typeof REMINDER_OFFSETS)[number];
 
 export type ReminderPrefs = { offsetDays: number; emailEnabled: boolean; tienThuong: boolean };
 export type ReminderPrefsByTree = Map<string, ReminderPrefs>;
+/** Dạng lưu/giữ offline (JSON): mảng, vì Map/Set không qua JSON được. Hook đổi sang Map/Set bằng `select`. */
+export type ReminderPrefsRow = ReminderPrefs & { treeId: string };
 
-export const listReminderPrefs = async (): Promise<ReminderPrefsByTree> => {
+export const listReminderPrefs = async (): Promise<ReminderPrefsRow[]> => {
   const { data, error } = await supabase.from('reminder_prefs').select('tree_id, offset_days, email_enabled, tien_thuong');
   failOn(error);
-  return new Map(data.map((row) => [row.tree_id, { offsetDays: row.offset_days, emailEnabled: row.email_enabled, tienThuong: row.tien_thuong }]));
+  return data.map((row) => ({ treeId: row.tree_id, offsetDays: row.offset_days, emailEnabled: row.email_enabled, tienThuong: row.tien_thuong }));
 };
+
+export const prefsByTree = (rows: readonly ReminderPrefsRow[]): ReminderPrefsByTree =>
+  new Map(rows.map(({ treeId, ...prefs }) => [treeId, prefs]));
 
 export const setReminderOffset = async (input: { treeId: string; offsetDays: ReminderOffset }): Promise<void> => {
   const { error } = await supabase
@@ -70,10 +75,10 @@ export const setTienThuong = async (input: { treeId: string; tienThuong: boolean
   failOn(error);
 };
 
-export const listNotificationReads = async (): Promise<Set<string>> => {
+export const listNotificationReads = async (): Promise<string[]> => {
   const { data, error } = await supabase.from('notification_reads').select('notification_key');
   failOn(error);
-  return new Set(data.map((row) => row.notification_key));
+  return data.map((row) => row.notification_key);
 };
 
 export const markNotificationsRead = async (notificationKeys: readonly string[]): Promise<void> => {
