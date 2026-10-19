@@ -5,7 +5,23 @@ import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { Button } from '../ui/Button';
 
-export type CanvasPerson = { id: string; full_name: string; gender: string | null; is_deceased: boolean; lifespan: string };
+export type CanvasPerson = {
+  id: string;
+  full_name: string;
+  gender: string | null;
+  is_deceased: boolean;
+  lifespan: string;
+  /** Dâu/Rể: kết hôn vào họ, không nối máu mủ với cha mẹ trong cây. */
+  marriedIn: boolean;
+  /** Con nuôi ở ít nhất một liên kết cha/mẹ. */
+  adopted: boolean;
+  /** Ảnh đại diện (data URL) khi bật tuỳ chọn hiện ảnh và Người có ảnh. */
+  avatarUrl?: string | undefined;
+};
+
+/** Kích thước ảnh đại diện trên Cây và khoảng cách dưới ảnh; cộng vào chiều cao ô khi bật. */
+export const AVATAR_SIZE = 44;
+export const AVATAR_GAP = 6;
 
 type Props = {
   layout: TreeLayout;
@@ -156,10 +172,19 @@ export const FamilyTreeCanvas = ({
           <span aria-hidden="true" className="size-2.5 rounded-full border-2" style={{ borderColor: 'var(--color-son)' }} /> Nữ
         </span>
         <span className="flex items-center gap-1">
+          <span aria-hidden="true" className="text-sm leading-none">†</span> Đã mất
+        </span>
+        <span className="flex items-center gap-1">
           <svg aria-hidden="true" viewBox="0 0 10 10" className="size-2.5">
-            <line x1="1" y1="9" x2="9" y2="1" stroke="black" strokeWidth="2" />
+            <rect x="0.5" y="0.5" width="9" height="9" rx="2" fill="none" stroke="var(--color-ink-muted)" strokeWidth="1.5" strokeDasharray="2.5 1.5" />
           </svg>
-          Đã mất (†)
+          Dâu/Rể (viền đứt)
+        </span>
+        <span className="flex items-center gap-1">
+          <svg aria-hidden="true" viewBox="0 0 10 10" className="size-2.5">
+            <circle cx="5" cy="5" r="3" fill="var(--color-ink-muted)" />
+          </svg>
+          Con nuôi
         </span>
       </p>
 
@@ -199,14 +224,18 @@ const NAME_CHARS = 18;
 const PersonBox = memo(({ node, person, highlighted, canToggle, onOpen, onToggle }: BoxProps) => {
   const lines = wrapName(person.full_name, NAME_CHARS);
   const isSpouse = node.role === 'spouse';
-  // Viền theo giới tính (nam/nữ/chưa rõ) để nhận ra ngay không cần đọc chữ; đã mất thì gạch chéo góc dưới phải.
+  // Viền theo giới tính (nam/nữ/chưa rõ) để nhận ra ngay không cần đọc chữ.
   const genderColor = person.gender === 'nu' ? 'var(--color-son)' : person.gender === 'nam' ? 'var(--color-kim)' : 'var(--color-line)';
+  // Viền ảnh đại diện: cũng theo giới tính, nhưng đã mất thì chuyển xám để thấy ngay trạng thái.
+  const avatarBorderColor = person.is_deceased ? 'var(--color-ink-muted)' : genderColor;
   const fill = isSpouse ? 'var(--color-paper)' : 'var(--color-surface)';
   const centerX = node.x + node.width / 2;
   const toggleX = node.x + 22;
-  // Căn giữa theo chiều dọc: khối chữ gồm tên (1–2 dòng) và dòng năm sinh–mất nếu có.
-  const blockHeight = lines.length * 18 + (person.lifespan ? 18 : 0);
-  const nameTop = node.y + (node.height - blockHeight) / 2 + 14;
+  // Căn giữa theo chiều dọc: ảnh đại diện (nếu có) rồi tới tên (1–2 dòng) và dòng năm sinh–mất.
+  const avatarBlock = person.avatarUrl ? AVATAR_SIZE + AVATAR_GAP : 0;
+  const blockHeight = avatarBlock + lines.length * 18 + (person.lifespan ? 18 : 0);
+  const avatarTop = node.y + (node.height - blockHeight) / 2;
+  const nameTop = avatarTop + avatarBlock + 14;
 
   return (
     <g>
@@ -232,7 +261,33 @@ const PersonBox = memo(({ node, person, highlighted, canToggle, onOpen, onToggle
           fill={fill}
           stroke={highlighted ? 'var(--color-son)' : genderColor}
           strokeWidth={highlighted ? 3 : 2}
+          strokeDasharray={person.marriedIn ? '6 3' : undefined}
         />
+        {person.adopted && <circle cx={node.x + 10} cy={node.y + node.height - 10} r={3.5} fill="var(--color-ink-muted)" />}
+        {person.avatarUrl && (
+          <>
+            <clipPath id={`avatar-${person.id}`}>
+              <circle cx={centerX} cy={avatarTop + AVATAR_SIZE / 2} r={AVATAR_SIZE / 2} />
+            </clipPath>
+            <image
+              href={person.avatarUrl}
+              x={centerX - AVATAR_SIZE / 2}
+              y={avatarTop}
+              width={AVATAR_SIZE}
+              height={AVATAR_SIZE}
+              preserveAspectRatio="xMidYMid slice"
+              clipPath={`url(#avatar-${person.id})`}
+            />
+            <circle
+              cx={centerX}
+              cy={avatarTop + AVATAR_SIZE / 2}
+              r={AVATAR_SIZE / 2 - 1}
+              fill="none"
+              stroke={avatarBorderColor}
+              strokeWidth={2}
+            />
+          </>
+        )}
         {lines.map((line, index) => (
           <text
             key={index}
@@ -250,17 +305,6 @@ const PersonBox = memo(({ node, person, highlighted, canToggle, onOpen, onToggle
           <text x={centerX} y={nameTop + lines.length * 18} textAnchor="middle" fontSize={13} fill="var(--color-ink-muted)">
             {person.is_deceased ? `† ${person.lifespan}` : person.lifespan}
           </text>
-        )}
-        {person.is_deceased && (
-          <line
-            aria-hidden="true"
-            x1={node.x + node.width - 4}
-            y1={node.y + node.height - 16}
-            x2={node.x + node.width - 16}
-            y2={node.y + node.height - 4}
-            stroke="black"
-            strokeWidth={2}
-          />
         )}
       </g>
 

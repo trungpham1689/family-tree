@@ -100,6 +100,9 @@ export type Database = {
           version: number;
           hidden_from_public: boolean;
           avatar_path: string | null;
+          created_by: string | null;
+          pending_delete_by: string | null;
+          pending_delete_at: string | null;
         };
         Insert: {
           common_name?: string | null;
@@ -152,6 +155,9 @@ export type Database = {
           version?: number;
           hidden_from_public?: boolean;
           avatar_path?: string | null;
+          created_by?: string | null;
+          pending_delete_by?: string | null;
+          pending_delete_at?: string | null;
         };
         Update: {
           common_name?: string | null;
@@ -204,6 +210,9 @@ export type Database = {
           version?: number;
           hidden_from_public?: boolean;
           avatar_path?: string | null;
+          created_by?: string | null;
+          pending_delete_by?: string | null;
+          pending_delete_at?: string | null;
         };
         Relationships: [
           {
@@ -434,6 +443,13 @@ export type Database = {
       list_tree_members: {
         Args: { target_tree: string };
         Returns: { account_id: string; role: string; email: string; created_at: string }[];
+      };
+      request_delete_person: { Args: { target_person: string }; Returns: undefined };
+      approve_delete_person: { Args: { target_person: string }; Returns: undefined };
+      reject_delete_person: { Args: { target_person: string }; Returns: undefined };
+      list_pending_deletions: {
+        Args: { target_tree: string };
+        Returns: { person_id: string; full_name: string; requested_by_email: string; requested_at: string }[];
       };
     };
     Enums: { [_ in never]: never };

@@ -6,10 +6,12 @@ import {
   useAddChild,
   useAddParent,
   useAddSpouse,
+  useApproveDeletePerson,
   useAvatarDataUrl,
   useFamily,
   useLinkAccountToPerson,
   usePersonPhotos,
+  useRejectDeletePerson,
   useRemovePhoto,
   useReminderWatch,
   useReorderChildren,
@@ -44,6 +46,7 @@ export const PersonPage = () => {
   const { treeId = '', personId = '' } = useParams();
   const { state } = useAuth();
   const email = state.status === 'signed-in' ? state.session.user.email : undefined;
+  const accountId = state.status === 'signed-in' ? state.session.user.id : null;
   const tree = useTree(treeId);
   const family = useFamily(treeId);
 
@@ -66,6 +69,8 @@ export const PersonPage = () => {
             graph={family.data}
             person={person}
             canEdit={tree.data.role === 'owner' || tree.data.role === 'editor'}
+            isOwner={tree.data.role === 'owner'}
+            accountId={accountId}
             linkedPersonId={tree.data.linkedPersonId}
           />
         )}
@@ -79,10 +84,12 @@ type DetailProps = {
   graph: FamilyGraph<Person>;
   person: Person;
   canEdit: boolean;
+  isOwner: boolean;
+  accountId: string | null;
   linkedPersonId: string | null;
 };
 
-const PersonDetail = ({ treeId, graph, person, canEdit, linkedPersonId }: DetailProps) => {
+const PersonDetail = ({ treeId, graph, person, canEdit, isOwner, accountId, linkedPersonId }: DetailProps) => {
   const [action, setAction] = useState<Action>('none');
   const placement = graph.placement(person.id);
   const branchRoot = placement.branchId ? graph.person(placement.branchId) : undefined;
@@ -91,6 +98,8 @@ const PersonDetail = ({ treeId, graph, person, canEdit, linkedPersonId }: Detail
   const children = graph.childrenOf(person.id);
   const setProgenitor = useSetProgenitor(treeId);
   const close = () => setAction('none');
+  // Biên tập viên chỉ thêm/sửa/xoá Người do chính mình tạo; Chủ sở hữu sửa/xoá được mọi Người.
+  const canEditThisPerson = isOwner || (canEdit && person.created_by === accountId);
 
   return (
     <article className="mt-3">
@@ -109,12 +118,16 @@ const PersonDetail = ({ treeId, graph, person, canEdit, linkedPersonId }: Detail
             <ReminderControls treeId={treeId} person={person} isMe={linkedPersonId === person.id} />
           </div>
         </div>
-        {canEdit && (
+        {canEditThisPerson && (
           <Button variant="secondary" onClick={() => setAction('edit')}>
             Sửa thông tin
           </Button>
         )}
       </header>
+
+      {person.pending_delete_by && (
+        <PendingDeleteBanner treeId={treeId} person={person} isOwner={isOwner} accountId={accountId} />
+      )}
 
       <ProfileInfo person={person} graph={graph} />
 
@@ -174,7 +187,7 @@ const PersonDetail = ({ treeId, graph, person, canEdit, linkedPersonId }: Detail
         )}
       </Section>
 
-      {canEdit && (
+      {canEditThisPerson && !person.pending_delete_by && (
         <div className="mt-10 space-y-6 border-t border-line pt-6">
           {placement.kind !== 'thuy_to' && placement.kind !== 'dau_re' && (
             <div>
@@ -187,7 +200,7 @@ const PersonDetail = ({ treeId, graph, person, canEdit, linkedPersonId }: Detail
           )}
           <HiddenFromPublicToggle treeId={treeId} person={person} />
           <Button variant="ghost" className="text-danger" onClick={() => setAction('delete')}>
-            Xoá người này
+            {isOwner ? 'Xoá người này' : 'Gửi yêu cầu xoá'}
           </Button>
         </div>
       )}
@@ -196,6 +209,7 @@ const PersonDetail = ({ treeId, graph, person, canEdit, linkedPersonId }: Detail
         treeId={treeId}
         graph={graph}
         person={person}
+        isOwner={isOwner}
         spouses={spouses.map((s) => s.person)}
         action={action}
         onClose={close}
@@ -208,6 +222,7 @@ const ActionDialogs = ({
   treeId,
   graph,
   person,
+  isOwner,
   spouses,
   action,
   onClose,
@@ -215,6 +230,7 @@ const ActionDialogs = ({
   treeId: string;
   graph: FamilyGraph<Person>;
   person: Person;
+  isOwner: boolean;
   spouses: Person[];
   action: Action;
   onClose: () => void;
@@ -287,8 +303,9 @@ const ActionDialogs = ({
           treeId={treeId}
           graph={graph}
           person={person}
+          isOwner={isOwner}
           onCancel={finish}
-          onDeleted={() => navigate(`/gia-pha/${treeId}`, { replace: true })}
+          onDeleted={() => (isOwner ? navigate(`/gia-pha/${treeId}`, { replace: true }) : finish())}
         />
       )}
       {action === 'add-child' && (
@@ -438,6 +455,43 @@ const HiddenFromPublicToggle = ({ treeId, person }: { treeId: string; person: Pe
         Người này không xuất hiện trên link công khai; nếu có con cháu thì hiện thành một ô “Ẩn danh”.
       </p>
       {setHidden.isError && <ErrorBanner>{setHidden.error.message}</ErrorBanner>}
+    </div>
+  );
+};
+
+/** Thông báo khi Người đang chờ duyệt xoá: Chủ sở hữu thấy nút duyệt/từ chối, người khác chỉ thấy trạng thái. */
+const PendingDeleteBanner = ({
+  treeId,
+  person,
+  isOwner,
+  accountId,
+}: {
+  treeId: string;
+  person: Person;
+  isOwner: boolean;
+  accountId: string | null;
+}) => {
+  const approve = useApproveDeletePerson(treeId);
+  const reject = useRejectDeletePerson(treeId);
+
+  return (
+    <div className="mt-6 rounded-xl bg-kim-soft px-4 py-3">
+      <p className="font-medium">
+        {isOwner || person.pending_delete_by === accountId
+          ? 'Đang chờ Chủ sở hữu duyệt yêu cầu xoá người này.'
+          : 'Người này đang chờ duyệt xoá.'}
+      </p>
+      {isOwner && (
+        <div className="mt-2 flex gap-2">
+          <Button variant="secondary" disabled={reject.isPending} onClick={() => reject.mutate(person.id)}>
+            Từ chối
+          </Button>
+          <Button variant="danger" disabled={approve.isPending} onClick={() => approve.mutate(person.id)}>
+            Đồng ý xoá
+          </Button>
+        </div>
+      )}
+      {(approve.isError || reject.isError) && <ErrorBanner>{(approve.error ?? reject.error)?.message}</ErrorBanner>}
     </div>
   );
 };
@@ -608,13 +662,14 @@ const ReminderControls = ({ treeId, person, isMe }: { treeId: string; person: Pe
 const PersonAvatar = ({ person }: { person: Person }) => {
   const avatar = useAvatarDataUrl(person.avatar_path);
   const initial = person.full_name.trim().charAt(0).toUpperCase() || '?';
-  // Màu theo giới tính (như trên Cây) để nổi khỏi nền giấy, không chìm khi chưa có ảnh.
+  // Màu theo giới tính (như trên Cây) để nổi khỏi nền giấy, không chìm khi chưa có ảnh; đã mất thì viền xám.
   const genderColor = person.gender === 'nu' ? 'var(--color-son)' : person.gender === 'nam' ? 'var(--color-kim)' : 'var(--color-ink-muted)';
+  const borderColor = person.is_deceased ? 'var(--color-ink-muted)' : genderColor;
 
   return (
     <div
       className="size-24 shrink-0 overflow-hidden rounded-full border-2"
-      style={{ borderColor: genderColor, backgroundColor: avatar.data ? undefined : genderColor }}
+      style={{ borderColor, backgroundColor: avatar.data ? undefined : genderColor }}
     >
       {avatar.data ? (
         <img src={avatar.data} alt="" className="size-full object-cover" />

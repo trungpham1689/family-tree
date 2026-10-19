@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useDeletePerson } from '../data/tree-queries';
+import { useDeletePerson, useRequestDeletePerson } from '../data/tree-queries';
 import type { Person } from '../data/trees';
 import { deletionImpact } from '../family/deletion-impact';
 import type { FamilyGraph } from '../family/family-graph';
@@ -10,13 +10,17 @@ type Props = {
   treeId: string;
   graph: FamilyGraph<Person>;
   person: Person;
+  /** Chủ sở hữu xoá ngay; Biên tập viên chỉ gửi yêu cầu, chờ Chủ sở hữu duyệt. */
+  isOwner: boolean;
   onCancel: () => void;
   onDeleted: () => void;
 };
 
 /** Xác nhận xoá một Người. Có con cháu thì phải gõ đúng họ tên (v1 không có thùng rác). */
-export const DeletePerson = ({ treeId, graph, person, onCancel, onDeleted }: Props) => {
+export const DeletePerson = ({ treeId, graph, person, isOwner, onCancel, onDeleted }: Props) => {
   const remove = useDeletePerson(treeId);
+  const request = useRequestDeletePerson(treeId);
+  const action = isOwner ? remove : request;
   const [typed, setTyped] = useState('');
   const root = graph.persons.find((candidate) => candidate.is_progenitor) ?? null;
   const impact = deletionImpact({
@@ -32,7 +36,7 @@ export const DeletePerson = ({ treeId, graph, person, onCancel, onDeleted }: Pro
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (blockedAsProgenitor || (mustType && !matches)) return;
-    remove.mutate(person.id, { onSuccess: onDeleted });
+    action.mutate(person.id, { onSuccess: onDeleted });
   };
 
   if (blockedAsProgenitor) {
@@ -55,9 +59,16 @@ export const DeletePerson = ({ treeId, graph, person, onCancel, onDeleted }: Pro
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <p>
-        Xoá <strong>{person.full_name}</strong> khỏi gia phả? Việc này <strong>không hoàn tác được</strong>.
-      </p>
+      {isOwner ? (
+        <p>
+          Xoá <strong>{person.full_name}</strong> khỏi gia phả? Việc này <strong>không hoàn tác được</strong>.
+        </p>
+      ) : (
+        <p>
+          Gửi yêu cầu xoá <strong>{person.full_name}</strong>? Người này sẽ ở trạng thái chờ cho tới khi{' '}
+          <strong>Chủ sở hữu</strong> duyệt.
+        </p>
+      )}
       {impact.links > 0 && <p>{impact.links} liên kết (cha mẹ, vợ chồng, con) của người này sẽ mất theo.</p>}
       {orphanNames.length > 0 && (
         <div className="rounded-xl bg-danger-soft px-4 py-3 text-danger">
@@ -78,13 +89,13 @@ export const DeletePerson = ({ treeId, graph, person, onCancel, onDeleted }: Pro
           onChange={(event) => setTyped(event.target.value)}
         />
       )}
-      {remove.isError && <ErrorBanner>{remove.error.message}</ErrorBanner>}
+      {action.isError && <ErrorBanner>{action.error.message}</ErrorBanner>}
       <div className="flex justify-end gap-3">
         <Button variant="secondary" onClick={onCancel}>
           Huỷ
         </Button>
-        <Button type="submit" variant="danger" disabled={(mustType && !matches) || remove.isPending}>
-          {remove.isPending ? 'Đang xoá…' : 'Xoá vĩnh viễn'}
+        <Button type="submit" variant="danger" disabled={(mustType && !matches) || action.isPending}>
+          {action.isPending ? 'Đang gửi…' : isOwner ? 'Xoá vĩnh viễn' : 'Gửi yêu cầu xoá'}
         </Button>
       </div>
     </form>

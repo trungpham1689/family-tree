@@ -184,9 +184,9 @@ describe('ngày giỗ', () => {
     expect(solarToLunar(death)).toMatchObject({ month: 6, leap: true });
 
     const anniversary = anniversaryFromDeath({ calendar: 'duong', precision: 'ngay', ...death, leap: false, approximate: false });
-    expect(anniversary).toEqual({ day: 17, month: 6 });
+    expect(anniversary).toEqual({ day: 16, month: 6 });
     for (let year = 2026; year <= 2030; year += 1) {
-      expect(solarToLunar(anniversaryInLunarYear(anniversary!, year))).toEqual({ year, month: 6, day: 17, leap: false });
+      expect(solarToLunar(anniversaryInLunarYear(anniversary!, year))).toEqual({ year, month: 6, day: 16, leap: false });
     }
   });
 

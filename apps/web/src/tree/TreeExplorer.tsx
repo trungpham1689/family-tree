@@ -1,12 +1,13 @@
-import { layoutTree, outsideGenerationsFilter, type Orientation } from '@gia-pha/tree-layout';
+import { DEFAULT_BOX, layoutTree, outsideGenerationsFilter, type Orientation } from '@gia-pha/tree-layout';
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { usePersonAvatars } from '../data/tree-queries';
 import type { Person } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
 import { lifespanText } from '../people/person-display';
 import { Button } from '../ui/Button';
 import { ErrorBanner, Select } from '../ui/fields';
-import { FamilyTreeCanvas, type CanvasPerson, type FocusRequest } from './FamilyTreeCanvas';
+import { AVATAR_GAP, AVATAR_SIZE, FamilyTreeCanvas, type CanvasPerson, type FocusRequest } from './FamilyTreeCanvas';
 import { initialCollapsed } from './initial-collapsed';
 import { PersonSearch } from './PersonSearch';
 import { planReveal } from './tree-search';
@@ -45,10 +46,18 @@ type TreeExplorerProps<P extends Person> = {
   personHref: (personId: string) => string;
   /** Chỉ Chủ sở hữu mới lưu được mặc định; không truyền thì ẩn nút. */
   saveDefault?: SaveDefaultControl | undefined;
+  /** Cho hiện tuỳ chọn ảnh đại diện (ảnh cần vai trò mới tải được, nên trang công khai không truyền). */
+  allowAvatars?: boolean | undefined;
 };
 
 /** Cây tương tác: tìm người, lọc Cháu ngoại, đổi hướng, thu/mở nhánh. Dùng cho cả trang có vai trò và trang công khai. */
-export const TreeExplorer = <P extends Person>({ graph, defaultOutside, personHref, saveDefault }: TreeExplorerProps<P>) => {
+export const TreeExplorer = <P extends Person>({
+  graph,
+  defaultOutside,
+  personHref,
+  saveDefault,
+  allowAvatars = false,
+}: TreeExplorerProps<P>) => {
   const navigate = useNavigate();
   const root = graph.persons.find((person) => person.is_progenitor);
 
@@ -62,6 +71,8 @@ export const TreeExplorer = <P extends Person>({ graph, defaultOutside, personHr
   const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(() => (root ? { personId: root.id, preferFit: true } : null));
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [showAvatars, setShowAvatars] = useState(false);
+  const avatars = usePersonAvatars(graph.persons, allowAvatars && showAvatars);
 
   const layout = useMemo(
     () =>
@@ -71,9 +82,10 @@ export const TreeExplorer = <P extends Person>({ graph, defaultOutside, personHr
             collapsed,
             orientation,
             includeChild: outsideGenerationsFilter(outsideGenerations),
+            box: showAvatars ? { ...DEFAULT_BOX, height: DEFAULT_BOX.height + AVATAR_SIZE + AVATAR_GAP } : DEFAULT_BOX,
           })
         : null,
-    [graph, root, collapsed, orientation, outsideGenerations],
+    [graph, root, collapsed, orientation, outsideGenerations, showAvatars],
   );
 
   const canvasPersons = useMemo(
@@ -81,10 +93,19 @@ export const TreeExplorer = <P extends Person>({ graph, defaultOutside, personHr
       new Map<string, CanvasPerson>(
         graph.persons.map((person) => [
           person.id,
-          { id: person.id, full_name: person.full_name, gender: person.gender, is_deceased: person.is_deceased, lifespan: lifespanText(person) },
+          {
+            id: person.id,
+            full_name: person.full_name,
+            gender: person.gender,
+            is_deceased: person.is_deceased,
+            lifespan: lifespanText(person),
+            marriedIn: graph.placement(person.id).kind === 'dau_re',
+            adopted: graph.parentsOf(person.id).some((parent) => parent.kind === 'nuoi'),
+            avatarUrl: showAvatars ? avatars.data?.get(person.id) : undefined,
+          },
         ]),
       ),
-    [graph],
+    [graph, showAvatars, avatars.data],
   );
 
   const toggle = useCallback((personId: string) => {
@@ -158,6 +179,12 @@ export const TreeExplorer = <P extends Person>({ graph, defaultOutside, personHr
           >
             Đặt làm mặc định
           </Button>
+        )}
+        {allowAvatars && (
+          <label className="flex min-h-12 items-center gap-2">
+            <input type="checkbox" className="size-5 accent-son" checked={showAvatars} onChange={(event) => setShowAvatars(event.target.checked)} />
+            Ảnh đại diện
+          </label>
         )}
         <Button variant="secondary" onClick={changeOrientation}>
           {orientation === 'top-down' ? 'Xếp trái → phải' : 'Xếp trên → dưới'}

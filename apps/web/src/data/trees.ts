@@ -101,3 +101,28 @@ export const deletePerson = async (personId: string): Promise<void> => {
   if (error) throw new DataError(error);
   if (count === 0) throw new DataError({ code: 'PGRST116' });
 };
+
+/** Biên tập viên gửi yêu cầu xoá Người mình tạo; chờ Chủ sở hữu duyệt (không xoá ngay). */
+export const requestDeletePerson = async (personId: string): Promise<void> => {
+  const { error } = await supabase.rpc('request_delete_person', { target_person: personId });
+  if (error) throw new DataError(error);
+};
+
+export const approveDeletePerson = async (personId: string): Promise<void> => {
+  const { error } = await supabase.rpc('approve_delete_person', { target_person: personId });
+  if (error) throw new DataError(error);
+};
+
+export const rejectDeletePerson = async (personId: string): Promise<void> => {
+  const { error } = await supabase.rpc('reject_delete_person', { target_person: personId });
+  if (error) throw new DataError(error);
+};
+
+export type PendingDeletion = { person_id: string; full_name: string; requested_by_email: string; requested_at: string };
+
+/** Yêu cầu xoá đang chờ của một Gia phả; chỉ Chủ sở hữu xem được. */
+export const listPendingDeletions = async (treeId: string): Promise<PendingDeletion[]> => {
+  const { data, error } = await supabase.rpc('list_pending_deletions', { target_tree: treeId });
+  if (error) throw new DataError(error);
+  return (data ?? []) as PendingDeletion[];
+};

@@ -1,16 +1,24 @@
 import { useState, type FormEvent } from 'react';
 import { ROLE_LABELS } from '../data/role-labels';
 import type { InvitableRole } from '../data/roles';
-import { useInviteToTree, useRemoveTreeRole, useTreeMembers, useUpdateTreeRole } from '../data/tree-queries';
+import {
+  useApproveDeletePerson,
+  useInviteToTree,
+  usePendingDeletions,
+  useRejectDeletePerson,
+  useRemoveTreeRole,
+  useTreeMembers,
+  useUpdateTreeRole,
+} from '../data/tree-queries';
 import type { TreeWithRole } from '../data/trees';
 import { Button } from '../ui/Button';
 import { ErrorBanner, Select, TextField } from '../ui/fields';
 
-/** Chủ sở hữu và Biên tập viên mời người bằng email; chỉ Chủ sở hữu đổi/gỡ vai trò. */
+/** Chỉ Chủ sở hữu mời người và đổi/gỡ vai trò. */
 export const MembersPanel = ({ tree }: { tree: TreeWithRole }) => {
   const members = useTreeMembers(tree.id);
   const isOwner = tree.role === 'owner';
-  const canInvite = isOwner || tree.role === 'editor';
+  const canInvite = isOwner;
   const [inviting, setInviting] = useState(false);
 
   return (
@@ -37,7 +45,43 @@ export const MembersPanel = ({ tree }: { tree: TreeWithRole }) => {
           ))}
         </ul>
       )}
+
+      {isOwner && <PendingDeletions treeId={tree.id} />}
     </section>
+  );
+};
+
+/** Yêu cầu xoá Người của Biên tập viên, đang chờ Chủ sở hữu duyệt. */
+const PendingDeletions = ({ treeId }: { treeId: string }) => {
+  const pending = usePendingDeletions(treeId, true);
+  const approve = useApproveDeletePerson(treeId);
+  const reject = useRejectDeletePerson(treeId);
+
+  if (!pending.isSuccess || pending.data.length === 0) return null;
+
+  return (
+    <div className="mt-6 border-t border-line pt-4">
+      <h3 className="font-serif text-lg font-bold">Yêu cầu xoá đang chờ duyệt</h3>
+      <ul className="mt-3 divide-y divide-line">
+        {pending.data.map((request) => (
+          <li key={request.person_id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+            <div>
+              <p className="font-medium">{request.full_name}</p>
+              <p className="text-sm text-ink-muted">Yêu cầu bởi {request.requested_by_email}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" disabled={reject.isPending} onClick={() => reject.mutate(request.person_id)}>
+                Từ chối
+              </Button>
+              <Button variant="danger" disabled={approve.isPending} onClick={() => approve.mutate(request.person_id)}>
+                Đồng ý xoá
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {(approve.isError || reject.isError) && <ErrorBanner>{(approve.error ?? reject.error)?.message}</ErrorBanner>}
+    </div>
   );
 };
 
@@ -73,7 +117,7 @@ const InviteForm = ({ treeId, onDone }: { treeId: string; onDone: () => void }) 
       <label className="block">
         <span className="mb-1 block font-medium">Vai trò</span>
         <Select className="w-full" value={role} onChange={(event) => setRole(event.target.value as InvitableRole)}>
-          <option value="editor">{ROLE_LABELS.editor} — sửa dữ liệu, mời người</option>
+          <option value="editor">{ROLE_LABELS.editor} — thêm/sửa/xoá Người do mình tạo</option>
           <option value="viewer">{ROLE_LABELS.viewer} — chỉ xem bản đầy đủ</option>
         </Select>
       </label>

@@ -52,6 +52,9 @@ export const BLANK_PERSON: Person = {
   updated_at: '',
   version: 0,
   avatar_path: null,
+  created_by: null,
+  pending_delete_by: null,
+  pending_delete_at: null,
 };
 
 export const blankPerson = (fields: Partial<Person> & { id: string; full_name: string }): Person => ({ ...BLANK_PERSON, ...fields });

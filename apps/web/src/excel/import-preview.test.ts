@@ -49,7 +49,7 @@ describe('mô-đun Excel: file mẫu', () => {
     const payload = buildImportPreview(table(EXAMPLE_ROWS)).payload!;
     const fields = (key: string) => payload.persons.find((person) => person.key === key)!.fields;
     expect(fields('T1')).toMatchObject({ birth_year: 1850, birth_approx: true, death_calendar: 'am', death_day: 12, death_month: 3 });
-    expect(fields('T1')).toMatchObject({ anniversary_day: 12, anniversary_month: 3, anniversary_manual: false });
+    expect(fields('T1')).toMatchObject({ anniversary_day: 11, anniversary_month: 3, anniversary_manual: false });
     expect(fields('T1V')).toMatchObject({ is_deceased: true, anniversary_day: 9, anniversary_month: 10, anniversary_manual: true });
     expect(fields('B1')).toMatchObject({ birth_calendar: 'am', birth_precision: 'ngay', birth_solar_date: expect.any(String) });
   });

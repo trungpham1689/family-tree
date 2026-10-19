@@ -1,5 +1,17 @@
 /** Bản vẽ trung gian (đơn vị mm), dùng chung cho xem trước SVG và xuất PDF. */
-export type DrawRect = { type: 'rect'; x: number; y: number; width: number; height: number; radius: number; fill: string; stroke: string; strokeWidth: number };
+export type DrawRect = {
+  type: 'rect';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  radius: number;
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+  /** Viền đứt khi có (mm bật/tắt xen kẽ) — ví dụ đánh dấu Dâu/Rể. */
+  dash?: readonly number[];
+};
 export type DrawLine = { type: 'line'; points: [number, number][]; stroke: string; strokeWidth: number };
 export type DrawText = {
   type: 'text';
@@ -14,7 +26,16 @@ export type DrawText = {
   align?: 'middle' | 'start';
 };
 
-export type DrawImage = { type: 'image'; x: number; y: number; width: number; height: number; href: string };
+export type DrawImage = {
+  type: 'image';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  href: string;
+  /** Ảnh đại diện: cắt tròn, viền màu theo giới tính/trạng thái (đường kính bằng width). */
+  round?: { borderColor: string; borderWidth: number };
+};
 
 export type DrawItem = DrawRect | DrawLine | DrawText | DrawImage;
 

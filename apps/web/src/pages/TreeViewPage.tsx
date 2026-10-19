@@ -40,6 +40,7 @@ const OwnTreeExplorer = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGra
       graph={graph}
       defaultOutside={tree.outside_generations}
       personHref={personHref}
+      allowAvatars
       saveDefault={
         tree.role === 'owner'
           ? {

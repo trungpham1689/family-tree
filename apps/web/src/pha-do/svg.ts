@@ -9,17 +9,24 @@ export type EmbeddedFonts = { regularBase64: string; boldBase64: string };
 
 /** Bản vẽ → SVG đúng kích thước giấy (mm), dùng để xem trước và xuất PNG. */
 export const drawingToSvg = (drawing: Drawing, fonts?: EmbeddedFonts): string => {
-  const parts = drawing.items.map((item) => {
+  const parts = drawing.items.map((item, index) => {
     switch (item.type) {
       case 'rect':
-        return `<rect x="${n(item.x)}" y="${n(item.y)}" width="${n(item.width)}" height="${n(item.height)}" rx="${n(item.radius)}" fill="${item.fill}" stroke="${item.stroke}" stroke-width="${n(item.strokeWidth)}"/>`;
+        return `<rect x="${n(item.x)}" y="${n(item.y)}" width="${n(item.width)}" height="${n(item.height)}" rx="${n(item.radius)}" fill="${item.fill}" stroke="${item.stroke}" stroke-width="${n(item.strokeWidth)}"${item.dash ? ` stroke-dasharray="${item.dash.map(n).join(' ')}"` : ''}/>`;
       case 'line':
         return `<polyline points="${item.points.map(([x, y]) => `${n(x)},${n(y)}`).join(' ')}" fill="none" stroke="${item.stroke}" stroke-width="${n(item.strokeWidth)}"/>`;
       case 'text':
         return `<text x="${n(item.x)}" y="${n(item.y)}" font-size="${n(item.sizePt / PT_PER_MM)}" font-weight="${item.bold ? 700 : 400}" fill="${item.color}" text-anchor="${item.align === 'start' ? 'start' : 'middle'}" dominant-baseline="central">${escape(item.text)}</text>`;
-      case 'image':
+      case 'image': {
         // href là data URL (ảnh đã tải sẵn thành base64) nên không cần CORS khi vẽ SVG lên canvas để xuất PNG.
-        return `<image x="${n(item.x)}" y="${n(item.y)}" width="${n(item.width)}" height="${n(item.height)}" href="${item.href}" preserveAspectRatio="xMidYMid slice"/>`;
+        const img = `<image x="${n(item.x)}" y="${n(item.y)}" width="${n(item.width)}" height="${n(item.height)}" href="${item.href}" preserveAspectRatio="xMidYMid slice"${item.round ? ` clip-path="url(#avatar-${index})"` : ''}/>`;
+        if (!item.round) return img;
+        const cx = n(item.x + item.width / 2);
+        const cy = n(item.y + item.height / 2);
+        const r = n(item.width / 2);
+        const ring = `<circle cx="${cx}" cy="${cy}" r="${n(r - item.round.borderWidth / 2)}" fill="none" stroke="${item.round.borderColor}" stroke-width="${n(item.round.borderWidth)}"/>`;
+        return `<clipPath id="avatar-${index}"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath>${img}${ring}`;
+      }
     }
   });
   return [

@@ -29,7 +29,7 @@ const sample = () =>
       { parent_id: 'con-a', child_id: 'chau-a', kind: 'ruot' },
       { parent_id: 'dau-a', child_id: 'chau-a', kind: 'ruot' },
       { parent_id: 'chau-a', child_id: 'chat-a', kind: 'ruot' },
-      { parent_id: 'con-b', child_id: 'chau-b', kind: 'ruot' },
+      { parent_id: 'con-b', child_id: 'chau-b', kind: 'nuoi' },
     ],
     unions: [{ id: 'u', partner_a: 'con-a', partner_b: 'dau-a', order_for_a: 1, order_for_b: 1, status: 'con' }],
     positions: [],
@@ -68,7 +68,7 @@ describe('seam C: Phả đồ', () => {
     expect(names).toContain('范文');
   });
 
-  it('viền theo giới tính, nền trắng và gạch chéo góc dưới phải khi đã mất', () => {
+  it('viền theo giới tính, nền trắng kể cả khi đã mất (chỉ thêm dấu † ở dòng năm)', () => {
     const { drawing } = renderPhaDo(sample(), base);
     const rectBeforeName = (name: string) => {
       const nameIndex = drawing.items.findIndex((item) => item.type === 'text' && item.text === name);
@@ -79,37 +79,66 @@ describe('seam C: Phả đồ', () => {
       throw new Error(`Không tìm thấy ô của "${name}".`);
     };
 
-    // to: nam, đã mất → nền trắng (không xám), viền màu nam, có gạch chéo đen sau ô.
-    const toRectIndex = drawing.items.findIndex(
-      (item) => item.type === 'rect' && item === rectBeforeName('Phạm Văn Tổ'),
-    );
+    // to: nam, đã mất → vẫn nền trắng, viền màu nam, không có dấu đen nào trên ô.
     const toRect = rectBeforeName('Phạm Văn Tổ');
     expect(toRect.fill).toBe('#ffffff');
     expect(toRect.stroke).toBe('#b8892b');
-    const markAfterTo = drawing.items[toRectIndex + 1];
-    expect(markAfterTo?.type).toBe('line');
-    expect((markAfterTo as { stroke: string }).stroke).toBe('#000000');
     expect(texts(base).some((text) => text.startsWith('† '))).toBe(true);
 
-    // dau-a: nữ, còn sống (vợ) → nền ô vợ/chồng, viền màu nữ, không gạch chéo.
-    const dauRectIndex = drawing.items.findIndex(
-      (item) => item.type === 'rect' && item === rectBeforeName('Nguyễn Thị Dâu'),
-    );
+    // dau-a: nữ, còn sống (vợ) → nền ô vợ/chồng, viền màu nữ.
     const dauRect = rectBeforeName('Nguyễn Thị Dâu');
     expect(dauRect.fill).toBe('#fbf8f3');
     expect(dauRect.stroke).toBe('#8a1c1c');
-    expect(drawing.items[dauRectIndex + 1]?.type).not.toBe('line');
   });
 
-  it('hiện ảnh đại diện khi bật, chỉ cho Người có ảnh', () => {
-    const avatars = new Map([['con-a', 'data:image/png;base64,AAA']]);
+  it('viền đứt cho Dâu/Rể, chấm góc dưới trái cho con nuôi', () => {
+    const { drawing } = renderPhaDo(sample(), base);
+    // Ô chính luôn rộng hơn hẳn chấm con nuôi (3 đơn vị): lấy rect rộng nhất ngay trước tên.
+    const rectBeforeName = (name: string) => {
+      const nameIndex = drawing.items.findIndex((item) => item.type === 'text' && item.text === name);
+      const rects = [];
+      for (let index = nameIndex - 1; index >= 0; index -= 1) {
+        const item = drawing.items[index]!;
+        if (item.type === 'text') break;
+        if (item.type === 'rect') rects.push(item);
+      }
+      if (rects.length === 0) throw new Error(`Không tìm thấy ô của "${name}".`);
+      return rects.reduce((widest, rect) => (rect.width > widest.width ? rect : widest));
+    };
+
+    // dau-a: Dâu (vợ của con-a, kết hôn vào họ) → viền đứt.
+    expect(rectBeforeName('Nguyễn Thị Dâu').dash).toBeDefined();
+    // to: Đinh (máu mủ) → viền liền, không đứt.
+    expect(rectBeforeName('Phạm Văn Tổ').dash).toBeUndefined();
+
+    // chau-b: con nuôi của con-b → có chấm đánh dấu ngay trước ô của chính nó.
+    const chauBIndex = drawing.items.findIndex(
+      (item) => item.type === 'rect' && item === rectBeforeName('Phạm Văn Cháu B'),
+    );
+    const markAfter = drawing.items[chauBIndex + 1];
+    expect(markAfter).toMatchObject({ type: 'rect', fill: '#a39a8f' });
+    // chau-a: con ruột → không có chấm, phần tử kế tiếp là dòng tên.
+    const chauAIndex = drawing.items.findIndex(
+      (item) => item.type === 'rect' && item === rectBeforeName('Phạm Văn Cháu A'),
+    );
+    expect(drawing.items[chauAIndex + 1]?.type).toBe('text');
+  });
+
+  it('hiện ảnh đại diện khi bật, chỉ cho Người có ảnh; viền tròn xám khi đã mất', () => {
+    const avatars = new Map([
+      ['con-a', 'data:image/png;base64,AAA'],
+      ['to', 'data:image/png;base64,BBB'],
+    ]);
     const off = renderPhaDo(sample(), { ...base, showAvatars: false }, '', avatars);
     expect(off.drawing.items.some((item) => item.type === 'image')).toBe(false);
 
     const on = renderPhaDo(sample(), { ...base, showAvatars: true }, '', avatars);
     const images = on.drawing.items.filter((item) => item.type === 'image');
-    expect(images).toHaveLength(1);
-    expect(images[0]).toMatchObject({ href: 'data:image/png;base64,AAA' });
+    expect(images).toHaveLength(2);
+    const conAImage = images.find((image) => image.href === 'data:image/png;base64,AAA');
+    expect(conAImage).toMatchObject({ round: { borderColor: '#b8892b' } }); // con-a: nam, còn sống → viền nam.
+    const toImage = images.find((image) => image.href === 'data:image/png;base64,BBB');
+    expect(toImage).toMatchObject({ round: { borderColor: '#5c534c' } }); // to: nam, đã mất → viền xám.
   });
 
   it('gốc không còn tồn tại thì báo thay vì vẽ sai', () => {

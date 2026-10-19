@@ -45,14 +45,14 @@ describe('seam B: mời vai trò Biên tập viên / Người xem', () => {
     expect(list.find((row) => row.account_id === friend.id)).toMatchObject({ role: 'editor' });
   });
 
-  it('Biên tập viên cũng mời được người khác', async () => {
+  it('Biên tập viên không mời được người khác', async () => {
     const editor = await db.createUser(`bt-${crypto.randomUUID()}@example.com`);
     await me.rpc('invite_to_tree', { target_tree: treeId, invite_email: editor.email, new_role: 'editor' });
 
     const friend = await db.createUser(`ban-${crypto.randomUUID()}@example.com`);
-    await db.as(editor).rpc('invite_to_tree', { target_tree: treeId, invite_email: friend.email, new_role: 'viewer' });
-
-    expect(await members()).toContainEqual(expect.objectContaining({ account_id: friend.id, role: 'viewer' }));
+    await expect(
+      db.as(editor).rpc('invite_to_tree', { target_tree: treeId, invite_email: friend.email, new_role: 'viewer' }),
+    ).rejects.toThrow(/NOT_ALLOWED/);
   });
 
   it('Người xem không mời được ai', async () => {

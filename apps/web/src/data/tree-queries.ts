@@ -36,13 +36,17 @@ import {
   updateUnion,
 } from './family';
 import {
+  approveDeletePerson,
   createPerson,
   createTree,
   deletePerson,
   deleteTree,
   getTree,
   listMyTrees,
+  listPendingDeletions,
+  rejectDeletePerson,
   renameTree,
+  requestDeletePerson,
   setTreeOutsideGenerations,
   updatePerson,
 } from './trees';
@@ -60,6 +64,7 @@ export const treeKeys = {
   detail: (treeId: string) => ['trees', treeId] as const,
   family: (treeId: string) => ['trees', treeId, 'family'] as const,
   members: (treeId: string) => ['trees', treeId, 'members'] as const,
+  pendingDeletions: (treeId: string) => ['trees', treeId, 'pending-deletions'] as const,
 };
 
 const useAccountId = (): string => {
@@ -146,6 +151,45 @@ export const useDeletePerson = (treeId: string) => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) }),
   });
 };
+
+/** Biên tập viên gửi yêu cầu xoá (Người mình tạo), chờ Chủ sở hữu duyệt. */
+export const useRequestDeletePerson = (treeId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: requestDeletePerson,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) }),
+  });
+};
+
+export const useApproveDeletePerson = (treeId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: approveDeletePerson,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) });
+      queryClient.invalidateQueries({ queryKey: treeKeys.pendingDeletions(treeId) });
+    },
+  });
+};
+
+export const useRejectDeletePerson = (treeId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: rejectDeletePerson,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) });
+      queryClient.invalidateQueries({ queryKey: treeKeys.pendingDeletions(treeId) });
+    },
+  });
+};
+
+/** Yêu cầu xoá đang chờ của Gia phả; chỉ Chủ sở hữu gọi được. */
+export const usePendingDeletions = (treeId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: treeKeys.pendingDeletions(treeId),
+    queryFn: () => listPendingDeletions(treeId),
+    enabled,
+  });
 
 const photosKey = (personId: string) => ['photos', personId] as const;
 

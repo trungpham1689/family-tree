@@ -85,7 +85,7 @@ Cách xem gia phả tương tác trên màn hình (phóng to, thu gọn nhánh, 
 Bản trình bày gia phả để in (khổ giấy, khung, tiêu đề), xuất ra PDF/ảnh. Cách trình bày phả đồ được lưu riêng, không thay đổi dữ liệu gia phả.
 
 **Vai trò**
-Quyền của một tài khoản trên một gia phả: **Chủ sở hữu** (toàn quyền, duy nhất), **Biên tập viên** (sửa dữ liệu, mời người), **Người xem** (chỉ xem bản đầy đủ).
+Quyền của một tài khoản trên một gia phả: **Chủ sở hữu** (toàn quyền, duy nhất, người mời), **Biên tập viên** (chỉ thêm/sửa/xoá Người do chính mình tạo; xoá phải gửi yêu cầu, chờ Chủ sở hữu duyệt; không mời được người khác), **Người xem** (chỉ xem bản đầy đủ).
 
 **Link chia sẻ công khai**
 Đường dẫn ai có cũng xem được bản rút gọn của gia phả mà không cần đăng nhập. Chủ sở hữu bật/tắt và tạo lại được.

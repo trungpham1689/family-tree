@@ -1,6 +1,6 @@
 import type { LunarDayMonth } from './anniversary.ts';
 import { yearCanChi } from './can-chi.ts';
-import { lunarMonthLength, lunarToSolar, solarToLunar } from './convert.ts';
+import { fromJulianDay, julianDay, lunarMonthLength, lunarToSolar, solarToLunar } from './convert.ts';
 
 /**
  * Ngày không đầy đủ (CONTEXT.md): chỉ biết năm, hoặc tháng-năm, hoặc đủ ngày-tháng-năm;
@@ -57,11 +57,16 @@ export const toOtherCalendar = (date: PartialDate): PartialDate | null => {
   return solar ? { calendar: 'duong', precision: 'ngay', ...solar, leap: false, approximate: date.approximate } : null;
 };
 
-/** Ngày-tháng âm dùng làm ngày giỗ, suy từ ngày mất; null nếu chưa đủ thông tin. */
+/**
+ * Ngày-tháng âm dùng làm ngày giỗ, suy từ ngày mất; null nếu chưa đủ thông tin.
+ * Theo tục lệ: giỗ vào ngày trước ngày mất 1 ngày (lệch múi giờ mất trước nửa đêm).
+ */
 export const anniversaryFromDeath = (death: PartialDate): LunarDayMonth | null => {
-  if (death.precision !== 'ngay') return null;
-  const lunar = death.calendar === 'am' ? death : toOtherCalendar(death);
-  if (!lunar || lunar.precision !== 'ngay') return null;
+  if (death.precision !== 'ngay' || validatePartialDate(death) !== null) return null;
+  const solar = death.calendar === 'duong' ? death : lunarToSolar(death);
+  if (!solar) return null;
+  const dayBefore = fromJulianDay(julianDay(solar) - 1);
+  const lunar = solarToLunar(dayBefore);
   return { day: lunar.day, month: lunar.month };
 };
 

@@ -50,7 +50,7 @@ describe('parsePersonForm', () => {
     expect(fields).toMatchObject({
       is_deceased: true,
       death_solar_date: '2025-08-10',
-      anniversary_day: 17,
+      anniversary_day: 16,
       anniversary_month: 6,
       anniversary_manual: false,
     });
@@ -107,8 +107,8 @@ describe('parsePersonForm', () => {
 describe('suggestedAnniversary', () => {
   it('gợi ý ngày giỗ khi đủ ngày mất, không gợi ý khi chỉ có năm', () => {
     expect(suggestedAnniversary({ ...EMPTY_DATE_INPUT, precision: 'ngay', year: '2026', month: '2', day: '17' })).toEqual({
-      day: 1,
-      month: 1,
+      day: 29,
+      month: 12,
     });
     expect(suggestedAnniversary({ ...EMPTY_DATE_INPUT, year: '2026' })).toBeNull();
   });

@@ -31,9 +31,8 @@ const COLORS = {
   line: '#5c534c',
   box: '#ffffff',
   spouseBox: '#fbf8f3',
-  // Viền theo giới tính — nhận ra ngay không cần đọc chữ. Đã mất thì gạch chéo góc dưới phải.
+  // Viền theo giới tính — nhận ra ngay không cần đọc chữ.
   genderUnknown: '#a39a8f',
-  deceasedMark: '#000000',
 };
 
 export type PhaDoResult = {
@@ -78,9 +77,27 @@ const legend = (area: { x: number; y: number; width: number; height: number }): 
     );
     x += swatch + 2 + label.length * 3.6 + 10;
   }
+  items.push({ type: 'text', x, y, text: '† Đã mất', sizePt: 9, bold: false, color: COLORS.muted, align: 'start' });
+  x += '† Đã mất'.length * 3.6 + 10;
   items.push(
-    { type: 'line', points: [[x, y + swatch / 2], [x + swatch, y - swatch / 2]], stroke: COLORS.deceasedMark, strokeWidth: 0.8 },
-    { type: 'text', x: x + swatch + 2, y, text: 'Đã mất (†)', sizePt: 9, bold: false, color: COLORS.muted, align: 'start' },
+    {
+      type: 'rect',
+      x,
+      y: y - swatch / 2,
+      width: swatch,
+      height: swatch,
+      radius: 1,
+      fill: 'none',
+      stroke: COLORS.muted,
+      strokeWidth: 0.6,
+      dash: [1.2, 0.8],
+    },
+    { type: 'text', x: x + swatch + 2, y, text: 'Dâu/Rể (viền đứt)', sizePt: 9, bold: false, color: COLORS.muted, align: 'start' },
+  );
+  x += swatch + 2 + 'Dâu/Rể (viền đứt)'.length * 3.6 + 10;
+  items.push(
+    { type: 'rect', x, y: y - swatch / 2, width: swatch, height: swatch, radius: swatch / 2, fill: COLORS.genderUnknown, stroke: COLORS.genderUnknown, strokeWidth: 0 },
+    { type: 'text', x: x + swatch + 2, y, text: 'Con nuôi', sizePt: 9, bold: false, color: COLORS.muted, align: 'start' },
   );
   return items;
 };
@@ -148,6 +165,7 @@ export const renderPhaDo = (
     const person = graph.person(node.personId);
     if (!person) continue;
     const isSpouse = node.role === 'spouse';
+    const adopted = graph.parentsOf(person.id).some((parent) => parent.kind === 'nuoi');
     const genderColor = person.gender === 'nam' ? COLORS.kim : person.gender === 'nu' ? COLORS.son : COLORS.genderUnknown;
     items.push({
       type: 'rect',
@@ -159,20 +177,22 @@ export const renderPhaDo = (
       fill: isSpouse ? COLORS.spouseBox : COLORS.box,
       stroke: genderColor,
       strokeWidth: 2 * scale,
+      // Dâu/Rể: kết hôn vào họ, không nối máu mủ — viền đứt để phân biệt với Đinh.
+      ...(isSpouse ? { dash: [3 * scale, 1.5 * scale] } : {}),
     });
-    if (person.is_deceased) {
-      const corner = 10 * scale;
+    if (adopted) {
       items.push({
-        type: 'line',
-        points: [
-          [mx(node.x + node.width) - 2 * scale, my(node.y + node.height) - corner],
-          [mx(node.x + node.width) - corner, my(node.y + node.height) - 2 * scale],
-        ],
-        stroke: COLORS.deceasedMark,
-        strokeWidth: 1.5 * scale,
+        type: 'rect',
+        x: mx(node.x) + 4 * scale,
+        y: my(node.y + node.height) - 7 * scale,
+        width: 3 * scale,
+        height: 3 * scale,
+        radius: 1.5 * scale,
+        fill: COLORS.genderUnknown,
+        stroke: COLORS.genderUnknown,
+        strokeWidth: 0,
       });
     }
-
     const centerX = mx(node.x + node.width / 2);
     const nameLines = wrapName(person.full_name, NAME_CHARS).slice(0, 2);
     const lifespan = lifespanText(person);
@@ -197,6 +217,8 @@ export const renderPhaDo = (
         width: AVATAR_SIZE * scale,
         height: AVATAR_SIZE * scale,
         href: avatarUrl,
+        // Viền ảnh theo giới tính; đã mất thì chuyển xám để thấy ngay trạng thái.
+        round: { borderColor: person.is_deceased ? COLORS.muted : genderColor, borderWidth: 1.5 * scale },
       });
       cursor += AVATAR_SIZE + AVATAR_GAP;
     }

@@ -34,11 +34,13 @@ export const drawingToPdf = (drawing: Drawing, fonts: PdfFonts, title: string): 
         if (stroked) {
           doc.setDrawColor(...hexToRgb(item.stroke));
           doc.setLineWidth(item.strokeWidth);
+          if (item.dash) doc.setLineDashPattern([...item.dash], 0);
         }
         if (filled) doc.setFillColor(...hexToRgb(item.fill));
         const style = filled && stroked ? 'FD' : filled ? 'F' : 'S';
         if (item.radius > 0) doc.roundedRect(item.x, item.y, item.width, item.height, item.radius, item.radius, style);
         else doc.rect(item.x, item.y, item.width, item.height, style);
+        if (item.dash) doc.setLineDashPattern([], 0);
         break;
       }
       case 'line': {
@@ -57,9 +59,25 @@ export const drawingToPdf = (drawing: Drawing, fonts: PdfFonts, title: string): 
         doc.setTextColor(...hexToRgb(item.color));
         doc.text(item.text, item.x, item.y, { align: item.align === 'start' ? 'left' : 'center', baseline: 'middle' });
         break;
-      case 'image':
+      case 'image': {
+        const cx = item.x + item.width / 2;
+        const cy = item.y + item.height / 2;
+        const r = item.width / 2;
+        if (item.round) {
+          doc.saveGraphicsState();
+          doc.circle(cx, cy, r, null);
+          doc.clip();
+          doc.discardPath();
+        }
         doc.addImage(item.href, item.x, item.y, item.width, item.height);
+        if (item.round) {
+          doc.restoreGraphicsState();
+          doc.setDrawColor(...hexToRgb(item.round.borderColor));
+          doc.setLineWidth(item.round.borderWidth);
+          doc.circle(cx, cy, r - item.round.borderWidth / 2, 'S');
+        }
         break;
+      }
     }
   }
   return doc;
