@@ -35,13 +35,13 @@ export const unmuteGioReminder = async (personId: string): Promise<void> => {
   failOn(error);
 };
 
-export type ReminderPrefs = { offsetDays: number; emailEnabled: boolean };
+export type ReminderPrefs = { offsetDays: number; emailEnabled: boolean; tienThuong: boolean };
 export type ReminderPrefsByTree = Map<string, ReminderPrefs>;
 
 export const listReminderPrefs = async (): Promise<ReminderPrefsByTree> => {
-  const { data, error } = await supabase.from('reminder_prefs').select('tree_id, offset_days, email_enabled');
+  const { data, error } = await supabase.from('reminder_prefs').select('tree_id, offset_days, email_enabled, tien_thuong');
   failOn(error);
-  return new Map(data.map((row) => [row.tree_id, { offsetDays: row.offset_days, emailEnabled: row.email_enabled }]));
+  return new Map(data.map((row) => [row.tree_id, { offsetDays: row.offset_days, emailEnabled: row.email_enabled, tienThuong: row.tien_thuong }]));
 };
 
 export const setReminderOffset = async (input: { treeId: string; offsetDays: 0 | 1 | 3 | 7 }): Promise<void> => {
@@ -55,6 +55,14 @@ export const setEmailEnabled = async (input: { treeId: string; emailEnabled: boo
   const { error } = await supabase
     .from('reminder_prefs')
     .upsert({ tree_id: input.treeId, email_enabled: input.emailEnabled }, { onConflict: 'account_id,tree_id' });
+  failOn(error);
+};
+
+/** Nhắc thêm "Tiên thường" (hôm trước ngày giỗ) trên chuông nhắc nhở của một gia phả. */
+export const setTienThuong = async (input: { treeId: string; tienThuong: boolean }): Promise<void> => {
+  const { error } = await supabase
+    .from('reminder_prefs')
+    .upsert({ tree_id: input.treeId, tien_thuong: input.tienThuong }, { onConflict: 'account_id,tree_id' });
   failOn(error);
 };
 

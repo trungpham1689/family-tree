@@ -1,3 +1,4 @@
+import { fetchAll } from '@gia-pha/db-paging';
 import { createClient } from '@supabase/supabase-js';
 import type { CalendarEvent, CalendarMarriage, CalendarPerson } from '@gia-pha/reminders';
 
@@ -12,20 +13,15 @@ type MarriageRow = Omit<CalendarMarriage, 'names'> & { status: string; a: { full
 /** Mọi dữ liệu Worker cần, đọc bằng service_role (bỏ qua RLS — đây là tiến trình nền, không phải một tài khoản). */
 export const loadReminderData = async (supabaseUrl: string, serviceRoleKey: string): Promise<ReminderData> => {
   const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
-  // PostgREST cắt mỗi truy vấn ở 1000 dòng (max_rows) — đọc từng trang, sắp theo khoá chính để không chồng/hụt.
-  // ponytail: bản sao của apps/web/src/lib/fetch-all.ts (worker không phụ thuộc mã web); gộp vào một package chung nếu có chỗ dùng thứ ba.
   // Danh sách cột các bảng lịch cũng nằm ở apps/web/src/data/calendar.ts và hàm SQL public_share.calendar_feed — sửa cả ba khi thêm trường.
-  const PAGE_SIZE = 1000;
   const readAll = async <Row>(table: string, columns: string, orderBy: string[]): Promise<Row[]> => {
-    const rows: Row[] = [];
-    for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await fetchAll<Row>((from, to) => {
       let query = supabase.from(table).select(columns);
       for (const column of orderBy) query = query.order(column);
-      const { data, error } = await query.range(from, from + PAGE_SIZE - 1);
-      if (error) throw new Error(`${table}: ${error.message}`);
-      rows.push(...((data ?? []) as Row[]));
-      if ((data?.length ?? 0) < PAGE_SIZE) return rows;
-    }
+      return query.range(from, to) as unknown as PromiseLike<{ data: Row[] | null; error: { message?: string } | null }>;
+    });
+    if (error) throw new Error(`${table}: ${error.message}`);
+    return data ?? [];
   };
   const [trees, persons, events, unions, roles, prefs, approvals] = await Promise.all([
     readAll<{ id: string; name: string }>('family_trees', 'id, name', ['id']),

@@ -11,6 +11,7 @@
     "lint": "oxlint src"
   },
   "dependencies": {
+    "@gia-pha/db-paging": "workspace:*",
     "@gia-pha/lunar": "workspace:*",
     "@gia-pha/reminders": "workspace:*",
     "@supabase/supabase-js": "^2.118.0"

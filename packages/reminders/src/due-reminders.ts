@@ -1,4 +1,4 @@
-import { julianDay } from '@gia-pha/lunar';
+import { fromJulianDay, julianDay } from '@gia-pha/lunar';
 import type { Occurrence } from './occurrences';
 
 /**
@@ -30,3 +30,17 @@ export const dueReminders = (
     })
     .sort((a, b) => a.dueInDays - b.dueInDays);
 };
+
+/**
+ * Thêm nhắc "Tiên thường" (ngày trước Chính kỵ) cho các giỗ có sẵn. Vẫn mang loại 'gio' để tắt nhắc giỗ của
+ * một Người tắt luôn cả Tiên thường; ngày khác nên khoá "đã đọc" cũng riêng.
+ */
+export const tienThuongOf = (occurrences: readonly Occurrence[]): Occurrence[] =>
+  occurrences
+    .filter((occurrence) => occurrence.kind === 'gio')
+    .map((occurrence) => ({
+      ...occurrence,
+      date: fromJulianDay(julianDay(occurrence.date) - 1),
+      title: `Tiên thường — ${occurrence.title}`,
+      detail: 'Hôm trước ngày giỗ',
+    }));

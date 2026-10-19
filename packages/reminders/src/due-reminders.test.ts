@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Occurrence } from './occurrences';
-import { dueReminders, notificationKey } from './due-reminders';
+import { dueReminders, notificationKey, tienThuongOf } from './due-reminders';
 
 const occurrence = (extra: Partial<Occurrence>): Occurrence => ({
   date: { year: 2026, month: 3, day: 12 },
@@ -66,5 +66,19 @@ describe('dueReminders', () => {
   it('khoá nhắc nhở ổn định theo loại, Người/Sự kiện và ngày', () => {
     expect(notificationKey(occurrence({ personId: 'p1' }))).toBe('gio:p1:2026-3-12');
     expect(notificationKey(occurrence({ kind: 'su_kien', personId: undefined, eventId: 'e1' }))).toBe('su_kien:e1:2026-3-12');
+  });
+});
+
+describe('tienThuongOf', () => {
+  it('mỗi giỗ có thêm một nhắc Tiên thường vào hôm trước, tắt nhắc giỗ của Người thì tắt cả hai', () => {
+    const gio = occurrence({});
+    const extra = tienThuongOf([gio, occurrence({ kind: 'sinh_nhat', personId: 'p9' })]);
+    expect(extra).toHaveLength(1);
+    expect(extra[0]).toMatchObject({ date: { year: 2026, month: 3, day: 11 }, title: 'Tiên thường — Giỗ Tổ', kind: 'gio' });
+    expect(notificationKey(extra[0]!)).not.toBe(notificationKey(gio));
+
+    const today11 = { year: 2026, month: 3, day: 11 };
+    expect(dueReminders([...extra], today11, noneMuted, new Map([['t1', 0]]))).toHaveLength(1);
+    expect(dueReminders([...extra], today11, new Set(['p1']), new Map([['t1', 0]]))).toHaveLength(0);
   });
 });

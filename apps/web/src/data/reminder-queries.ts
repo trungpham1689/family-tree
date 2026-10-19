@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { fromJulianDay, julianDay } from '@gia-pha/lunar';
 import { todayInVietnam } from '../calendar/month-grid';
-import { dueReminders, occurrencesBetween } from '@gia-pha/reminders';
+import { dueReminders, occurrencesBetween, tienThuongOf } from '@gia-pha/reminders';
 import {
   linkAccountToPerson,
   listMutedGioPersons,
@@ -11,6 +11,7 @@ import {
   markNotificationsRead,
   muteGioReminder,
   setEmailEnabled,
+  setTienThuong,
   setReminderOffset,
   unmuteGioReminder,
 } from './reminders';
@@ -63,6 +64,14 @@ export const useSetEmailEnabled = () => {
   });
 };
 
+export const useSetTienThuong = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: setTienThuong,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminder-prefs'] }),
+  });
+};
+
 export const useMarkNotificationsRead = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -81,7 +90,10 @@ export const useDueReminders = () => {
   const due = useMemo(() => {
     if (!calendar.data) return [];
     const today = todayInVietnam();
-    const occurrences = occurrencesBetween(calendar.data, today, fromJulianDay(julianDay(today) + MAX_OFFSET_DAYS));
+    // +1 ngày: giỗ của ngày mai cho ra Tiên thường vào hôm nay.
+    const base = occurrencesBetween(calendar.data, today, fromJulianDay(julianDay(today) + MAX_OFFSET_DAYS + 1));
+    const withTienThuong = tienThuongOf(base.filter((occurrence) => prefs.data?.get(occurrence.treeId)?.tienThuong));
+    const occurrences = [...base, ...withTienThuong];
     const mutedIds = new Set((muted.data ?? []).map((row) => row.personId));
     const offsetsByTree = new Map([...(prefs.data ?? new Map())].map(([treeId, pref]) => [treeId, pref.offsetDays]));
     return dueReminders(occurrences, today, mutedIds, offsetsByTree);

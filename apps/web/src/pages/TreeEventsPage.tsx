@@ -13,6 +13,7 @@ import {
   useSaveTreeEvent,
   useSetEmailEnabled,
   useSetReminderOffset,
+  useSetTienThuong,
   useTree,
   useTreeEvents,
 } from '../data/tree-queries';
@@ -75,6 +76,7 @@ export const TreeEventsPage = () => {
   const pref = prefs.data?.get(treeId);
   const setOffset = useSetReminderOffset();
   const setEmailEnabled = useSetEmailEnabled();
+  const setTienThuong = useSetTienThuong();
 
   if (tree.isPending) return <FullPageMessage>Đang tải…</FullPageMessage>;
   const canEdit = canEditTree(tree.data?.role);
@@ -97,7 +99,7 @@ export const TreeEventsPage = () => {
         <section className="mt-8 rounded-xl border border-line bg-surface px-4 py-3">
           <h2 className="font-serif text-xl font-bold">Độ sớm nhắc</h2>
           <p className="mt-1 text-ink-muted">
-            Nhắc trước mấy ngày trên chuông nhắc nhở. Email tổng hợp gửi mỗi thứ Hai nếu tuần tới có sự kiện; bật/tắt email ở đây.
+            Nhắc trước mấy ngày trên chuông nhắc nhở. Email tổng hợp gửi chung cho Chủ sở hữu và Biên tập viên mỗi 5 ngày nếu có giỗ, sinh nhật hay sự kiện sắp tới; bật/tắt email ở đây.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 text-sm">
@@ -109,6 +111,16 @@ export const TreeEventsPage = () => {
                 onChange={(event) => setEmailEnabled.mutate({ treeId, emailEnabled: event.target.checked })}
               />
               Email
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="size-5 accent-son"
+                checked={pref?.tienThuong ?? false}
+                disabled={setTienThuong.isPending}
+                onChange={(event) => setTienThuong.mutate({ treeId, tienThuong: event.target.checked })}
+              />
+              Nhắc cả Tiên thường (hôm trước ngày giỗ)
             </label>
             <Select
               aria-label="Độ sớm nhắc"
@@ -123,8 +135,8 @@ export const TreeEventsPage = () => {
               ))}
             </Select>
           </div>
-          {(setOffset.isError || setEmailEnabled.isError) && (
-            <ErrorBanner>{setOffset.error?.message ?? setEmailEnabled.error?.message}</ErrorBanner>
+          {(setOffset.isError || setEmailEnabled.isError || setTienThuong.isError) && (
+            <ErrorBanner>{setOffset.error?.message ?? setEmailEnabled.error?.message ?? setTienThuong.error?.message}</ErrorBanner>
           )}
         </section>
 

@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@gia-pha/db-paging": "workspace:*",
     "@gia-pha/lunar": "workspace:*",
     "@gia-pha/reminders": "workspace:*",
     "@gia-pha/tree-layout": "workspace:*",

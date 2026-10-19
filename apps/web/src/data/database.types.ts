@@ -420,9 +420,9 @@ export type Database = {
         ];
       };
       reminder_prefs: {
-        Row: { account_id: string; tree_id: string; offset_days: number; email_enabled: boolean; updated_at: string };
-        Insert: { account_id?: string; tree_id: string; offset_days?: number; email_enabled?: boolean; updated_at?: string };
-        Update: { account_id?: string; tree_id?: string; offset_days?: number; email_enabled?: boolean; updated_at?: string };
+        Row: { account_id: string; tree_id: string; offset_days: number; email_enabled: boolean; tien_thuong: boolean; updated_at: string };
+        Insert: { account_id?: string; tree_id: string; offset_days?: number; email_enabled?: boolean; tien_thuong?: boolean; updated_at?: string };
+        Update: { account_id?: string; tree_id?: string; offset_days?: number; email_enabled?: boolean; tien_thuong?: boolean; updated_at?: string };
         Relationships: [];
       };
       notification_reads: {

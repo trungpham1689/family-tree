@@ -1,0 +1,134 @@
+import {
+  useApproveDeletePerson,
+  useAvatarDataUrl,
+  useLinkAccountToPerson,
+  useRejectDeletePerson,
+  useMutedGioPersons,
+  useSetHiddenFromPublic,
+  useToggleGioMute,
+} from '../../data/tree-queries';
+import type { Person } from '../../data/trees';
+import { nameInitial } from '../person-display';
+import { Button } from '../../ui/Button';
+import { ErrorBanner } from '../../ui/fields';
+import { Tag } from './detail-bits';
+
+/** Các thông tin hồ sơ đã ghi; dòng nào trống thì không hiện. */
+export const HiddenFromPublicToggle = ({ treeId, person }: { treeId: string; person: Person }) => {
+  const setHidden = useSetHiddenFromPublic(treeId);
+  return (
+    <div className="rounded-xl border border-line bg-surface px-4 py-3">
+      <label className="flex min-h-12 cursor-pointer items-center gap-3">
+        <input
+          type="checkbox"
+          className="size-5 accent-son"
+          checked={person.hidden_from_public}
+          disabled={setHidden.isPending}
+          onChange={(event) => setHidden.mutate({ personId: person.id, hidden: event.target.checked })}
+        />
+        <span className="font-medium">Ẩn hoàn toàn khỏi link công khai</span>
+      </label>
+      <p className="text-sm text-ink-muted">
+        Người này không xuất hiện trên link công khai; nếu có con cháu thì hiện thành một ô “Ẩn danh”.
+      </p>
+      {setHidden.isError && <ErrorBanner>{setHidden.error.message}</ErrorBanner>}
+    </div>
+  );
+};
+
+/** Thông báo khi Người đang chờ duyệt xoá: Chủ sở hữu thấy nút duyệt/từ chối, người khác chỉ thấy trạng thái. */
+export const PendingDeleteBanner = ({
+  treeId,
+  person,
+  isOwner,
+  accountId,
+}: {
+  treeId: string;
+  person: Person;
+  isOwner: boolean;
+  accountId: string | null;
+}) => {
+  const approve = useApproveDeletePerson(treeId);
+  const reject = useRejectDeletePerson(treeId);
+
+  return (
+    <div className="mt-6 rounded-xl bg-kim-soft px-4 py-3">
+      <p className="font-medium">
+        {isOwner || person.pending_delete_by === accountId
+          ? 'Đang chờ Chủ sở hữu duyệt yêu cầu xoá người này.'
+          : 'Người này đang chờ duyệt xoá.'}
+      </p>
+      {isOwner && (
+        <div className="mt-2 flex gap-2">
+          <Button variant="secondary" disabled={reject.isPending} onClick={() => reject.mutate(person.id)}>
+            Từ chối
+          </Button>
+          <Button variant="danger" disabled={approve.isPending} onClick={() => approve.mutate(person.id)}>
+            Đồng ý xoá
+          </Button>
+        </div>
+      )}
+      {(approve.isError || reject.isError) && <ErrorBanner>{(approve.error ?? reject.error)?.message}</ErrorBanner>}
+    </div>
+  );
+};
+
+/** "Đây là tôi" (liên kết tài khoản với Người) và bật/tắt nhắc giỗ của riêng Người này. */
+export const ReminderControls = ({ treeId, person, isMe }: { treeId: string; person: Person; isMe: boolean }) => {
+  const link = useLinkAccountToPerson(treeId);
+  const mutedList = useMutedGioPersons();
+  const toggle = useToggleGioMute();
+  const muted = mutedList.data?.some((row) => row.personId === person.id) ?? false;
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+      {isMe ? (
+        <Tag>Đây là bạn</Tag>
+      ) : (
+        <button
+          type="button"
+          className="font-semibold text-son hover:underline disabled:text-ink-muted"
+          disabled={link.isPending}
+          onClick={() => link.mutate(person.id)}
+        >
+          Đánh dấu đây là tôi
+        </button>
+      )}
+      {mutedList.isSuccess && (
+        <button
+          type="button"
+          className="font-semibold text-son hover:underline disabled:text-ink-muted"
+          disabled={toggle.mute.isPending || toggle.unmute.isPending}
+          onClick={() => (muted ? toggle.unmute.mutate(person.id) : toggle.mute.mutate(person.id))}
+        >
+          {muted ? 'Thêm lại vào Danh sách nhắc giỗ' : 'Bỏ khỏi Danh sách nhắc giỗ'}
+        </button>
+      )}
+      {(link.isError || toggle.mute.isError || toggle.unmute.isError) && (
+        <span className="text-danger">{link.error?.message ?? toggle.mute.error?.message ?? toggle.unmute.error?.message}</span>
+      )}
+    </div>
+  );
+};
+
+/** Ảnh đại diện trong đầu trang: chỉ hiện, không sửa ở đây — đổi ảnh trong "Sửa thông tin". */
+export const PersonAvatar = ({ person }: { person: Person }) => {
+  const avatar = useAvatarDataUrl(person.avatar_path);
+  const initial = nameInitial(person.full_name);
+  // Màu theo giới tính (như trên Cây) để nổi khỏi nền giấy, không chìm khi chưa có ảnh; đã mất thì viền xám.
+  const genderColor = person.gender === 'nu' ? 'var(--color-son)' : person.gender === 'nam' ? 'var(--color-kim)' : 'var(--color-ink-muted)';
+  const borderColor = person.is_deceased ? 'var(--color-ink-muted)' : genderColor;
+
+  return (
+    <div
+      className="size-24 shrink-0 overflow-hidden rounded-full border-2"
+      style={{ borderColor, backgroundColor: avatar.data ? undefined : genderColor }}
+    >
+      {avatar.data ? (
+        <img src={avatar.data} alt="" className="size-full object-cover" />
+      ) : (
+        <span className="grid size-full place-items-center text-3xl font-bold text-white">{initial}</span>
+      )}
+    </div>
+  );
+};
