@@ -159,12 +159,25 @@ describe('seam B: quan hệ, Đời và Chi', () => {
     expect((await positions()).get(mother)).toMatchObject({ generation: 1, kind: 'dau_re' });
   });
 
-  it('Chi tính theo người con Đời 2 của Thuỷ tổ, Dâu theo chi của chồng', async () => {
+  it('Mặc định không ai lập chi: mọi branch_id đều rỗng', async () => {
+    const root = await addFirst('Thuỷ tổ');
+    const elder = await addChild(root.id, 'Con trưởng', { birthOrder: 1 });
+    const grandchild = await addChild(elder, 'Cháu');
+
+    const pos = await positions();
+    expect(pos.get(root.id)?.branch_id).toBeNull();
+    expect(pos.get(elder)?.branch_id).toBeNull();
+    expect(pos.get(grandchild)?.branch_id).toBeNull();
+  });
+
+  it('Chi tính theo Người được đánh dấu "Lập chi mới" (founds_branch), Dâu theo chi của chồng', async () => {
     const root = await addFirst('Thuỷ tổ');
     const elder = await addChild(root.id, 'Con trưởng', { birthOrder: 1 });
     const younger = await addChild(root.id, 'Con thứ', { birthOrder: 2 });
     const grandchild = await addChild(younger, 'Cháu');
     const wife = await addSpouse(grandchild, 'Dâu');
+
+    await me.query('update persons set founds_branch = true where id in ($1, $2)', [elder, younger]);
 
     const pos = await positions();
     expect(pos.get(root.id)?.branch_id).toBeNull();

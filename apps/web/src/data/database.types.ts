@@ -98,6 +98,7 @@ export type Database = {
           id: string;
           is_deceased: boolean;
           is_progenitor: boolean;
+          founds_branch: boolean;
           tree_id: string;
           updated_at: string;
           version: number;
@@ -153,6 +154,7 @@ export type Database = {
           id?: string;
           is_deceased?: boolean;
           is_progenitor?: boolean;
+          founds_branch?: boolean;
           tree_id: string;
           updated_at?: string;
           version?: number;
@@ -208,6 +210,7 @@ export type Database = {
           id?: string;
           is_deceased?: boolean;
           is_progenitor?: boolean;
+          founds_branch?: boolean;
           tree_id?: string;
           updated_at?: string;
           version?: number;

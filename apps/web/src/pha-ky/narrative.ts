@@ -1,5 +1,5 @@
 import type { Person } from '../data/trees';
-import type { FamilyGraph } from '../family/family-graph';
+import type { FamilyGraph, PersonKind } from '../family/family-graph';
 import { birthOrderLabel } from '../family/labels';
 import { ageAtDeath, deathAgeLabel, lifespanText } from '../people/person-display';
 
@@ -8,10 +8,19 @@ import { ageAtDeath, deathAgeLabel, lifespanText } from '../people/person-displa
  * Suy thẳng từ dữ liệu đã có — không cần lưu thêm gì.
  */
 
-export type NarrativeItem = { personId: string; text: string };
-export type NarrativeGeneration = { generation: number; items: NarrativeItem[] };
+/** `text` gộp sẵn cho PDF (văn xuôi thuần); `name`/`lifespan`/`detail` tách riêng để web trình bày nổi bật. */
+export type NarrativeItem = {
+  personId: string;
+  kind: PersonKind;
+  gender: string | null;
+  name: string;
+  lifespan: string | null;
+  detail: string;
+  text: string;
+};
+export type NarrativeGeneration = { generation: number; male: number; female: number; total: number; items: NarrativeItem[] };
 
-const personNarrative = (graph: FamilyGraph<Person>, person: Person): string => {
+const personNarrative = (graph: FamilyGraph<Person>, person: Person): { lifespan: string | null; detail: string; text: string } => {
   const placement = graph.placement(person.id);
   const lifespan = lifespanText(person);
   const sentences: string[] = [];
@@ -50,13 +59,21 @@ const personNarrative = (graph: FamilyGraph<Person>, person: Person): string => 
   if (person.biography) sentences.push(person.biography.trim());
 
   const heading = `${person.full_name}${lifespan ? ` (${lifespan})` : ''}.`;
-  return [heading, ...sentences].join(' ');
+  const detail = sentences.join(' ');
+  return { lifespan: lifespan || null, detail, text: [heading, ...sentences].join(' ') };
 };
 
 export const buildNarrative = (graph: FamilyGraph<Person>): NarrativeGeneration[] =>
-  graph
-    .generations()
-    .map((group) => ({ generation: group.generation, items: group.persons.map((person) => ({ personId: person.id, text: personNarrative(graph, person) })) }));
+  graph.generations().map((group) => ({
+    generation: group.generation,
+    male: group.male,
+    female: group.female,
+    total: group.total,
+    items: group.persons.map((person) => {
+      const { lifespan, detail, text } = personNarrative(graph, person);
+      return { personId: person.id, kind: graph.placement(person.id).kind, gender: person.gender, name: person.full_name, lifespan, detail, text };
+    }),
+  }));
 
 export type NotablePerson = { personId: string; fullName: string; title: string; generation: number | null };
 

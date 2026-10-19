@@ -7,6 +7,7 @@ export const BLANK_PERSON: Person = {
   full_name: '',
   gender: null,
   is_progenitor: false,
+  founds_branch: false,
   is_deceased: false,
   hidden_from_public: false,
   birth_order: null,

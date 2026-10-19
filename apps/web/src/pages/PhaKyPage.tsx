@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router';
-import { todayInVietnam } from '../calendar/month-grid';
+import { toIsoDate, todayInVietnam } from '../calendar/month-grid';
 import { loadFontBinary } from '../data/pha-do';
 import { useFamily, useTree } from '../data/tree-queries';
 import { anniversaryText } from '../people/person-display';
+import { kindLabel } from '../family/labels';
+import { exportFileName } from '../lib/download';
 import { branchSummaries, buildNarrative, closingNote, notablePersons, originSummary } from '../pha-ky/narrative';
 import { TreeTabs } from '../tree/TreeTabs';
 import { AppHeader } from '../ui/AppHeader';
@@ -58,7 +60,7 @@ export const PhaKyPage = () => {
               ],
             }
           : null,
-        branches.length > 1
+        branches.length > 0
           ? {
               heading: 'Các chi trong họ',
               paragraphs: branches.map((branch) => `${branch.founderName} — ${branch.memberCount} người.`),
@@ -74,7 +76,9 @@ export const PhaKyPage = () => {
 
       const after = generations.length > 0 ? [{ heading: 'Lời kết', paragraphs: [closingNote(today)] }] : [];
 
-      narrativeToPdf(generations, { regular, bold }, `Phả ký ${tree.data.name}`, before, after).save(`pha-ky-${tree.data.name}.pdf`);
+      narrativeToPdf(generations, { regular, bold }, `Phả ký ${tree.data.name}`, before, after).save(
+        exportFileName('Pha-ky', tree.data.name, toIsoDate(today), 'pdf'),
+      );
     } catch {
       setExportError('Không tạo được file PDF. Hãy thử lại.');
     } finally {
@@ -140,7 +144,7 @@ export const PhaKyPage = () => {
               </section>
             )}
 
-            {branches.length > 1 && (
+            {branches.length > 0 && (
               <section aria-label="Các chi trong họ" className="rounded-2xl border border-line bg-surface p-5">
                 <h2 className="font-serif text-xl font-bold">Các chi trong họ</h2>
                 <p className="mt-1 text-sm text-ink-muted">Mỗi chi do một người con của Thuỷ tổ (Đời 2) lập ra.</p>
@@ -175,12 +179,33 @@ export const PhaKyPage = () => {
             )}
             {generations.map((group) => (
               <section key={group.generation}>
-                <h2 className="font-serif text-2xl font-bold">Đời {group.generation}</h2>
-                <div className="mt-3 space-y-3">
-                  {group.items.map((item) => (
-                    <p key={item.personId} id={item.personId} className="leading-relaxed target:bg-kim-soft/40">
-                      {item.text}
-                    </p>
+                <div className="flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-son/20 pb-2">
+                  <h2 className="font-serif text-2xl font-bold text-son">Đời {group.generation}</h2>
+                  <p className="text-sm text-ink-muted">
+                    {group.total} người
+                    {group.male + group.female > 0 ? ` · ${group.male} nam · ${group.female} nữ` : ''}
+                  </p>
+                </div>
+                <div className="mt-4 space-y-5 border-l-2 border-line pl-6">
+                  {group.items.map((item, index) => (
+                    <article key={item.personId} id={item.personId} className="relative -ml-px target:rounded-xl target:bg-kim-soft/40">
+                      <span
+                        aria-hidden="true"
+                        className={`absolute -left-[1.9rem] size-3 rounded-full border-2 border-paper ${index === 0 ? 'top-0' : 'top-1.5'} ${
+                          item.kind === 'thuy_to' ? 'bg-kim' : 'bg-son'
+                        }`}
+                      />
+                      <h3 className="flex flex-wrap items-baseline gap-2 font-serif text-lg font-bold">
+                        {item.name}
+                        {item.lifespan && <span className="text-sm font-normal text-ink-muted">({item.lifespan})</span>}
+                        {item.kind !== 'dinh' && (
+                          <span className="rounded-full bg-son/10 px-2 py-0.5 text-xs font-semibold text-son">
+                            {kindLabel(item.kind, item.gender)}
+                          </span>
+                        )}
+                      </h3>
+                      {item.detail && <p className="mt-1 leading-relaxed text-ink">{item.detail}</p>}
+                    </article>
                   ))}
                 </div>
               </section>

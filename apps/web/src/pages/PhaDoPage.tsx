@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router';
+import { toIsoDate, todayInVietnam } from '../calendar/month-grid';
 import { loadFontBinary } from '../data/pha-do';
 import { useFamily, usePersonAvatars, usePhaDoConfig, useSavePhaDoConfig, useTree } from '../data/tree-queries';
 import type { Person, TreeWithRole } from '../data/trees';
@@ -23,6 +24,7 @@ import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { ErrorBanner, Select, TextField } from '../ui/fields';
 import { Footer } from '../ui/Footer';
+import { exportFileName } from '../lib/download';
 import { FullPageMessage } from '../ui/FullPageMessage';
 
 /** Thiết kế bản in Phả đồ: phạm vi, khổ giấy, nội dung ô; xem trước đúng như bản in và xuất PDF vector. */
@@ -77,7 +79,7 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
   const svg = useMemo(() => drawingToSvg(result.drawing), [result]);
   const update = (patch: Partial<PhaDoConfig>) => setConfig((current) => ({ ...current, ...patch }));
 
-  const paperLabel = config.paper === 'custom' ? `${config.customWidthCm}x${config.customHeightCm}cm` : config.paper;
+  const exportDate = toIsoDate(todayInVietnam());
   const loadFonts = async () => {
     const [regular, bold] = await Promise.all([
       loadFontBinary('/fonts/NotoSerif-400Regular.ttf'),
@@ -91,7 +93,7 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
     setExportError(null);
     try {
       const [{ drawingToPdf }, fonts] = await Promise.all([import('../pha-do/pdf'), loadFonts()]);
-      drawingToPdf(result.drawing, fonts, `Gia phả ${tree.name}`).save(`pha-do-${paperLabel}.pdf`);
+      drawingToPdf(result.drawing, fonts, `Gia phả ${tree.name}`).save(exportFileName('Pha-do', tree.name, exportDate, 'pdf'));
     } catch {
       setExportError('Không tạo được file PDF. Hãy thử lại.');
     } finally {
@@ -108,7 +110,10 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
         import('../lib/download'),
         loadFonts(),
       ]);
-      downloadBlob(await renderPng(result.drawing, fonts, pngPlan), `pha-do-${paperLabel}-${pngPlan.dpi}dpi.png`);
+      downloadBlob(
+        await renderPng(result.drawing, fonts, pngPlan),
+        exportFileName('Pha-do', tree.name, `${exportDate}-${pngPlan.dpi}dpi`, 'png'),
+      );
     } catch {
       setExportError('Không tạo được ảnh PNG (trình duyệt có thể thiếu bộ nhớ). Hãy thử khổ nhỏ hơn hoặc dùng PDF.');
     } finally {

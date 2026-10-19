@@ -17,6 +17,7 @@ import {
   useReorderChildren,
   useReorderUnions,
   useSetAvatarPhoto,
+  useSetFoundsBranch,
   useSetHiddenFromPublic,
   useSetProgenitor,
   useToggleWatch,
@@ -99,6 +100,7 @@ const PersonDetail = ({ treeId, graph, person, canEdit, isOwner, accountId, link
   const spouses = graph.spousesOf(person.id);
   const children = graph.childrenOf(person.id);
   const setProgenitor = useSetProgenitor(treeId);
+  const setFoundsBranch = useSetFoundsBranch(treeId);
   const close = () => setAction('none');
   // Biên tập viên chỉ thêm/sửa/xoá Người do chính mình tạo; Chủ sở hữu sửa/xoá được mọi Người.
   const canEditThisPerson = isOwner || (canEdit && person.created_by === accountId);
@@ -185,6 +187,23 @@ const PersonDetail = ({ treeId, graph, person, canEdit, isOwner, accountId, link
               </Button>
               <p className="mt-1 text-sm text-ink-muted">Đời của mọi người sẽ được tính lại từ người này.</p>
               {setProgenitor.isError && <ErrorBanner>{setProgenitor.error.message}</ErrorBanner>}
+            </div>
+          )}
+          {placement.kind === 'dinh' && (
+            <div>
+              <Button
+                variant="ghost"
+                disabled={setFoundsBranch.isPending}
+                onClick={() => setFoundsBranch.mutate({ personId: person.id, foundsBranch: !person.founds_branch })}
+              >
+                {person.founds_branch ? 'Bỏ lập chi' : 'Lập chi mới từ người này'}
+              </Button>
+              <p className="mt-1 text-sm text-ink-muted">
+                {person.founds_branch
+                  ? 'Người này và con cháu đang tính là một chi riêng trong Phả ký.'
+                  : 'Người này và con cháu sẽ tính là một chi riêng trong Phả ký.'}
+              </p>
+              {setFoundsBranch.isError && <ErrorBanner>{setFoundsBranch.error.message}</ErrorBanner>}
             </div>
           )}
           <HiddenFromPublicToggle treeId={treeId} person={person} />

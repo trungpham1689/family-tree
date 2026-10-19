@@ -65,8 +65,8 @@ export const EventsPage = () => {
   const upcomingList = useMemo(() => (source ? upcoming(source, today, 30) : []), [source, today]);
   const pastList = useMemo(() => {
     if (!source) return [];
-    const yearAgo = fromJulianDay(julianDay(today) - 365);
-    return occurrencesBetween(source, yearAgo, today)
+    const monthAgo = fromJulianDay(julianDay(today) - 30);
+    return occurrencesBetween(source, monthAgo, today)
       .filter((occurrence) => julianDay(occurrence.date) < julianDay(today))
       .reverse();
   }, [source, today]);
@@ -90,7 +90,7 @@ export const EventsPage = () => {
         </div>
 
         <div className="mt-8">
-          <OccurrenceSection title="Đã qua (365 ngày)" occurrences={pastList} today={today} emptyText="365 ngày qua chưa có giỗ, sinh nhật hay sự kiện nào." />
+          <OccurrenceSection title="Đã qua (30 ngày)" occurrences={pastList} today={today} emptyText="30 ngày qua chưa có giỗ, sinh nhật hay sự kiện nào." />
         </div>
 
         <section className="mt-8 rounded-xl border border-line bg-surface px-4 py-3">

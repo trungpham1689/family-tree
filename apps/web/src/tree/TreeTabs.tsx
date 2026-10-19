@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router';
+import { NavLink, useLocation, useNavigate } from 'react-router';
 
 const TABS: { to: (treeId: string) => string; label: string; end?: boolean }[] = [
   { to: (treeId) => `/gia-pha/${treeId}`, label: 'Tổng quan', end: true },
@@ -10,27 +10,49 @@ const TABS: { to: (treeId: string) => string; label: string; end?: boolean }[] =
   { to: (treeId) => `/gia-pha/${treeId}/thieu-thong-tin`, label: 'Hồ sơ thiếu' },
 ];
 
-/** Thanh tab chuyển giữa các phần của một gia phả, hiện trên mọi trang con của gia phả. */
-export const TreeTabs = ({ treeId }: { treeId: string }) => (
-  <nav
-    aria-label="Các phần của gia phả"
-    className="border-b border-line bg-surface [mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%-16px),transparent)]"
-  >
-    <div className="mx-auto flex max-w-4xl gap-1 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {TABS.map((tab) => (
-        <NavLink
-          key={tab.label}
-          to={tab.to(treeId)}
-          end={tab.end}
-          className={({ isActive }) =>
-            `flex min-h-12 shrink-0 items-center whitespace-nowrap border-b-2 px-2.5 text-xs font-semibold sm:px-3 sm:text-sm ${
-              isActive ? 'border-son text-son' : 'border-transparent text-ink-muted hover:text-ink'
-            }`
-          }
+const isTabActive = (tab: (typeof TABS)[number], treeId: string, pathname: string) => {
+  const to = tab.to(treeId);
+  return tab.end ? pathname === to : pathname === to || pathname.startsWith(`${to}/`);
+};
+
+/** Thanh tab chuyển giữa các phần của một gia phả: dropdown trên mobile (khỏi cuộn ngang), hàng tab từ sm trở lên. */
+export const TreeTabs = ({ treeId }: { treeId: string }) => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const current = TABS.find((tab) => isTabActive(tab, treeId, location.pathname))?.to(treeId) ?? TABS[0]!.to(treeId);
+
+  return (
+    <nav aria-label="Các phần của gia phả" className="border-b border-line bg-surface">
+      <div className="mx-auto max-w-4xl px-4">
+        <select
+          aria-label="Các phần của gia phả"
+          className="block min-h-12 w-full border-0 bg-transparent font-semibold text-son sm:hidden"
+          value={current}
+          onChange={(event) => navigate(event.target.value)}
         >
-          {tab.label}
-        </NavLink>
-      ))}
-    </div>
-  </nav>
-);
+          {TABS.map((tab) => (
+            <option key={tab.label} value={tab.to(treeId)}>
+              {tab.label}
+            </option>
+          ))}
+        </select>
+        <div className="hidden gap-1 sm:flex">
+          {TABS.map((tab) => (
+            <NavLink
+              key={tab.label}
+              to={tab.to(treeId)}
+              end={tab.end}
+              className={({ isActive }) =>
+                `flex min-h-12 shrink-0 items-center whitespace-nowrap border-b-2 px-3 text-sm font-semibold ${
+                  isActive ? 'border-son text-son' : 'border-transparent text-ink-muted hover:text-ink'
+                }`
+              }
+            >
+              {tab.label}
+            </NavLink>
+          ))}
+        </div>
+      </div>
+    </nav>
+  );
+};

@@ -107,6 +107,12 @@ export const setProgenitor = async (personId: string): Promise<void> => {
   if (error) throw new DataError(error);
 };
 
+/** Đánh dấu/bỏ đánh dấu một Người làm tổ của một chi mới (Đời, Chi của mọi người được tính lại). */
+export const setFoundsBranch = async (input: { personId: string; foundsBranch: boolean }): Promise<void> => {
+  const { error } = await supabase.from('persons').update({ founds_branch: input.foundsBranch }).eq('id', input.personId);
+  if (error) throw new DataError(error);
+};
+
 /** Nối một Người đã có (thường là Người chưa nối) làm con của một Người đã có. */
 export const linkParent = async (input: { childId: string; parentId: string; kind: ParentLinkKind }): Promise<void> => {
   check(await supabase.rpc('link_parent', { child_id: input.childId, parent_id: input.parentId, link_kind: input.kind }));
