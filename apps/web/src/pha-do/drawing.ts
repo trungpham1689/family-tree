@@ -10,6 +10,8 @@ export type DrawText = {
   sizePt: number;
   bold: boolean;
   color: string;
+  /** Căn theo x: giữa (mặc định, tên/chi tiết trong ô) hoặc trái (chú giải). */
+  align?: 'middle' | 'start';
 };
 
 export type DrawImage = { type: 'image'; x: number; y: number; width: number; height: number; href: string };

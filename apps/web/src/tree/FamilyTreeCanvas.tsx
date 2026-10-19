@@ -5,7 +5,7 @@ import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { Button } from '../ui/Button';
 
-export type CanvasPerson = { id: string; full_name: string; gender: string | null; lifespan: string };
+export type CanvasPerson = { id: string; full_name: string; gender: string | null; is_deceased: boolean; lifespan: string };
 
 type Props = {
   layout: TreeLayout;
@@ -148,6 +148,18 @@ export const FamilyTreeCanvas = ({
         </g>
       </svg>
 
+      <p className="absolute left-2 top-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line bg-surface/95 px-3 py-1.5 text-xs text-ink-muted shadow-sm">
+        <span className="flex items-center gap-1">
+          <span aria-hidden="true" className="size-2.5 rounded-full border-2" style={{ borderColor: 'var(--color-kim)' }} /> Nam
+        </span>
+        <span className="flex items-center gap-1">
+          <span aria-hidden="true" className="size-2.5 rounded-full border-2" style={{ borderColor: 'var(--color-son)' }} /> Nữ
+        </span>
+        <span className="flex items-center gap-1">
+          <span aria-hidden="true" className="size-2.5 rounded-full border border-line" style={{ backgroundColor: 'var(--color-deceased)' }} /> Đã mất (†)
+        </span>
+      </p>
+
       {/* Một hàng sát góc dưới: chiếm ít chỗ của cây, nhất là trên điện thoại. */}
       <div
         role="toolbar"
@@ -184,7 +196,9 @@ const NAME_CHARS = 18;
 const PersonBox = memo(({ node, person, highlighted, canToggle, onOpen, onToggle }: BoxProps) => {
   const lines = wrapName(person.full_name, NAME_CHARS);
   const isSpouse = node.role === 'spouse';
-  const accent = person.gender === 'nu' ? 'var(--color-son)' : person.gender === 'nam' ? 'var(--color-kim)' : 'var(--color-line)';
+  // Viền theo giới tính (nam/nữ/chưa rõ) để nhận ra ngay không cần đọc chữ; nền xám khi đã mất.
+  const genderColor = person.gender === 'nu' ? 'var(--color-son)' : person.gender === 'nam' ? 'var(--color-kim)' : 'var(--color-line)';
+  const fill = person.is_deceased ? 'var(--color-deceased)' : isSpouse ? 'var(--color-paper)' : 'var(--color-surface)';
   const centerX = node.x + node.width / 2;
   const toggleX = node.x + 22;
   // Căn giữa theo chiều dọc: khối chữ gồm tên (1–2 dòng) và dòng năm sinh–mất nếu có.
@@ -212,11 +226,10 @@ const PersonBox = memo(({ node, person, highlighted, canToggle, onOpen, onToggle
           width={node.width}
           height={node.height}
           rx={10}
-          fill={isSpouse ? 'var(--color-paper)' : 'var(--color-surface)'}
-          stroke={highlighted ? 'var(--color-son)' : 'var(--color-line)'}
-          strokeWidth={highlighted ? 3 : 1.5}
+          fill={fill}
+          stroke={highlighted ? 'var(--color-son)' : genderColor}
+          strokeWidth={highlighted ? 3 : 2}
         />
-        <rect x={node.x} y={node.y + 10} width={4} height={node.height - 20} rx={2} fill={accent} />
         {lines.map((line, index) => (
           <text
             key={index}
@@ -232,7 +245,7 @@ const PersonBox = memo(({ node, person, highlighted, canToggle, onOpen, onToggle
         ))}
         {person.lifespan && (
           <text x={centerX} y={nameTop + lines.length * 18} textAnchor="middle" fontSize={13} fill="var(--color-ink-muted)">
-            {person.lifespan}
+            {person.is_deceased ? `† ${person.lifespan}` : person.lifespan}
           </text>
         )}
       </g>

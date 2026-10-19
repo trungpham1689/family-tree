@@ -81,7 +81,7 @@ export const TreeExplorer = <P extends Person>({ graph, defaultOutside, personHr
       new Map<string, CanvasPerson>(
         graph.persons.map((person) => [
           person.id,
-          { id: person.id, full_name: person.full_name, gender: person.gender, lifespan: lifespanText(person) },
+          { id: person.id, full_name: person.full_name, gender: person.gender, is_deceased: person.is_deceased, lifespan: lifespanText(person) },
         ]),
       ),
     [graph],

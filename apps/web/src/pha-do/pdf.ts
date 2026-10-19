@@ -55,7 +55,7 @@ export const drawingToPdf = (drawing: Drawing, fonts: PdfFonts, title: string): 
         doc.setFont(FONT, item.bold ? 'bold' : 'normal');
         doc.setFontSize(item.sizePt);
         doc.setTextColor(...hexToRgb(item.color));
-        doc.text(item.text, item.x, item.y, { align: 'center', baseline: 'middle' });
+        doc.text(item.text, item.x, item.y, { align: item.align === 'start' ? 'left' : 'center', baseline: 'middle' });
         break;
       case 'image':
         doc.addImage(item.href, item.x, item.y, item.width, item.height);

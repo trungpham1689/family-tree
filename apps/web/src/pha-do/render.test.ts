@@ -68,6 +68,29 @@ describe('seam C: Phả đồ', () => {
     expect(names).toContain('范文');
   });
 
+  it('viền theo giới tính, nền xám và dấu † khi đã mất', () => {
+    const { drawing } = renderPhaDo(sample(), base);
+    const rectBeforeName = (name: string) => {
+      const nameIndex = drawing.items.findIndex((item) => item.type === 'text' && item.text === name);
+      for (let index = nameIndex - 1; index >= 0; index -= 1) {
+        const item = drawing.items[index]!;
+        if (item.type === 'rect') return item;
+      }
+      throw new Error(`Không tìm thấy ô của "${name}".`);
+    };
+
+    // to: nam, đã mất → nền xám, viền màu nam.
+    const toRect = rectBeforeName('Phạm Văn Tổ');
+    expect(toRect.fill).toBe('#c9bfae');
+    expect(toRect.stroke).toBe('#b8892b');
+    expect(texts(base).some((text) => text.startsWith('† '))).toBe(true);
+
+    // dau-a: nữ, còn sống (vợ) → nền ô vợ/chồng, viền màu nữ.
+    const dauRect = rectBeforeName('Nguyễn Thị Dâu');
+    expect(dauRect.fill).toBe('#fbf8f3');
+    expect(dauRect.stroke).toBe('#8a1c1c');
+  });
+
   it('hiện ảnh đại diện khi bật, chỉ cho Người có ảnh', () => {
     const avatars = new Map([['con-a', 'data:image/png;base64,AAA']]);
     const off = renderPhaDo(sample(), { ...base, showAvatars: false }, '', avatars);

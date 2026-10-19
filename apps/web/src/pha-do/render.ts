@@ -20,6 +20,8 @@ const SMALL_SIZE = 12;
 const NAME_CHARS = 18;
 const AVATAR_SIZE = 52;
 const AVATAR_GAP = 6;
+/** Dải chú giải (giới tính, đã mất) dưới cùng vùng cây, tính bằng mm trên trang. */
+const LEGEND_HEIGHT = 8;
 
 const COLORS = {
   ink: '#1f1a17',
@@ -29,6 +31,9 @@ const COLORS = {
   line: '#5c534c',
   box: '#ffffff',
   spouseBox: '#fbf8f3',
+  // Viền theo giới tính, nền xám khi đã mất — nhận ra ngay không cần đọc chữ.
+  genderUnknown: '#a39a8f',
+  deceasedFill: '#c9bfae',
 };
 
 export type PhaDoResult = {
@@ -54,6 +59,27 @@ const extraText = (line: ExtraLine, person: Person, generation: number | null): 
     case 'que':
       return person.hometown;
   }
+};
+
+/** Chú giải màu viền (giới tính) và nền (đã mất): một hàng trong dải LEGEND_HEIGHT dưới vùng cây. */
+const legend = (area: { x: number; y: number; width: number; height: number }): DrawItem[] => {
+  const y = area.y + area.height - LEGEND_HEIGHT / 2;
+  const swatch = 3.5;
+  const rows: [string, string][] = [
+    [COLORS.kim, 'Nam'],
+    [COLORS.son, 'Nữ'],
+    [COLORS.deceasedFill, 'Đã mất (†)'],
+  ];
+  let x = area.x;
+  const items: DrawItem[] = [];
+  for (const [color, label] of rows) {
+    items.push(
+      { type: 'rect', x, y: y - swatch / 2, width: swatch, height: swatch, radius: 1, fill: color, stroke: color, strokeWidth: 0 },
+      { type: 'text', x: x + swatch + 2, y, text: label, sizePt: 9, bold: false, color: COLORS.muted, align: 'start' },
+    );
+    x += swatch + 2 + label.length * 3.6 + 10;
+  }
+  return items;
 };
 
 const rootOf = (graph: FamilyGraph<Person>, config: PhaDoConfig): { rootId: string | null; maxDepth?: number } => {
@@ -91,7 +117,9 @@ export const renderPhaDo = (
   const decoration = layoutDecoration(page, config.decoration, treeName);
   const area = decoration.content;
   const availableWidth = area.width;
-  const availableHeight = area.height;
+  // Dành một dải mỏng dưới cùng vùng cây cho chú giải — trong vùng "content" nên chắc chắn không
+  // đụng khung/hoạ tiết trang trí (những thứ đó nằm ngoài vùng này theo layoutDecoration).
+  const availableHeight = area.height - LEGEND_HEIGHT;
   const fitScale = Math.min(availableWidth / layout.width, availableHeight / layout.height);
   const scale = Math.min(fitScale, MAX_NAME_PT / (NAME_SIZE * PT_PER_MM));
   const namePt = NAME_SIZE * scale * PT_PER_MM;
@@ -117,6 +145,7 @@ export const renderPhaDo = (
     const person = graph.person(node.personId);
     if (!person) continue;
     const isSpouse = node.role === 'spouse';
+    const genderColor = person.gender === 'nam' ? COLORS.kim : person.gender === 'nu' ? COLORS.son : COLORS.genderUnknown;
     items.push({
       type: 'rect',
       x: mx(node.x),
@@ -124,15 +153,16 @@ export const renderPhaDo = (
       width: node.width * scale,
       height: node.height * scale,
       radius: 8 * scale,
-      fill: isSpouse ? COLORS.spouseBox : COLORS.box,
-      stroke: isSpouse ? COLORS.kim : COLORS.son,
-      strokeWidth: 1.5 * scale,
+      fill: person.is_deceased ? COLORS.deceasedFill : isSpouse ? COLORS.spouseBox : COLORS.box,
+      stroke: genderColor,
+      strokeWidth: 2 * scale,
     });
 
     const centerX = mx(node.x + node.width / 2);
     const nameLines = wrapName(person.full_name, NAME_CHARS).slice(0, 2);
+    const lifespan = lifespanText(person);
     const detailLines = [
-      lifespanText(person),
+      lifespan && person.is_deceased ? `† ${lifespan}` : lifespan,
       ...extras.map((line) => extraText(line, person, graph.placement(person.id).generation)),
     ].filter((text): text is string => Boolean(text));
     const avatarUrl = config.showAvatars ? avatarUrls?.get(person.id) : undefined;
@@ -171,6 +201,7 @@ export const renderPhaDo = (
       ? `Chữ in ra chỉ khoảng ${namePt.toFixed(1)} pt, rất khó đọc. Hãy chọn khổ giấy lớn hơn (A0 hoặc tự nhập) hoặc in tách theo từng Chi.`
       : null;
 
+  items.push(...legend(area));
   items.push(...decoration.above);
   return { drawing: { ...page, items }, personCount, namePt, warning, missingRoot: false };
 };
