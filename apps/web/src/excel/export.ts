@@ -48,13 +48,24 @@ export type ExportPerson = {
   burial_place: string | null;
   burial_map_url: string | null;
   worship_place: string | null;
-  worship_keeper: string | null;
+  worship_keeper_id: string | null;
+  hidden_from_public: boolean;
+  founds_branch: boolean;
 };
 
 export type ExportData = {
   persons: readonly ExportPerson[];
   parentLinks: readonly { child_id: string; parent_id: string; kind: string }[];
-  unions: readonly { partner_a: string; partner_b: string; order_for_a: number; order_for_b: number }[];
+  unions: readonly {
+    partner_a: string;
+    partner_b: string;
+    order_for_a: number;
+    order_for_b: number;
+    status: string;
+    marriage_year?: number | null;
+    marriage_month?: number | null;
+    marriage_day?: number | null;
+  }[];
 };
 
 const collator = new Intl.Collator('vi');
@@ -76,6 +87,12 @@ const calendarText = (calendar: string, leap: boolean, year: number | null): str
   if (calendar === 'am') return leap ? 'Âm nhuận' : 'Âm';
   return 'Dương';
 };
+
+const STATUS_TEXT: Record<string, string> = { con: 'Còn', ly_hon: 'Ly hôn', goa: 'Goá' };
+
+/** "15/8/1950", "8/1950", "1950"; "-" khi chưa biết (giữ đúng vị trí trong danh sách cách nhau dấu phẩy). */
+const marriageText = (year: number | null, month: number | null, day: number | null): string =>
+  year === null ? '-' : month === null ? `${year}` : day === null ? `${month}/${year}` : `${day}/${month}/${year}`;
 
 const genderText = (gender: string | null) => (gender === 'nam' ? 'Nam' : gender === 'nu' ? 'Nữ' : '');
 
@@ -145,7 +162,10 @@ export const familyToRows = (data: ExportData): RawRow[] => {
 
   // Mỗi hôn phối ghi ở dòng của một người: người không có cha mẹ trong cây (dâu/rể),
   // hoặc nếu cả hai cùng có/không có thì người đứng sau trong file.
-  const spouseRefs = new Map<string, { code: string; order: number; ownOrder: number }[]>();
+  const spouseRefs = new Map<
+    string,
+    { code: string; order: number; ownOrder: number; status: string; marriage: string }[]
+  >();
   for (const union of data.unions) {
     const aHasParents = parentsOf.has(union.partner_a);
     const bHasParents = parentsOf.has(union.partner_b);
@@ -156,7 +176,13 @@ export const familyToRows = (data: ExportData): RawRow[] => {
       : [union.partner_b, union.partner_a, union.order_for_a, union.order_for_b];
     spouseRefs.set(writer, [
       ...(spouseRefs.get(writer) ?? []),
-      { code: code.get(other)!, order: orderOfWriterForOther, ownOrder: orderOfOtherForWriter },
+      {
+        code: code.get(other)!,
+        order: orderOfWriterForOther,
+        ownOrder: orderOfOtherForWriter,
+        status: union.status,
+        marriage: marriageText(union.marriage_year ?? null, union.marriage_month ?? null, union.marriage_day ?? null),
+      },
     ]);
   }
 
@@ -188,6 +214,8 @@ export const familyToRows = (data: ExportData): RawRow[] => {
       birthOrder: person.birth_order?.toString() ?? '',
       spouseCode: refs.map((ref) => ref.code).join(', '),
       spouseOrder: refs.map((ref) => ref.order).join(', '),
+      spouseStatus: refs.some((ref) => ref.status !== 'con') ? refs.map((ref) => STATUS_TEXT[ref.status] ?? 'Còn').join(', ') : '',
+      marriageDate: refs.some((ref) => ref.marriage !== '-') ? refs.map((ref) => ref.marriage).join(', ') : '',
       commonName: person.common_name ?? '',
       tabooName: person.taboo_name ?? '',
       courtesyName: person.courtesy_name ?? '',
@@ -214,7 +242,9 @@ export const familyToRows = (data: ExportData): RawRow[] => {
       burialPlace: person.burial_place ?? '',
       burialMapUrl: person.burial_map_url ?? '',
       worshipPlace: person.worship_place ?? '',
-      worshipKeeper: person.worship_keeper ?? '',
+      worshipKeeperCode: person.worship_keeper_id ? (code.get(person.worship_keeper_id) ?? '') : '',
+      hiddenFromPublic: person.hidden_from_public ? 'Có' : '',
+      foundsBranch: person.founds_branch ? 'Có' : '',
     };
     return row;
   });

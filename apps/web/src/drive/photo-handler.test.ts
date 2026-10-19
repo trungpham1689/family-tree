@@ -59,7 +59,7 @@ const upload = (query: string, headers: Record<string, string> = {}, body: BodyI
   });
 
 describe('/api/photos', () => {
-  it('Biên tập viên tải ảnh Người: tạo Family-tree/{tên}/Ảnh Gia Phả + Ảnh Thành Viên rồi trả id file', async () => {
+  it('Biên tập viên tải ảnh Người: tạo Family-tree/{tên}/Ảnh Gia Phả + Ảnh Người rồi trả id file', async () => {
     const server = fakeServer({ allow: ['can_edit_tree'] });
     const response = await handleUpload(upload(`treeId=${TREE}&kind=member&personId=${PERSON}`), env, server.doFetch);
     expect(response.status).toBe(201);

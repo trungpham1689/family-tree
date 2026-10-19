@@ -140,3 +140,20 @@ describe('nhiều Gia phả và "Sắp tới"', () => {
     ]);
   });
 });
+
+describe('kỷ niệm cưới', () => {
+  const marriage = { id: 'u1', tree_id: 't1', partner_a: 'p1', names: 'Ông A & Bà B', marriage_year: 1975, marriage_month: 4, marriage_day: 30 };
+
+  it('nhắc hằng năm vào ngày cưới dương, kèm số năm', () => {
+    const { from, to } = year(2026);
+    const found = occurrencesBetween(source({ marriages: [marriage] }), from, to).filter((o) => o.kind === 'cuoi');
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({ date: { year: 2026, month: 4, day: 30 }, title: 'Kỷ niệm cưới Ông A & Bà B', detail: 'Tròn 51 năm ngày cưới', personId: 'p1' });
+  });
+
+  it('chưa biết đủ ngày thì không nhắc; năm cưới chính nó không tính là kỷ niệm', () => {
+    const { from, to } = year(1975);
+    expect(occurrencesBetween(source({ marriages: [marriage] }), from, to)).toEqual([]);
+    expect(occurrencesBetween(source({ marriages: [{ ...marriage, marriage_day: null }] }), year(2026).from, year(2026).to)).toEqual([]);
+  });
+});

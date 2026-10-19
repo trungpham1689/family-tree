@@ -24,13 +24,18 @@ export type GraphUnion = {
   order_for_a: number;
   order_for_b: number;
   status: string;
+  /** Ngày cưới dương; chỉ có ở bản đầy đủ (bản công khai không gửi). */
+  marriage_year?: number | null;
+  marriage_month?: number | null;
+  marriage_day?: number | null;
 };
 
 export type GraphPosition = { person_id: string; generation: number | null; branch_id: string | null; kind: string };
 
 export type Relative<P> = { person: P };
 export type ParentRelative<P> = Relative<P> & { kind: ParentLinkKind };
-export type SpouseRelative<P> = Relative<P> & { unionId: string; order: number; status: UnionStatus };
+export type MarriageDate = { year: number | null; month: number | null; day: number | null };
+export type SpouseRelative<P> = Relative<P> & { unionId: string; order: number; status: UnionStatus; marriage: MarriageDate };
 export type ChildRelative<P> = Relative<P> & { kind: ParentLinkKind };
 
 export type Placement = { generation: number | null; branchId: string | null; kind: PersonKind };
@@ -122,7 +127,7 @@ export const buildFamilyGraph = <P extends GraphPerson>(input: {
           const isA = union.partner_a === id;
           const person = persons.get(isA ? union.partner_b : union.partner_a);
           return person
-            ? [{ person, unionId: union.id, order: isA ? union.order_for_a : union.order_for_b, status: asStatus(union.status) }]
+            ? [{ person, unionId: union.id, order: isA ? union.order_for_a : union.order_for_b, status: asStatus(union.status), marriage: { year: union.marriage_year ?? null, month: union.marriage_month ?? null, day: union.marriage_day ?? null } }]
             : [];
         })
         .sort((a, b) => a.order - b.order || byName(a.person.full_name, b.person.full_name)),

@@ -1,12 +1,12 @@
 import type { PhaDoConfig } from '../pha-do/config';
 import { supabase } from '../lib/supabase';
 import type { Json } from './database.types';
-import { DataError } from './trees';
+import { failOn } from './trees';
 
 /** Cấu hình Phả đồ đã lưu của Gia phả (JSON thô, đọc lại bằng readPhaDoConfig); null nếu chưa lưu. */
 export const loadPhaDoConfig = async (treeId: string): Promise<unknown> => {
   const { data, error } = await supabase.from('pha_do_configs').select('config').eq('tree_id', treeId).maybeSingle();
-  if (error) throw new DataError(error);
+  failOn(error);
   return data?.config ?? null;
 };
 
@@ -14,7 +14,7 @@ export const savePhaDoConfig = async (input: { treeId: string; config: PhaDoConf
   const { error } = await supabase
     .from('pha_do_configs')
     .upsert({ tree_id: input.treeId, config: input.config as unknown as Json }, { onConflict: 'tree_id' });
-  if (error) throw new DataError(error);
+  failOn(error);
 };
 
 const fontCache = new Map<string, Promise<string>>();

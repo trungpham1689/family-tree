@@ -159,3 +159,18 @@ AI features (photo restoration, reading Word files, assistant); ngày tốt xấ
 - Free-tier limits that shape design: Supabase 500 MB DB and 7-day inactivity pause; R2 10 GB; Resend 100 emails/day; Workers short CPU per request (so PDF/PNG generation runs in the browser).
 - A domain (~250–300k VND/year) is the only expected cost, needed for reliable email.
 - Glossary: `CONTEXT.md`. Decisions: `docs/adr/0001`–`0004`. Plan and milestone acceptance criteria: `PLAN.md` (also in the "Family tree" Project).
+
+## Updates after the first version
+
+The stories above are the original scope; the product has since moved on in these ways (the code, `CONTEXT.md` and `supabase/migrations` are the source of truth):
+
+- **Accounts (story 1):** sign-up is gated by manual approval (`account_approvals`); an unapproved account can use nothing, even if invited.
+- **Roles (stories 42–44, 46–47):** only the Chủ sở hữu invites and manages roles. A Biên tập viên edits and deletes only the Người they created; deleting is a request the Chủ sở hữu approves. The public link requires a password (the preview card shows only name and head-count).
+- **Photos (stories 5, 77, 78):** up to 3 per Người (not 5), stored on Google Drive through the `/api/photos` Pages Function (not R2); the browser scales to 1000 px / 1600 px and lowers JPEG quality until each file is under 400 KB (hard server cap 4 MB). A Gia phả has its own cover photo.
+- **Public link (story 49):** a Người hidden from the link who has children in the tree appears as an anonymous "Ẩn danh" box so descendants stay connected; hidden with no children is dropped entirely.
+- **Names (story 13):** tên huý and tên chữ Hán are still stored and in the Excel file but are no longer shown in the profile form.
+- **Giỗ (story 18):** the auto-derived giỗ is the day before the death date (see `CONTEXT.md`).
+- **Reminders (stories 61–67):** giỗ reminders default ON for everyone; `reminder_watch` now lists the Người an account has *muted*. The email digest (story 65) is one email per Gia phả to its Chủ sở hữu and Biên tập viên, sent every 5 days (cron runs daily, sends when the Julian day divides by 5), covering giỗ, sinh nhật, kỷ niệm cưới and Sự kiện of the next 5 days. Because it is shared, it ignores per-account mutes and "độ sớm nhắc"; those apply to the in-app bell. The optional "tiên thường" offset (story 63) is not built.
+- **Excel (stories 36–41):** export/import also carries union status, ngày cưới, người phụ trách cúng giỗ (by mã), "ẩn khỏi link công khai" and "lập chi mới".
+- **Added since:** Phả ký (page + PDF), Tra cứu quan hệ, Hồ sơ thiếu, Dòng thời gian, thống kê vui, Gộp người trùng, Kỷ niệm cưới and "Ngày này năm xưa", subscribable calendar (`/api/calendar/<token>.ics`), full backup `.zip`, PWA with offline read, 7 Phả đồ frame styles with font/scale options.
+- **Schema notes:** in-app reminders are derived in the browser (no `notifications` table; `notification_reads` records what was read); the saved print settings live in `pha_do_configs` (no `chart_layouts`).

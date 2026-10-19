@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import type { ParentLinkKind, UnionStatus } from '../family/family-graph';
 import type { PersonFields } from '../people/person-form';
 import type { Row } from './database.types';
-import { DataError } from './trees';
+import { DataError, failOn } from './trees';
 
 export type FamilyData = {
   persons: Row<'persons'>[];
@@ -13,7 +13,7 @@ export type FamilyData = {
 };
 
 const check = <T>({ data, error }: { data: T | null; error: { code?: string; message?: string } | null }): T => {
-  if (error) throw new DataError(error);
+  failOn(error);
   return data as T;
 };
 
@@ -62,6 +62,8 @@ export const updateUnion = async (input: {
   viewerId: string;
   order?: number;
   status?: UnionStatus;
+  /** Ngày cưới (dương); `null` ở từng phần = chưa biết. Truyền cả ba cùng lúc. */
+  marriage?: { year: number | null; month: number | null; day: number | null };
 }): Promise<void> => {
   const { data: union, error: readError } = await supabase
     .from('unions')
@@ -75,9 +77,10 @@ export const updateUnion = async (input: {
     .update({
       ...(input.order !== undefined ? { [orderColumn]: input.order } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
+      ...(input.marriage ? { marriage_year: input.marriage.year, marriage_month: input.marriage.month, marriage_day: input.marriage.day } : {}),
     })
     .eq('id', input.unionId);
-  if (error) throw new DataError(error);
+  failOn(error);
 };
 
 /** Đổi Thứ tự hôn phối (nhìn từ phía viewerId) theo danh sách đã kéo thả. */
@@ -93,27 +96,24 @@ export const updateParentLinkKind = async (input: { childId: string; parentId: s
     .update({ kind: input.kind })
     .eq('child_id', input.childId)
     .eq('parent_id', input.parentId);
-  if (error) throw new DataError(error);
+  failOn(error);
 };
 
-/** Đổi Thứ tự con: ghi lại liên tục 1..N theo danh sách đã kéo thả (gồm con của mọi vợ/chồng). */
+/** Đổi Thứ tự con: ghi lại liên tục 1..N theo danh sách đã kéo thả (gồm con của mọi vợ/chồng), một lần, qua hàm của database. */
 export const reorderChildren = async (orderedChildIds: string[]): Promise<void> => {
-  const results = await Promise.all(
-    orderedChildIds.map((childId, index) => supabase.from('persons').update({ birth_order: index + 1 }).eq('id', childId)),
-  );
-  const failed = results.find((result) => result.error);
-  if (failed?.error) throw new DataError(failed.error);
+  const { error } = await supabase.rpc('reorder_children', { ordered_ids: orderedChildIds });
+  failOn(error);
 };
 
 export const setProgenitor = async (personId: string): Promise<void> => {
   const { error } = await supabase.rpc('set_progenitor', { person_id: personId });
-  if (error) throw new DataError(error);
+  failOn(error);
 };
 
 /** Đánh dấu/bỏ đánh dấu một Người làm tổ của một chi mới (Đời, Chi của mọi người được tính lại). */
 export const setFoundsBranch = async (input: { personId: string; foundsBranch: boolean }): Promise<void> => {
   const { error } = await supabase.from('persons').update({ founds_branch: input.foundsBranch }).eq('id', input.personId);
-  if (error) throw new DataError(error);
+  failOn(error);
 };
 
 /** Nối một Người đã có (thường là Người chưa nối) làm con của một Người đã có. */
@@ -124,4 +124,10 @@ export const linkParent = async (input: { childId: string; parentId: string; kin
 /** Nối hai Người đã có thành vợ chồng. */
 export const linkSpouse = async (input: { personId: string; spouseId: string }): Promise<void> => {
   check(await supabase.rpc('link_spouse', { person_id: input.personId, spouse_id: input.spouseId }));
+};
+
+/** Gộp người trùng `dropId` vào `keepId` (chỉ Chủ sở hữu); không hoàn tác được. */
+export const mergePersons = async (input: { keepId: string; dropId: string }): Promise<void> => {
+  const { error } = await supabase.rpc('merge_persons', { keep_person: input.keepId, drop_person: input.dropId });
+  failOn(error);
 };

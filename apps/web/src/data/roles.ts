@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { DataError } from './trees';
+import { failOn } from './trees';
 
 /** Vai trò mời được; "owner" không mời/đổi/gỡ qua đây (ticket 11). */
 export type InvitableRole = 'editor' | 'viewer';
@@ -13,7 +13,7 @@ export type TreeMember = {
 
 export const listTreeMembers = async (treeId: string): Promise<TreeMember[]> => {
   const { data, error } = await supabase.rpc('list_tree_members', { target_tree: treeId });
-  if (error) throw new DataError(error);
+  failOn(error);
   return (data ?? []) as TreeMember[];
 };
 
@@ -23,7 +23,7 @@ export const inviteToTree = async (input: { treeId: string; email: string; role:
     invite_email: input.email,
     new_role: input.role,
   });
-  if (error) throw new DataError(error);
+  failOn(error);
 };
 
 export const updateTreeRole = async (input: { treeId: string; accountId: string; role: InvitableRole }): Promise<void> => {
@@ -32,10 +32,10 @@ export const updateTreeRole = async (input: { treeId: string; accountId: string;
     target_account: input.accountId,
     new_role: input.role,
   });
-  if (error) throw new DataError(error);
+  failOn(error);
 };
 
 export const removeTreeRole = async (input: { treeId: string; accountId: string }): Promise<void> => {
   const { error } = await supabase.rpc('remove_tree_role', { target_tree: input.treeId, target_account: input.accountId });
-  if (error) throw new DataError(error);
+  failOn(error);
 };

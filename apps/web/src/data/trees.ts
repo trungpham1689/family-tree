@@ -21,6 +21,11 @@ export class DataError extends Error {
   }
 }
 
+/** Ném DataError (đã có câu tiếng Việt) nếu truy vấn trả lỗi. */
+export function failOn(error: DbErrorLike | null): asserts error is null {
+  if (error) throw new DataError(error);
+}
+
 type QueryResult = { data: unknown; error: DbErrorLike | null };
 
 const unwrap = <Result extends QueryResult>({ data, error }: Result): NonNullable<Result['data']> => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findDuplicates, normalizeName } from './duplicate-check';
+import { duplicateGroups, findDuplicates, normalizeName } from './duplicate-check';
 
 describe('normalizeName', () => {
   it('bỏ dấu, hoa/thường, khoảng trắng thừa', () => {
@@ -23,5 +23,18 @@ describe('findDuplicates', () => {
 
   it('tên trống thì không báo trùng', () => {
     expect(findDuplicates('   ', candidates)).toEqual([]);
+  });
+});
+
+describe('duplicateGroups', () => {
+  const p = (id: string, full_name: string, birth_year: number | null) => ({ id, full_name, birth_year });
+
+  it('nhóm người cùng tên (bỏ dấu) mà năm sinh không mâu thuẫn', () => {
+    const groups = duplicateGroups([p('1', 'Phạm Văn A', 1950), p('2', 'pham van a', null), p('3', 'Phạm Văn B', 1950), p('4', 'Phạm Văn A', 1950)]);
+    expect(groups.map((group) => group.map((x) => x.id))).toEqual([['1', '2', '4']]);
+  });
+
+  it('cùng tên nhưng khác năm sinh là hai người; người một mình không thành nhóm', () => {
+    expect(duplicateGroups([p('1', 'Lê Văn C', 1950), p('2', 'Lê Văn C', 1980), p('3', 'Khác', null)])).toEqual([]);
   });
 });

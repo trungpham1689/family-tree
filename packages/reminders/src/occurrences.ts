@@ -5,7 +5,7 @@ import { anniversariesBetween, fromJulianDay, julianDay, lunarToSolar, type Sola
  * cùng Sự kiện của các Gia phả. Thuần TypeScript để kiểm tra được mọi luật ngày tháng.
  */
 
-export type OccurrenceKind = 'gio' | 'sinh_nhat' | 'su_kien';
+export type OccurrenceKind = 'gio' | 'sinh_nhat' | 'cuoi' | 'su_kien';
 
 export type CalendarPerson = {
   id: string;
@@ -16,6 +16,21 @@ export type CalendarPerson = {
   anniversary_month: number | null;
   /** Ngày sinh dương đầy đủ (YYYY-MM-DD), chỉ có khi biết đủ ngày. */
   birth_solar_date: string | null;
+  /** Ngày mất dương đầy đủ (YYYY-MM-DD); chỉ dùng cho "Ngày này năm xưa". */
+  death_solar_date?: string | null;
+};
+
+/** Một cuộc hôn phối đã biết đủ ngày-tháng-năm cưới (chưa ly hôn): để nhắc Kỷ niệm cưới. */
+export type CalendarMarriage = {
+  id: string;
+  tree_id: string;
+  /** Một trong hai người, để bấm vào dẫn về hồ sơ. */
+  partner_a: string;
+  /** "Chồng & Vợ". */
+  names: string;
+  marriage_year: number | null;
+  marriage_month: number | null;
+  marriage_day: number | null;
 };
 
 export type CalendarEvent = {
@@ -36,6 +51,7 @@ export type CalendarSource = {
   trees: readonly { id: string; name: string }[];
   persons: readonly CalendarPerson[];
   events: readonly CalendarEvent[];
+  marriages?: readonly CalendarMarriage[];
 };
 
 export type Occurrence = {
@@ -49,7 +65,7 @@ export type Occurrence = {
   eventId?: string;
 };
 
-const KIND_ORDER: Record<OccurrenceKind, number> = { gio: 0, sinh_nhat: 1, su_kien: 2 };
+const KIND_ORDER: Record<OccurrenceKind, number> = { gio: 0, sinh_nhat: 1, cuoi: 2, su_kien: 3 };
 const collator = new Intl.Collator('vi');
 
 const daysInSolarMonth = (year: number, month: number) => new Date(Date.UTC(year, month, 0)).getUTCDate();
@@ -105,6 +121,25 @@ export const occurrencesBetween = (source: CalendarSource, from: SolarDate, to: 
             detail: year > birth.year ? `Tròn ${year - birth.year} tuổi` : 'Ngày sinh',
           });
         }
+      }
+    }
+  }
+
+  for (const marriage of source.marriages ?? []) {
+    const { marriage_year: marriedYear, marriage_month: month, marriage_day: day } = marriage;
+    if (marriedYear === null || month === null || day === null) continue;
+    for (let year = from.year; year <= to.year; year += 1) {
+      const date = solarInYear(year, month, day);
+      if (year > marriedYear && inRange(date)) {
+        results.push({
+          date,
+          kind: 'cuoi',
+          title: `Kỷ niệm cưới ${marriage.names}`,
+          detail: `Tròn ${year - marriedYear} năm ngày cưới`,
+          treeId: marriage.tree_id,
+          treeName: treeName.get(marriage.tree_id) ?? '',
+          personId: marriage.partner_a,
+        });
       }
     }
   }

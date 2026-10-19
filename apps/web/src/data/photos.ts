@@ -1,6 +1,6 @@
 import type { Row } from './database.types';
 import { supabase } from '../lib/supabase';
-import { DataError } from './trees';
+import { DataError, failOn } from './trees';
 
 /**
  * Ảnh nằm trên Google Drive, qua Pages Function /api/photos (khoá Drive giữ phía server).
@@ -33,7 +33,9 @@ export const PHOTO_SPECS: Record<PhotoKind, { maxEdge: number; minEdge: number; 
   },
 };
 
-const JPEG_QUALITY = 0.85;
+/** Mục tiêu dung lượng sau nén (SPEC story 78): giảm dần chất lượng JPEG cho tới khi dưới mức này hoặc hết bậc. */
+const TARGET_BYTES = 400 * 1024;
+const JPEG_QUALITIES = [0.85, 0.75, 0.65, 0.55, 0.45];
 
 export type PersonPhoto = Row<'person_photos'>;
 
@@ -67,9 +69,13 @@ const optimizeImage = async (file: File, kind: PhotoKind): Promise<Blob> => {
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Trình duyệt không xử lý được ảnh.');
     context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    const optimized = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY));
-    if (!optimized) throw new Error('Trình duyệt không nén được ảnh.');
-    return optimized;
+    let optimized: Blob | null = null;
+    for (const quality of JPEG_QUALITIES) {
+      optimized = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+      if (!optimized) throw new Error('Trình duyệt không nén được ảnh.');
+      if (optimized.size <= TARGET_BYTES) break;
+    }
+    return optimized!;
   } finally {
     bitmap.close();
   }
@@ -123,7 +129,7 @@ const removeStored = async (path: string): Promise<void> => {
     return;
   }
   const { error } = await supabase.storage.from(AVATAR_BUCKET).remove([path]);
-  if (error) throw new DataError(error);
+  failOn(error);
 };
 
 export const listPersonPhotos = async (personId: string): Promise<PersonPhoto[]> => {
@@ -132,7 +138,7 @@ export const listPersonPhotos = async (personId: string): Promise<PersonPhoto[]>
     .select('*')
     .eq('person_id', personId)
     .order('created_at', { ascending: true });
-  if (error) throw new DataError(error);
+  failOn(error);
   return data;
 };
 
@@ -159,19 +165,19 @@ export const uploadPersonPhoto = async (input: {
 
 export const setAvatarPhoto = async (photoId: string): Promise<void> => {
   const { error } = await supabase.rpc('set_avatar_photo', { photo_id: photoId });
-  if (error) throw new DataError(error);
+  failOn(error);
 };
 
 export const updatePhotoCaption = async (input: { photoId: string; caption: string | null }): Promise<void> => {
   const { error } = await supabase.from('person_photos').update({ caption: input.caption }).eq('id', input.photoId);
-  if (error) throw new DataError(error);
+  failOn(error);
 };
 
 /** Xoá file trên Drive trước, thành công rồi mới xoá dòng dữ liệu — lỗi Drive thì ảnh còn nguyên, báo cho người dùng thử lại. */
 export const removePersonPhoto = async (input: { photoId: string; path: string }): Promise<void> => {
   await removeStored(input.path);
   const { error } = await supabase.from('person_photos').delete().eq('id', input.photoId);
-  if (error) throw new DataError(error);
+  failOn(error);
 };
 
 /** Xoá mọi file ảnh của một Người khỏi Drive (gọi trước khi xoá Người, vì xoá Người kéo theo xoá dòng ảnh). */
@@ -201,7 +207,7 @@ export const setTreePhoto = async (input: { treeId: string; file: File; previous
 export const removeTreePhoto = async (input: { treeId: string; path: string }): Promise<void> => {
   await removeStored(input.path);
   const { error } = await supabase.from('family_trees').update({ photo_path: null }).eq('id', input.treeId);
-  if (error) throw new DataError(error);
+  failOn(error);
 };
 
 /** Tải file ảnh gốc về dưới dạng Blob (Drive qua /api/photos, hoặc Supabase Storage với ảnh cũ). */
@@ -209,7 +215,7 @@ export const fetchPhotoBlob = async (path: string): Promise<Blob> => {
   const drive = drivePathOf(path);
   if (drive) return (await photoRequest(`/${drive.fileId}?treeId=${drive.treeId}`)).blob();
   const { data, error } = await supabase.storage.from(AVATAR_BUCKET).download(path);
-  if (error) throw new DataError(error);
+  failOn(error);
   return data;
 };
 

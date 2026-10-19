@@ -1,3 +1,4 @@
+import { canEditTree, isTreeOwner } from '../data/permissions';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ROLE_LABELS } from '../data/role-labels';
@@ -70,8 +71,8 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
   const [adding, setAdding] = useState<'none' | 'root' | 'loose'>('none');
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const canEdit = tree.role === 'owner' || tree.role === 'editor';
-  const isOwner = tree.role === 'owner';
+  const canEdit = canEditTree(tree.role);
+  const isOwner = isTreeOwner(tree.role);
 
   const closeAddDialog = () => {
     createPerson.reset();

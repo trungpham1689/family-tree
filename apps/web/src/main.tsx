@@ -1,4 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router';
@@ -9,21 +10,25 @@ import { CalendarPage } from './pages/CalendarPage';
 import { LoginPage } from './pages/LoginPage';
 import { MyTreesPage } from './pages/MyTreesPage';
 import { PersonPage } from './pages/PersonPage';
-import { EventsPage } from './pages/EventsPage';
+import { TreeEventsPage } from './pages/TreeEventsPage';
 import { ImportPage } from './pages/ImportPage';
 import { IncompletePage } from './pages/IncompletePage';
 import { KinshipPage } from './pages/KinshipPage';
 import { PhaDoPage } from './pages/PhaDoPage';
 import { PhaKyPage } from './pages/PhaKyPage';
+import { DuplicatesPage } from './pages/DuplicatesPage';
+import { TimelinePage } from './pages/TimelinePage';
 import { PublicPersonPage, PublicTreePage } from './pages/PublicTreePage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
-import { SuKienPage } from './pages/SuKienPage';
+import { MyEventsPage } from './pages/MyEventsPage';
 import { TreePage } from './pages/TreePage';
 import { TreeViewPage } from './pages/TreeViewPage';
+import { OFFLINE_MAX_AGE_MS, queryPersister, shouldPersistQuery } from './lib/offline-cache';
 import { FullPageMessage } from './ui/FullPageMessage';
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
+  // gcTime phải không ngắn hơn thời hạn lưu offline, nếu không dữ liệu bị dọn khỏi bộ nhớ trước khi kịp lưu.
+  defaultOptions: { queries: { staleTime: 30_000, retry: 1, gcTime: OFFLINE_MAX_AGE_MS } },
 });
 
 const router = createBrowserRouter([
@@ -77,7 +82,7 @@ const router = createBrowserRouter([
     path: '/gia-pha/:treeId/su-kien',
     element: (
       <RequireAuth>
-        <EventsPage />
+        <TreeEventsPage />
       </RequireAuth>
     ),
   },
@@ -98,10 +103,26 @@ const router = createBrowserRouter([
     ),
   },
   {
+    path: '/gia-pha/:treeId/dong-thoi-gian',
+    element: (
+      <RequireAuth>
+        <TimelinePage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/gia-pha/:treeId/trung-lap',
+    element: (
+      <RequireAuth>
+        <DuplicatesPage />
+      </RequireAuth>
+    ),
+  },
+  {
     path: '/su-kien',
     element: (
       <RequireAuth>
-        <SuKienPage />
+        <MyEventsPage />
       </RequireAuth>
     ),
   },
@@ -129,10 +150,24 @@ if (!rootElement) throw new Error('Không tìm thấy phần tử #root.');
 
 createRoot(rootElement).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister: queryPersister,
+        maxAge: OFFLINE_MAX_AGE_MS,
+        // Đổi số này khi cấu trúc dữ liệu đã lưu thay đổi để bỏ bộ nhớ đệm cũ.
+        buster: 'v1',
+        dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
+      }}
+    >
       <AuthProvider>
         <RouterProvider router={router} />
       </AuthProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   </StrictMode>,
 );
+
+// Service worker: giữ khung ứng dụng để mở được khi mất mạng (chỉ bản build, không chạy khi `pnpm dev`).
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => void navigator.serviceWorker.register('/sw.js').catch(() => undefined));
+}

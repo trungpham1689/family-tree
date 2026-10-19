@@ -1,3 +1,4 @@
+import { canEditTree } from '../data/permissions';
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router';
 import { toIsoDate, todayInVietnam } from '../calendar/month-grid';
@@ -71,7 +72,7 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
   const [exporting, setExporting] = useState<'pdf' | 'png' | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const save = useSavePhaDoConfig(tree.id);
-  const canEdit = tree.role === 'owner' || tree.role === 'editor';
+  const canEdit = canEditTree(tree.role);
 
   const avatars = usePersonAvatars(graph.persons, config.showAvatars);
   const result = useMemo(

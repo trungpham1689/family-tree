@@ -43,17 +43,22 @@ const person = (id: string, extra: Partial<ExportPerson> = {}): ExportPerson => 
   burial_place: null,
   burial_map_url: null,
   worship_place: null,
-  worship_keeper: null,
+  worship_keeper_id: null,
+  hidden_from_public: false,
+  founds_branch: false,
   ...extra,
 });
 
 /** Giả lập "lưu vào database": mã trong file thành id. */
 const saved = (payload: ImportPayload): ExportData => ({
-  persons: payload.persons.map(({ key, fields }) => ({
+  persons: payload.persons.map(({ key, fields, hiddenFromPublic, foundsBranch, worshipKeeper }) => ({
     ...person(key),
     ...(fields as unknown as Partial<ExportPerson>),
     id: `db-${key}`,
     is_progenitor: key === payload.progenitor,
+    hidden_from_public: hiddenFromPublic,
+    founds_branch: foundsBranch,
+    worship_keeper_id: worshipKeeper ? `db-${worshipKeeper}` : null,
   })),
   parentLinks: payload.parentLinks.map((link) => ({ child_id: `db-${link.child}`, parent_id: `db-${link.parent}`, kind: link.kind })),
   unions: payload.unions.map((union) => ({
@@ -61,6 +66,10 @@ const saved = (payload: ImportPayload): ExportData => ({
     partner_b: `db-${union.b}`,
     order_for_a: union.orderA,
     order_for_b: union.orderB,
+    status: union.status,
+    marriage_year: union.marriageYear,
+    marriage_month: union.marriageMonth,
+    marriage_day: union.marriageDay,
   })),
 });
 
@@ -80,7 +89,7 @@ describe('xuất Excel', () => {
         person('em', { full_name: 'Em', birth_order: 2 }),
         person('dau', { full_name: 'Dâu', gender: 'nu' }),
         person('chau-trai', { full_name: 'Cháu trai', birth_order: 1 }),
-        person('chau-gai', { full_name: 'Cháu gái', gender: 'nu', birth_order: 1 }),
+        person('chau-gai', { full_name: 'Cháu gái', gender: 'nu', birth_order: 1, hidden_from_public: true, founds_branch: true, worship_keeper_id: 'em' }),
       ],
       parentLinks: [
         { child_id: 'anh', parent_id: 'to', kind: 'ruot' },
@@ -90,9 +99,9 @@ describe('xuất Excel', () => {
         { child_id: 'chau-gai', parent_id: 'em', kind: 'ruot' },
       ],
       unions: [
-        { partner_a: 'anh', partner_b: 'dau', order_for_a: 1, order_for_b: 1 },
-        { partner_a: 'em', partner_b: 'dau', order_for_a: 1, order_for_b: 2 },
-        { partner_a: 'chau-trai', partner_b: 'chau-gai', order_for_a: 1, order_for_b: 1 },
+        { partner_a: 'anh', partner_b: 'dau', order_for_a: 1, order_for_b: 1, status: 'goa', marriage_year: 1950, marriage_month: 8, marriage_day: 15 },
+        { partner_a: 'em', partner_b: 'dau', order_for_a: 1, order_for_b: 2, status: 'con', marriage_year: 1960, marriage_month: null, marriage_day: null },
+        { partner_a: 'chau-trai', partner_b: 'chau-gai', order_for_a: 1, order_for_b: 1, status: 'ly_hon', marriage_year: null, marriage_month: null, marriage_day: null },
       ],
     };
     const { first, second } = roundTrip(data);
@@ -101,6 +110,13 @@ describe('xuất Excel', () => {
     const header = first[0]!;
     const dau = first.find((row) => row[header.indexOf('Họ và tên')] === 'Dâu')!;
     expect(dau[header.indexOf('Mã vợ/chồng')]).toMatch(/, /);
+    // Tình trạng hôn phối, ngày cưới (kể cả chỉ biết năm), cờ ẩn / lập chi và người phụ trách cúng giỗ đi theo file.
+    expect(dau[header.indexOf('Tình trạng hôn phối')]).toBe('Goá, Còn');
+    expect(dau[header.indexOf('Ngày cưới')]).toBe('15/8/1950, 1960');
+    const chauGai = first.find((row) => row[header.indexOf('Họ và tên')] === 'Cháu gái')!;
+    expect(chauGai[header.indexOf('Ẩn khỏi link công khai')]).toBe('Có');
+    expect(chauGai[header.indexOf('Lập chi mới')]).toBe('Có');
+    expect(chauGai[header.indexOf('Mã người phụ trách cúng giỗ')]).not.toBe('');
   });
 
   it('gia phả trống thì chỉ có dòng tiêu đề', () => {

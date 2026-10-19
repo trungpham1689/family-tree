@@ -1,3 +1,4 @@
+import { isTreeOwner } from '../data/permissions';
 import { useState, type FormEvent } from 'react';
 import { ROLE_LABELS } from '../data/role-labels';
 import type { InvitableRole } from '../data/roles';
@@ -17,15 +18,15 @@ import { ErrorBanner, Select, TextField } from '../ui/fields';
 /** Chỉ Chủ sở hữu mời người và đổi/gỡ vai trò. */
 export const MembersPanel = ({ tree }: { tree: TreeWithRole }) => {
   const members = useTreeMembers(tree.id);
-  const isOwner = tree.role === 'owner';
+  const isOwner = isTreeOwner(tree.role);
   const canInvite = isOwner;
   const [inviting, setInviting] = useState(false);
 
   return (
-    <section aria-labelledby="thanh-vien" className="rounded-2xl border border-line bg-surface p-5">
+    <section aria-labelledby="tai-khoan-co-quyen" className="rounded-2xl border border-line bg-surface p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="thanh-vien" className="font-serif text-2xl font-bold">
-          Thành viên
+        <h2 id="tai-khoan-co-quyen" className="font-serif text-2xl font-bold">
+          Tài khoản có quyền
         </h2>
         {canInvite && !inviting && <Button onClick={() => setInviting(true)}>+ Thêm quản trị</Button>}
       </div>

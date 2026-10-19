@@ -1,3 +1,4 @@
+import { canEditTree, isTreeOwner } from '../data/permissions';
 import { useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
@@ -22,9 +23,9 @@ import {
   useUpdateUnion,
 } from '../data/tree-queries';
 import type { Person } from '../data/trees';
-import type { ChildRelative, FamilyGraph, ParentLinkKind, SpouseRelative, UnionStatus } from '../family/family-graph';
+import type { ChildRelative, FamilyGraph, MarriageDate, ParentLinkKind, SpouseRelative, UnionStatus } from '../family/family-graph';
 import { birthOrderLabel, kindLabel, LINK_KIND_LABELS, spouseLabel, UNION_STATUS_LABELS } from '../family/labels';
-import { lifespanText, nameInitial } from '../people/person-display';
+import { lifespanText, marriageText, nameInitial } from '../people/person-display';
 import { DeletePerson } from '../people/DeletePerson';
 import { EditPerson } from '../people/EditPerson';
 import { EMPTY_PERSON_FORM } from '../people/person-form';
@@ -34,7 +35,7 @@ import { ProfileInfo } from '../people/ProfileInfo';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
-import { ErrorBanner, Select } from '../ui/fields';
+import { ErrorBanner, Select, TextField } from '../ui/fields';
 import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
 
@@ -65,10 +66,12 @@ export const PersonPage = () => {
             treeId={treeId}
             graph={family.data}
             person={person}
-            canEdit={tree.data.role === 'owner' || tree.data.role === 'editor'}
-            isOwner={tree.data.role === 'owner'}
-            accountId={accountId}
-            linkedPersonId={tree.data.linkedPersonId}
+            viewer={{
+              canEdit: canEditTree(tree.data.role),
+              isOwner: isTreeOwner(tree.data.role),
+              accountId,
+              linkedPersonId: tree.data.linkedPersonId,
+            }}
           />
         )}
       </main>
@@ -77,17 +80,23 @@ export const PersonPage = () => {
   );
 };
 
-type DetailProps = {
-  treeId: string;
-  graph: FamilyGraph<Person>;
-  person: Person;
+/** Người đang xem trang này: quyền theo Vai trò và danh tính, đi cùng nhau xuống các khối con. */
+type Viewer = {
   canEdit: boolean;
   isOwner: boolean;
   accountId: string | null;
   linkedPersonId: string | null;
 };
 
-const PersonDetail = ({ treeId, graph, person, canEdit, isOwner, accountId, linkedPersonId }: DetailProps) => {
+type DetailProps = {
+  treeId: string;
+  graph: FamilyGraph<Person>;
+  person: Person;
+  viewer: Viewer;
+};
+
+const PersonDetail = ({ treeId, graph, person, viewer }: DetailProps) => {
+  const { canEdit, isOwner, accountId, linkedPersonId } = viewer;
   const [action, setAction] = useState<Action>('none');
   const placement = graph.placement(person.id);
   const branchRoot = placement.branchId ? graph.person(placement.branchId) : undefined;
@@ -659,6 +668,81 @@ const ReorderableChildren = ({
   );
 };
 
+const toNumber = (value: string): number | null => (value.trim() === '' ? null : Number(value));
+
+/** Ngày cưới của một cuộc hôn phối (biết năm, năm-tháng hoặc đủ ngày); đủ ngày thì có Kỷ niệm cưới hằng năm. */
+const MarriageDateRow = ({
+  treeId,
+  viewerId,
+  unionId,
+  marriage,
+  canEdit,
+}: {
+  treeId: string;
+  viewerId: string;
+  unionId: string;
+  marriage: MarriageDate;
+  canEdit: boolean;
+}) => {
+  const update = useUpdateUnion(treeId);
+  const [editing, setEditing] = useState(false);
+  const [day, setDay] = useState('');
+  const [month, setMonth] = useState('');
+  const [year, setYear] = useState('');
+  const text = marriageText(marriage);
+  const parsed = { day: toNumber(day), month: toNumber(month), year: toNumber(year) };
+  const valid =
+    (parsed.year === null ? parsed.month === null && parsed.day === null : Number.isInteger(parsed.year) && parsed.year >= 1 && parsed.year <= 2200) &&
+    (parsed.month === null || (Number.isInteger(parsed.month) && parsed.month >= 1 && parsed.month <= 12)) &&
+    (parsed.day === null || (parsed.month !== null && Number.isInteger(parsed.day) && parsed.day >= 1 && parsed.day <= 31));
+
+  if (!canEdit) return text ? <p className="basis-full text-sm text-ink-muted">{text}</p> : null;
+
+  const open = () => {
+    setDay(marriage.day?.toString() ?? '');
+    setMonth(marriage.month?.toString() ?? '');
+    setYear(marriage.year?.toString() ?? '');
+    setEditing(true);
+  };
+
+  if (!editing) {
+    return (
+      <p className="basis-full text-sm text-ink-muted">
+        {text ?? 'Chưa có ngày cưới'}{' '}
+        <button type="button" className="font-semibold text-son hover:underline" onClick={open}>
+          {text ? 'Sửa' : 'Thêm ngày cưới'}
+        </button>
+      </p>
+    );
+  }
+
+  return (
+    <form
+      className="basis-full space-y-2 rounded-xl bg-paper px-4 py-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (valid) update.mutate({ unionId, viewerId, marriage: parsed }, { onSuccess: () => setEditing(false) });
+      }}
+    >
+      <div className="grid grid-cols-3 gap-2">
+        <TextField label="Ngày" inputMode="numeric" value={day} onChange={(event) => setDay(event.target.value)} />
+        <TextField label="Tháng" inputMode="numeric" value={month} onChange={(event) => setMonth(event.target.value)} />
+        <TextField label="Năm" inputMode="numeric" value={year} onChange={(event) => setYear(event.target.value)} />
+      </div>
+      <p className="text-sm text-ink-muted">Dương lịch. Biết đủ ngày-tháng-năm thì có nhắc Kỷ niệm cưới hằng năm; chỉ biết năm cũng được.</p>
+      <div className="flex gap-2">
+        <Button type="button" variant="secondary" onClick={() => setEditing(false)}>
+          Huỷ
+        </Button>
+        <Button type="submit" disabled={update.isPending || !valid}>
+          Lưu
+        </Button>
+      </div>
+      {update.isError && <p className="text-sm text-danger">{update.error.message}</p>}
+    </form>
+  );
+};
+
 /** Danh sách vợ/chồng kéo thả được để đổi Thứ tự hôn phối; "Vợ cả/Vợ hai…" tự đánh lại khi thả. */
 const ReorderableSpouses = ({
   treeId,
@@ -705,6 +789,7 @@ const ReorderableSpouses = ({
             ) : (
               spouse.status !== 'con' && <Tag>{UNION_STATUS_LABELS[spouse.status]}</Tag>
             )}
+            <MarriageDateRow treeId={treeId} viewerId={viewerId} unionId={spouse.unionId} marriage={spouse.marriage} canEdit={canEdit} />
           </li>
         );
       })}

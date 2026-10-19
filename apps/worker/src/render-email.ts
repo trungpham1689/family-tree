@@ -7,6 +7,7 @@ const escapeHtml = (text: string) =>
 const SECTIONS: { kind: OccurrenceKind; icon: string; title: string; hint: string; accent: string; soft: string }[] = [
   { kind: 'gio', icon: '🕯️', title: 'Ngày giỗ', hint: 'Chuẩn bị cúng giỗ', accent: '#8a1c1c', soft: '#fbeeee' },
   { kind: 'sinh_nhat', icon: '🎂', title: 'Sinh nhật', hint: 'Đừng quên gửi lời chúc', accent: '#b45309', soft: '#fff6e5' },
+  { kind: 'cuoi', icon: '💍', title: 'Kỷ niệm cưới', hint: 'Chúc mừng ngày cưới', accent: '#7a4a9e', soft: '#f3ecf8' },
   { kind: 'su_kien', icon: '📅', title: 'Sự kiện', hint: 'Họp họ và các ngày đã đặt', accent: '#1f5f8b', soft: '#eaf3fa' },
 ];
 

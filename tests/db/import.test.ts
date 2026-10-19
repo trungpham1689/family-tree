@@ -45,6 +45,27 @@ describe('seam B: nhập Excel', () => {
     expect(Math.max(...positions.map((p) => p.generation ?? 0))).toBe(4);
   });
 
+  it('lưu cả tình trạng hôn phối, ngày cưới, người phụ trách cúng giỗ, cờ ẩn và lập chi', async () => {
+    const rows: Record<string, string>[] = [
+      { code: 'A', fullName: 'Ông A', gender: 'Nam', hiddenFromPublic: 'Có', worshipKeeperCode: 'B' },
+      { code: 'B', fullName: 'Con B', gender: 'Nam', fatherCode: 'A', foundsBranch: 'Có' },
+      { code: 'V', fullName: 'Bà V', gender: 'Nữ', spouseCode: 'A', spouseOrder: '1', spouseStatus: 'Goá', marriageDate: '15/8/1950' },
+    ];
+    const table = [COLUMNS.map((c) => c.header), ...rows.map((row) => COLUMNS.map((c) => row[c.key] ?? null))];
+    const preview = buildImportPreview(table);
+    expect(preview.errors).toEqual([]);
+    const treeId = await me.rpc<string>('import_new_tree', { tree_name: 'Đủ trường', payload: preview.payload });
+
+    const [a] = await me.query<{ hidden_from_public: boolean; worship_keeper_id: string | null }>(
+      "select hidden_from_public, worship_keeper_id from persons where tree_id = $1 and full_name = 'Ông A'", [treeId]);
+    const [b] = await me.query<{ id: string; founds_branch: boolean }>("select id, founds_branch from persons where tree_id = $1 and full_name = 'Con B'", [treeId]);
+    expect(a).toMatchObject({ hidden_from_public: true, worship_keeper_id: b!.id });
+    expect(b!.founds_branch).toBe(true);
+    const [union] = await me.query<{ status: string; marriage_year: number; marriage_month: number; marriage_day: number }>(
+      'select status, marriage_year, marriage_month, marriage_day from unions where tree_id = $1', [treeId]);
+    expect(union).toEqual({ status: 'goa', marriage_year: 1950, marriage_month: 8, marriage_day: 15 });
+  });
+
   it('800 người, 8 đời lưu trong vòng 1 phút', async () => {
     const rows = [{ code: 'P0', fullName: 'Tổ', gender: 'Nam' } as Record<string, string>];
     for (let index = 1; index < 800; index += 1) {

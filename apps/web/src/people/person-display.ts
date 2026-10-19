@@ -54,3 +54,10 @@ export const anniversaryText = (
   const next = nextAnniversary({ day: anniversary.day, month: anniversary.month }, today);
   return `Ngày ${anniversary.day} tháng ${anniversary.month} âm lịch — lần tới: ${formatSolar(next)}`;
 };
+
+/** "Cưới ngày 30/4/1975", "Cưới tháng 4/1975", "Cưới năm 1975"; null nếu chưa biết năm. */
+export const marriageText = ({ year, month, day }: { year: number | null; month: number | null; day: number | null }): string | null => {
+  if (year === null) return null;
+  if (month === null) return `Cưới năm ${year}`;
+  return day === null ? `Cưới tháng ${month}/${year}` : `Cưới ngày ${day}/${month}/${year}`;
+};

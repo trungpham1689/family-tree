@@ -2,7 +2,7 @@
  * Google Drive tối thiểu cho ảnh: tìm/tạo thư mục, tải lên, tải xuống, xoá. Chỉ dùng `fetch`,
  * chạy được trong Cloudflare Pages Function. Quyền `drive.file`: app chỉ thấy file do chính nó tạo.
  *
- * Cấu trúc: Family-tree / {tên gia phả} / Ảnh Gia Phả + Ảnh Thành Viên. Thư mục tìm theo appProperties
+ * Cấu trúc: Family-tree / {tên gia phả} / Ảnh Gia Phả + Ảnh Người. Thư mục tìm theo appProperties
  * (treeId, role) chứ không theo tên, nên đổi tên gia phả hay thư mục không làm mất ảnh.
  */
 
@@ -14,7 +14,7 @@ const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 
-const FOLDER_NAMES = { root: 'Family-tree', 'tree-photos': 'Ảnh Gia Phả', 'member-photos': 'Ảnh Thành Viên' } as const;
+const FOLDER_NAMES = { root: 'Family-tree', 'tree-photos': 'Ảnh Gia Phả', 'member-photos': 'Ảnh Người' } as const;
 
 type Fetch = typeof fetch;
 
@@ -86,7 +86,7 @@ const ensureFolder = async (
   doFetch: Fetch,
 ): Promise<string> => (await findFolder(token, input.role, input.treeId, doFetch)) ?? createFolder(token, input, doFetch);
 
-/** Đảm bảo có Gia Phả/{treeName}/Ảnh Gia Phả và /Ảnh Thành Viên, trả id hai thư mục ảnh. */
+/** Đảm bảo có Gia Phả/{treeName}/Ảnh Gia Phả và /Ảnh Người, trả id hai thư mục ảnh. */
 export const ensureTreeFolders = async (token: string, treeId: string, treeName: string, doFetch: Fetch = fetch): Promise<TreeFolders> => {
   const root = await ensureFolder(token, { name: FOLDER_NAMES.root, parent: null, role: 'root', treeId: null }, doFetch);
   const tree = await ensureFolder(token, { name: treeName, parent: root, role: 'tree', treeId }, doFetch);

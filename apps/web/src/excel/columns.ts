@@ -21,6 +21,16 @@ export const COLUMNS = [
     header: 'Thứ tự hôn phối',
     guide: 'Người này là vợ/chồng thứ mấy của người ở cột Mã vợ/chồng (1 = vợ cả). Nhiều người thì ghi theo thứ tự: 1, 2.',
   },
+  {
+    key: 'spouseStatus',
+    header: 'Tình trạng hôn phối',
+    guide: 'Còn, Ly hôn hoặc Goá — mỗi người ở cột Mã vợ/chồng một giá trị, cách nhau dấu phẩy. Để trống là Còn.',
+  },
+  {
+    key: 'marriageDate',
+    header: 'Ngày cưới',
+    guide: 'Dương lịch, ghi như Ngày sinh (15/8/1950, 8/1950 hoặc 1950); mỗi người ở cột Mã vợ/chồng một giá trị, cách nhau dấu phẩy, chưa biết thì ghi dấu -.',
+  },
   { key: 'commonName', header: 'Tên thường gọi', guide: '' },
   { key: 'tabooName', header: 'Tên huý', guide: '' },
   { key: 'courtesyName', header: 'Tên tự/hiệu', guide: '' },
@@ -52,7 +62,9 @@ export const COLUMNS = [
   { key: 'burialPlace', header: 'Mộ phần', guide: 'Mô tả nơi đặt mộ.' },
   { key: 'burialMapUrl', header: 'Link vị trí mộ', guide: 'Link Google Maps, bắt đầu bằng https://' },
   { key: 'worshipPlace', header: 'Nơi thờ', guide: '' },
-  { key: 'worshipKeeper', header: 'Người phụ trách cúng giỗ', guide: '' },
+  { key: 'worshipKeeperCode', header: 'Mã người phụ trách cúng giỗ', guide: 'Mã của người trong file phụ trách cúng giỗ người này.' },
+  { key: 'hiddenFromPublic', header: 'Ẩn khỏi link công khai', guide: 'Có hoặc để trống. Người này không hiện trên link chia sẻ công khai.' },
+  { key: 'foundsBranch', header: 'Lập chi mới', guide: 'Có hoặc để trống. Đánh dấu người này là tổ của một chi.' },
 ] as const;
 
 export type ColumnKey = (typeof COLUMNS)[number]['key'];

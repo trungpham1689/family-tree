@@ -41,7 +41,7 @@ Thứ tự vợ/chồng của một người (vợ cả, vợ hai…).
 ## Thời gian & lễ giỗ
 
 **Ngày giỗ (Chính kỵ)**
-Ngày mất theo âm lịch, lặp lại mỗi năm. Được hiển thị bằng ngày âm.
+Ngày âm lịch cúng giỗ, lặp lại mỗi năm; hiển thị bằng ngày âm. Khi biết đủ ngày mất, app tự suy ra ngày giỗ là **ngày trước ngày mất** (theo tục cúng trước, lệch múi giờ mất trước nửa đêm) và cho sửa tay; người mất ngày mùng 1 thì giỗ rơi vào ngày cuối tháng trước.
 
 **Tiên thường**
 Ngày trước ngày Chính kỵ; nhiều gia đình làm cỗ từ hôm này.
@@ -60,6 +60,21 @@ Thông báo gửi tới tài khoản trước một sự kiện. Giỗ, sinh nh�
 
 **Danh sách nhắc giỗ**
 Tập Người mà một tài khoản muốn được nhắc giỗ trong một gia phả. Mặc định là tổ tiên trực hệ (khoảng 4 đời) của Người được liên kết với tài khoản; tài khoản tự thêm hoặc bớt.
+
+**Kỷ niệm cưới**
+Ngày cưới dương lịch của một cuộc hôn phối, lặp lại mỗi năm (cần biết đủ ngày-tháng-năm). Chỉ biết năm thì chỉ hiện trên Dòng thời gian.
+
+**Ngày này năm xưa**
+Người đã mất sinh hoặc mất đúng ngày-tháng dương của hôm nay trong một năm trước. Hiện ở trang Sự kiện, không gửi nhắc.
+
+**Dòng thời gian**
+Các mốc sinh, cưới, mất của gia phả xếp theo năm, xen vài mốc lịch sử Việt Nam.
+
+**Lịch đăng ký**
+Link .ics bí mật của một tài khoản để thêm vào Google/Apple Calendar; giỗ, sinh nhật, kỷ niệm cưới và sự kiện tự cập nhật kèm chuông báo. Tạo lại link thì link cũ hết hiệu lực.
+
+**Gộp người trùng**
+Chủ sở hữu gộp hai Người nhập trùng làm một: quan hệ, ảnh, hồ sơ dồn về người được giữ. Không hoàn tác.
 
 **Bản tin nhắc**
 Một email gửi chung cho Chủ sở hữu và Biên tập viên của một gia phả, cứ 5 ngày một lần, gom giỗ, sinh nhật (người còn sống) và sự kiện của 5 ngày tới, mỗi loại một khối riêng. Không có gì sắp tới thì không gửi.

@@ -35,6 +35,7 @@ describe('renderDigestText/Html', () => {
     expect(html.indexOf('Ngày giỗ (1)')).toBeGreaterThan(-1);
     expect(html.indexOf('Sinh nhật (1)')).toBeGreaterThan(html.indexOf('Ngày giỗ (1)'));
     expect(html).not.toContain('Sự kiện (');
+    expect(html).not.toContain('Kỷ niệm cưới (');
     expect(html).toContain('Họ Phạm');
 
     const text = renderDigestText(items);

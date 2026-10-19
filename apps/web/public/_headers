@@ -4,3 +4,10 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
   X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
+
+# Service worker và manifest phải luôn lấy bản mới, nếu không bản cập nhật đến chậm.
+/sw.js
+  Cache-Control: no-cache
+  Service-Worker-Allowed: /
+/manifest.webmanifest
+  Cache-Control: no-cache

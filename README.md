@@ -46,7 +46,7 @@ pnpm dev                                 # mở http://localhost:5173
 
 - **Supabase** project `family-tree` (`gihidxqjfcezsrcibrla`, vùng Singapore): database, đăng nhập. Ảnh cũ còn trong Storage cho tới khi chạy script chuyển (mục 4).
 - **Cloudflare Pages**: hosting web, tự deploy khi có commit lên `main`; Pages Function `/api/photos` đứng giữa trình duyệt và Google Drive.
-- **Google Drive** (15 GB miễn phí): ảnh Người và ảnh gia phả, thư mục `Family-tree/<tên gia phả>/Ảnh Gia Phả` và `Ảnh Thành Viên`.
+- **Google Drive** (15 GB miễn phí): ảnh Người và ảnh gia phả, thư mục `Family-tree/<tên gia phả>/Ảnh Gia Phả` và `Ảnh Người`.
 - **Cloudflare Worker Cron** (`apps/worker`): chạy mỗi 5 ngày, có giỗ/sự kiện 5 ngày tới mới gửi một Bản tin nhắc chung cho Chủ sở hữu và Biên tập viên của mỗi gia phả qua **Resend** — chưa deploy, xem mục 3 dưới.
 
 ## Việc chủ dự án cần tự làm
@@ -128,6 +128,10 @@ Chưa làm bước này thì nhắc nhở vẫn chạy trong app (chuông "Nhắ
    ```
 
 Quy cách ảnh cho người dùng: Người — ảnh vuông/dọc, mặt ở giữa, tối thiểu 300×300px (nên ≥800px); ảnh gia phả — ảnh ngang, tối thiểu 1200×800px; cả hai tối đa 5MB, JPEG/PNG/WEBP, tối đa 3 ảnh/Người. Trình duyệt tự thu nhỏ (Người 1000px, gia phả 1600px) và nén JPEG nên mỗi ảnh còn khoảng 100–300KB trên Drive; Function chặn cứng ở 4MB.
+
+Lịch đăng ký (`/api/calendar/<token>.ics`) cũng là một Pages Function, dùng hai biến `VITE_SUPABASE_*` như `/p/<token>`; không cần thêm biến nào.
+
+Ứng dụng cài được lên màn hình điện thoại (PWA: `manifest.webmanifest`, `sw.js`); khi mất mạng vẫn mở được và xem dữ liệu đã tải trong 7 ngày gần nhất (lưu trong IndexedDB, tự xoá khi đăng xuất). Service worker chỉ chạy ở bản build.
 
 Chạy cục bộ: `pnpm dev` không có `/api/photos`. Muốn thử tải ảnh, build rồi chạy `npx wrangler pages dev dist` trong `apps/web` với file `.dev.vars` chứa ba biến Google và hai biến `VITE_SUPABASE_*`.
 

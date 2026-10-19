@@ -19,9 +19,19 @@ const escapeText = (text: string) => text.replace(/\\/g, '\\\\').replace(/;/g, '
 const stamp = (now: Date) =>
   `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`;
 
-export const occurrencesToIcs = (occurrences: readonly Occurrence[], now = new Date()): string => {
+export type IcsOptions = {
+  /** Tên lịch hiện trong app lịch; đặt thì coi là lịch đăng ký: app lịch tự tải lại mỗi 12 giờ. */
+  calendarName?: string;
+  /** Thêm chuông báo: 9:00 hôm trước và 7:00 sáng đúng ngày (sự kiện cả ngày nên tính từ 0:00). */
+  alarms?: boolean;
+};
+
+export const occurrencesToIcs = (occurrences: readonly Occurrence[], now = new Date(), options: IcsOptions = {}): string => {
   const dtstamp = stamp(now);
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Gia Pha//vi', 'CALSCALE:GREGORIAN'];
+  if (options.calendarName) {
+    lines.push(`X-WR-CALNAME:${escapeText(options.calendarName)}`, 'REFRESH-INTERVAL;VALUE=DURATION:PT12H', 'X-PUBLISHED-TTL:PT12H');
+  }
   for (const occurrence of occurrences) {
     const uid = `${occurrence.kind}-${occurrence.personId ?? occurrence.eventId ?? 'x'}-${dateKey(occurrence.date)}@gia-pha`;
     lines.push(
@@ -33,6 +43,11 @@ export const occurrencesToIcs = (occurrences: readonly Occurrence[], now = new D
       `SUMMARY:${escapeText(occurrence.title)}`,
     );
     if (occurrence.detail) lines.push(`DESCRIPTION:${escapeText(occurrence.detail)}`);
+    if (options.alarms) {
+      for (const trigger of ['-PT15H', 'PT7H']) {
+        lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${escapeText(occurrence.title)}`, `TRIGGER:${trigger}`, 'END:VALARM');
+      }
+    }
     lines.push('END:VEVENT');
   }
   lines.push('END:VCALENDAR');

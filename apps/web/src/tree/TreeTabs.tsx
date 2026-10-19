@@ -5,9 +5,11 @@ const TABS: { to: (treeId: string) => string; label: string; end?: boolean }[] =
   { to: (treeId) => `/gia-pha/${treeId}/cay`, label: 'Cây gia phả' },
   { to: (treeId) => `/gia-pha/${treeId}/pha-do`, label: 'Phả đồ' },
   { to: (treeId) => `/gia-pha/${treeId}/pha-ky`, label: 'Phả ký' },
+  { to: (treeId) => `/gia-pha/${treeId}/dong-thoi-gian`, label: 'Dòng thời gian' },
   { to: (treeId) => `/gia-pha/${treeId}/su-kien`, label: 'Sự kiện' },
   { to: (treeId) => `/gia-pha/${treeId}/quan-he`, label: 'Tra cứu quan hệ' },
   { to: (treeId) => `/gia-pha/${treeId}/thieu-thong-tin`, label: 'Hồ sơ thiếu' },
+  { to: (treeId) => `/gia-pha/${treeId}/trung-lap`, label: 'Người trùng' },
 ];
 
 const isTabActive = (tab: (typeof TABS)[number], treeId: string, pathname: string) => {

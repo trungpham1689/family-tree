@@ -20,9 +20,25 @@ export type PreviewPerson = {
 
 export type ImportPayload = {
   /** Người theo thứ tự lưu; Thuỷ tổ đứng đầu. */
-  persons: { key: string; fields: PersonFields }[];
+  persons: {
+    key: string;
+    fields: PersonFields;
+    hiddenFromPublic: boolean;
+    foundsBranch: boolean;
+    /** Mã (key) của người phụ trách cúng giỗ trong cùng file. */
+    worshipKeeper: string | null;
+  }[];
   parentLinks: { child: string; parent: string; kind: 'ruot' | 'nuoi' }[];
-  unions: { a: string; b: string; orderA: number; orderB: number }[];
+  unions: {
+    a: string;
+    b: string;
+    orderA: number;
+    orderB: number;
+    status: 'con' | 'ly_hon' | 'goa';
+    marriageYear: number | null;
+    marriageMonth: number | null;
+    marriageDay: number | null;
+  }[];
   progenitor: string | null;
 };
 
@@ -160,7 +176,21 @@ type ParsedRow = {
   fields: PersonFields | null;
   gender: '' | 'nam' | 'nu';
   spouseOrders: (number | null)[];
+  spouseStatuses: ('con' | 'ly_hon' | 'goa')[];
+  marriages: Marriage[];
   parentKind: 'ruot' | 'nuoi';
+  hiddenFromPublic: boolean;
+  foundsBranch: boolean;
+};
+
+type Marriage = { year: number | null; month: number | null; day: number | null };
+
+const parseStatus = (text: string): 'con' | 'ly_hon' | 'goa' | null => {
+  const value = normalizeName(text);
+  if (value === '' || value === 'con') return 'con';
+  if (value === 'ly hon') return 'ly_hon';
+  if (value === 'goa') return 'goa';
+  return null;
 };
 
 const splitList = (text: string | undefined): string[] =>
@@ -211,6 +241,27 @@ export const buildImportPreview = (table: readonly (readonly CellValue[])[]): Im
     if (birthOrder === 'invalid') fail(row, 'birthOrder', 'Thứ tự con là số từ 1 (con trưởng).');
     const spouseOrders = splitList(data.spouseOrder).map(parseOrder);
     if (spouseOrders.includes('invalid')) fail(row, 'spouseOrder', 'Thứ tự hôn phối là số từ 1 (vợ/chồng cả).');
+    const spouseStatuses = splitList(data.spouseStatus).map((text) => {
+      const status = parseStatus(text);
+      if (!status) fail(row, 'spouseStatus', `Tình trạng "${text}" không hiểu được. Ghi Còn, Ly hôn hoặc Goá.`);
+      return status ?? 'con';
+    });
+    const marriages = splitList(data.marriageDate).map((text): Marriage => {
+      if (text === '-') return { year: null, month: null, day: null };
+      const input = parseDateText(text, { calendar: 'duong', leap: false });
+      const year = input ? Number(input.year) : NaN;
+      const month = input?.month ? Number(input.month) : null;
+      const day = input?.day ? Number(input.day) : null;
+      if (!input || year < 1 || year > 2200 || (month !== null && (month < 1 || month > 12)) || (day !== null && (day < 1 || day > 31))) {
+        fail(row, 'marriageDate', `Ngày cưới "${text}" không đúng cách ghi. Ví dụ: 15/8/1950, 8/1950, 1950 hoặc dấu - nếu chưa biết.`);
+        return { year: null, month: null, day: null };
+      }
+      return { year, month, day };
+    });
+    const hiddenFlag = parseYes(data.hiddenFromPublic);
+    if (hiddenFlag === null) fail(row, 'hiddenFromPublic', `Cột Ẩn khỏi link công khai ghi "${data.hiddenFromPublic}" không hiểu được. Ghi Có hoặc để trống.`);
+    const foundsFlag = parseYes(data.foundsBranch);
+    if (foundsFlag === null) fail(row, 'foundsBranch', `Cột Lập chi mới ghi "${data.foundsBranch}" không hiểu được. Ghi Có hoặc để trống.`);
     const kindText = normalizeName(data.parentKind ?? '');
     if (!['', 'ruot', 'nuoi'].includes(kindText)) fail(row, 'parentKind', 'Ghi Ruột hoặc Nuôi.');
 
@@ -285,7 +336,11 @@ export const buildImportPreview = (table: readonly (readonly CellValue[])[]): Im
       fields: result.ok ? result.fields : null,
       gender: gender ?? '',
       spouseOrders: spouseOrders.map((order) => (typeof order === 'number' ? order : null)),
+      spouseStatuses,
+      marriages,
       parentKind: kindText === 'nuoi' ? 'nuoi' : 'ruot',
+      hiddenFromPublic: hiddenFlag === true,
+      foundsBranch: foundsFlag === true,
     };
     byCode.set(code, entry);
     parsed.push(entry);
@@ -297,7 +352,12 @@ export const buildImportPreview = (table: readonly (readonly CellValue[])[]): Im
   const unionIndex = new Map<string, number>();
   const unionCount = new Map<string, number>();
   const pairKey = (a: string, b: string) => (a < b ? `${a}\u0000${b}` : `${b}\u0000${a}`);
-  const addUnion = (a: string, b: string, orderForA: number | null) => {
+  const addUnion = (
+    a: string,
+    b: string,
+    orderForA: number | null,
+    extra: { status: 'con' | 'ly_hon' | 'goa'; marriage: Marriage } = { status: 'con', marriage: { year: null, month: null, day: null } },
+  ) => {
     const key = pairKey(a, b);
     if (unionIndex.has(key)) return;
     const orderA = orderForA ?? (unionCount.get(a) ?? 0) + 1;
@@ -305,7 +365,16 @@ export const buildImportPreview = (table: readonly (readonly CellValue[])[]): Im
     unionCount.set(a, (unionCount.get(a) ?? 0) + 1);
     unionCount.set(b, (unionCount.get(b) ?? 0) + 1);
     unionIndex.set(key, unions.length);
-    unions.push({ a, b, orderA, orderB });
+    unions.push({
+      a,
+      b,
+      orderA,
+      orderB,
+      status: extra.status,
+      marriageYear: extra.marriage.year,
+      marriageMonth: extra.marriage.month,
+      marriageDay: extra.marriage.day,
+    });
   };
 
   const reference = (
@@ -330,7 +399,12 @@ export const buildImportPreview = (table: readonly (readonly CellValue[])[]): Im
   for (const entry of parsed) {
     splitList(entry.data.spouseCode).forEach((code, index) => {
       const spouse = reference(entry, 'spouseCode', 'Mã vợ/chồng', code);
-      if (spouse) addUnion(spouse, entry.code, entry.spouseOrders[index] ?? null);
+      if (spouse) {
+        addUnion(spouse, entry.code, entry.spouseOrders[index] ?? null, {
+          status: entry.spouseStatuses[index] ?? 'con',
+          marriage: entry.marriages[index] ?? { year: null, month: null, day: null },
+        });
+      }
     });
   }
   for (const entry of parsed) {
@@ -345,6 +419,13 @@ export const buildImportPreview = (table: readonly (readonly CellValue[])[]): Im
     }
     // Cha mẹ ruột của cùng một người con là vợ chồng của nhau.
     if (father && mother && entry.parentKind === 'ruot') addUnion(father, mother, null);
+  }
+
+  for (const entry of parsed) {
+    const keeper = entry.data.worshipKeeperCode?.trim();
+    if (!keeper) continue;
+    if (keeper === entry.code) fail(entry.row, 'worshipKeeperCode', 'Người phụ trách cúng giỗ không thể là chính người này.');
+    else if (!byCode.has(keeper)) fail(entry.row, 'worshipKeeperCode', `Mã người phụ trách cúng giỗ "${keeper}" không có trong file.`);
   }
 
   // ---- Vòng lặp tổ tiên ----
@@ -460,7 +541,13 @@ export const buildImportPreview = (table: readonly (readonly CellValue[])[]): Im
       errors.length > 0
         ? null
         : {
-            persons: ordered.map((entry) => ({ key: entry.code, fields: entry.fields! })),
+            persons: ordered.map((entry) => ({
+              key: entry.code,
+              fields: entry.fields!,
+              hiddenFromPublic: entry.hiddenFromPublic,
+              foundsBranch: entry.foundsBranch,
+              worshipKeeper: entry.data.worshipKeeperCode?.trim() || null,
+            })),
             parentLinks,
             unions,
             progenitor: progenitor?.code ?? null,

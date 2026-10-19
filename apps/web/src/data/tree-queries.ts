@@ -1,35 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo } from 'react';
-import { fromJulianDay, julianDay } from '@gia-pha/lunar';
-import { useAuth } from '../auth/auth-context';
 import { buildFamilyGraph } from '../family/family-graph';
 import type { ImportPayload } from '../excel/import-preview';
 import type { PersonFields } from '../people/person-form';
-import { todayInVietnam } from '../calendar/month-grid';
-import { dueReminders, occurrencesBetween } from '@gia-pha/reminders';
-import { listTreeEvents, loadMyCalendar, removeTreeEvent, saveTreeEvent } from './calendar';
 import { importIntoTree, importNewTree } from './excel-import';
-import { loadPhaDoConfig, savePhaDoConfig } from './pha-do';
-import {
-  disablePublicLink,
-  fetchPublicTree,
-  fetchPublicTreeCard,
-  rotatePublicLink,
-  setHiddenFromPublic,
-  setPublicLinkPassword,
-} from './public-tree';
-import {
-  linkAccountToPerson,
-  listMutedGioPersons,
-  listNotificationReads,
-  listReminderPrefs,
-  markNotificationsRead,
-  muteGioReminder,
-  setEmailEnabled,
-  setReminderOffset,
-  unmuteGioReminder,
-} from './reminders';
-import { inviteToTree, listTreeMembers, removeTreeRole, updateTreeRole, type InvitableRole } from './roles';
 import {
   addChild,
   addParent,
@@ -37,6 +10,7 @@ import {
   linkParent,
   linkSpouse,
   loadFamily,
+  mergePersons,
   reorderChildren,
   reorderUnions,
   setFoundsBranch,
@@ -71,20 +45,7 @@ import {
   updatePhotoCaption,
   uploadPersonPhoto,
 } from './photos';
-
-export const treeKeys = {
-  mine: (accountId: string) => ['trees', 'mine', accountId] as const,
-  detail: (treeId: string) => ['trees', treeId] as const,
-  family: (treeId: string) => ['trees', treeId, 'family'] as const,
-  members: (treeId: string) => ['trees', treeId, 'members'] as const,
-  pendingDeletions: (treeId: string) => ['trees', treeId, 'pending-deletions'] as const,
-};
-
-const useAccountId = (): string => {
-  const { state } = useAuth();
-  if (state.status !== 'signed-in') throw new Error('Cần đăng nhập để tải dữ liệu gia phả.');
-  return state.session.user.id;
-};
+import { treeKeys, useAccountId, useFamilyMutation } from './query-keys';
 
 export const useMyTrees = () => {
   const accountId = useAccountId();
@@ -271,14 +232,7 @@ export const usePersonAvatars = (persons: readonly { id: string; avatar_path: st
   });
 };
 
-/** Mọi thao tác thay đổi quan hệ đều tải lại cả Gia phả, vì Đời và Chi có thể đổi theo. */
-const useFamilyMutation = <Input, Output>(treeId: string, mutationFn: (input: Input) => Promise<Output>) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) }),
-  });
-};
+
 
 export const useAddChild = (treeId: string) => useFamilyMutation(treeId, addChild);
 export const useAddParent = (treeId: string) => useFamilyMutation(treeId, addParent);
@@ -291,6 +245,7 @@ export const useSetProgenitor = (treeId: string) => useFamilyMutation(treeId, se
 export const useSetFoundsBranch = (treeId: string) => useFamilyMutation(treeId, setFoundsBranch);
 export const useLinkParent = (treeId: string) => useFamilyMutation(treeId, linkParent);
 export const useLinkSpouse = (treeId: string) => useFamilyMutation(treeId, linkSpouse);
+export const useMergePersons = (treeId: string) => useFamilyMutation(treeId, mergePersons);
 
 /** Lưu gia phả từ Excel: vào gia phả trống `treeId`, hoặc tạo gia phả mới tên `name`. Trả về id gia phả. */
 export const useImportExcel = () => {
@@ -307,197 +262,9 @@ export const useImportExcel = () => {
   });
 };
 
-// ---------------------------------------------------------------------------
-// Link chia sẻ công khai
-// ---------------------------------------------------------------------------
-/** Thẻ xem trước nhẹ, không cần mật khẩu — hiện tên gia phả trên màn hình nhập mật khẩu. */
-export const usePublicTreeCard = (token: string) =>
-  useQuery({ queryKey: ['public-card', token], queryFn: () => fetchPublicTreeCard(token), retry: false });
-
-/** `password` null khi chưa nhập (ví dụ vừa mở trang) — chỉ gọi khi có để tránh dò mật khẩu không cần thiết. */
-export const usePublicTree = (token: string, password: string | null) =>
-  useQuery({
-    queryKey: ['public', token, password],
-    queryFn: () => fetchPublicTree(token, password),
-    enabled: password !== null,
-    retry: false,
-  });
-
-export const useRotatePublicLink = (treeId: string) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (password: string) => rotatePublicLink(treeId, password),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.detail(treeId) }),
-  });
-};
-
-export const useSetPublicLinkPassword = (treeId: string) =>
-  useMutation({
-    mutationFn: (password: string) => setPublicLinkPassword(treeId, password),
-  });
-
-export const useDisablePublicLink = (treeId: string) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => disablePublicLink(treeId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.detail(treeId) }),
-  });
-};
-
-export const useSetHiddenFromPublic = (treeId: string) => useFamilyMutation(treeId, setHiddenFromPublic);
-
-// ---------------------------------------------------------------------------
-// Mời vai trò Biên tập viên / Người xem
-// ---------------------------------------------------------------------------
-export const useTreeMembers = (treeId: string) =>
-  useQuery({ queryKey: treeKeys.members(treeId), queryFn: () => listTreeMembers(treeId) });
-
-export const useInviteToTree = (treeId: string) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: { email: string; role: InvitableRole }) => inviteToTree({ treeId, ...input }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.members(treeId) }),
-  });
-};
-
-export const useUpdateTreeRole = (treeId: string) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: { accountId: string; role: InvitableRole }) => updateTreeRole({ treeId, ...input }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.members(treeId) }),
-  });
-};
-
-export const useRemoveTreeRole = (treeId: string) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (accountId: string) => removeTreeRole({ treeId, accountId }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.members(treeId) }),
-  });
-};
-
-// ---------------------------------------------------------------------------
-// Lịch của tôi và Sự kiện
-// ---------------------------------------------------------------------------
-export const useMyCalendar = (enabled: boolean) => {
-  const { state } = useAuth();
-  const accountId = state.status === 'signed-in' ? state.session.user.id : '';
-  return useQuery({
-    queryKey: ['trees', 'calendar', accountId],
-    queryFn: () => loadMyCalendar(accountId),
-    enabled: enabled && accountId !== '',
-  });
-};
-
-// ---------------------------------------------------------------------------
-// Nhắc nhở: liên kết tài khoản–Người, Danh sách nhắc giỗ, độ sớm nhắc, đã đọc
-// ---------------------------------------------------------------------------
-const MAX_OFFSET_DAYS = 7;
-
-export const useLinkAccountToPerson = (treeId: string) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (personId: string) => linkAccountToPerson({ treeId, personId }),
-    onSuccess: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: treeKeys.detail(treeId) }),
-        queryClient.invalidateQueries({ queryKey: ['reminder-watch'] }),
-      ]),
-  });
-};
-
-/** Những Người tài khoản đang xem đã tắt nhắc giỗ (mặc định ai cũng được nhắc, trừ Người trong danh sách này). */
-export const useMutedGioPersons = () => useQuery({ queryKey: ['reminder-watch'], queryFn: listMutedGioPersons });
-
-export const useToggleGioMute = () => {
-  const queryClient = useQueryClient();
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['reminder-watch'] });
-  const mute = useMutation({ mutationFn: muteGioReminder, onSuccess: invalidate });
-  const unmute = useMutation({ mutationFn: unmuteGioReminder, onSuccess: invalidate });
-  return { mute, unmute };
-};
-
-export const useReminderPrefs = () => useQuery({ queryKey: ['reminder-prefs'], queryFn: listReminderPrefs });
-
-export const useSetReminderOffset = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: setReminderOffset,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminder-prefs'] }),
-  });
-};
-
-export const useSetEmailEnabled = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: setEmailEnabled,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminder-prefs'] }),
-  });
-};
-
-export const useMarkNotificationsRead = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: markNotificationsRead,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notification-reads'] }),
-  });
-};
-
-/** Nhắc nhở đến hạn của tài khoản đang đăng nhập: giỗ nhắc mặc định (trừ Người đã tắt), sinh nhật và Sự kiện không lọc. */
-export const useDueReminders = () => {
-  const calendar = useMyCalendar(true);
-  const muted = useMutedGioPersons();
-  const prefs = useReminderPrefs();
-  const reads = useQuery({ queryKey: ['notification-reads'], queryFn: listNotificationReads });
-
-  const due = useMemo(() => {
-    if (!calendar.data) return [];
-    const today = todayInVietnam();
-    const occurrences = occurrencesBetween(calendar.data, today, fromJulianDay(julianDay(today) + MAX_OFFSET_DAYS));
-    const mutedIds = new Set((muted.data ?? []).map((row) => row.personId));
-    const offsetsByTree = new Map([...(prefs.data ?? new Map())].map(([treeId, pref]) => [treeId, pref.offsetDays]));
-    return dueReminders(occurrences, today, mutedIds, offsetsByTree);
-  }, [calendar.data, muted.data, prefs.data]);
-
-  const readKeys = reads.data ?? new Set<string>();
-  const unread = due.filter((reminder) => !readKeys.has(reminder.key));
-
-  return {
-    isPending: calendar.isPending || muted.isPending || prefs.isPending || reads.isPending,
-    due,
-    unread,
-    readKeys,
-  };
-};
-
-export const useTreeEvents = (treeId: string) =>
-  useQuery({ queryKey: ['trees', treeId, 'events'], queryFn: () => listTreeEvents(treeId) });
-
-const useEventMutation = <Input,>(treeId: string, mutationFn: (input: Input) => Promise<void>) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn,
-    onSuccess: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['trees', treeId, 'events'] }),
-        queryClient.invalidateQueries({ queryKey: ['trees', 'calendar'] }),
-      ]),
-  });
-};
-
-export const useSaveTreeEvent = (treeId: string) => useEventMutation(treeId, saveTreeEvent);
-export const useRemoveTreeEvent = (treeId: string) => useEventMutation(treeId, removeTreeEvent);
-
-// ---------------------------------------------------------------------------
-// Phả đồ
-// ---------------------------------------------------------------------------
-export const usePhaDoConfig = (treeId: string) =>
-  useQuery({ queryKey: ['trees', treeId, 'pha-do'], queryFn: () => loadPhaDoConfig(treeId) });
-
-export const useSavePhaDoConfig = (treeId: string) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: savePhaDoConfig,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trees', treeId, 'pha-do'] }),
-  });
-};
+export { treeKeys } from './query-keys';
+export * from './public-link-queries';
+export * from './members-queries';
+export * from './calendar-queries';
+export * from './reminder-queries';
+export * from './pha-do-queries';

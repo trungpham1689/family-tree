@@ -1,3 +1,4 @@
+import { canEditTree } from '../data/permissions';
 import { fromJulianDay, julianDay, nextAnniversary } from '@gia-pha/lunar';
 import { occurrencesBetween, upcoming, type CalendarSource } from '@gia-pha/reminders';
 import { useMemo, useState, type FormEvent } from 'react';
@@ -54,7 +55,7 @@ const useTreeCalendarSource = (treeId: string): CalendarSource | undefined => {
 };
 
 /** Sự kiện của một Gia phả: họp họ, ngày tự đặt. Ai có vai trò cũng xem; Biên tập viên tạo, sửa, xoá. */
-export const EventsPage = () => {
+export const TreeEventsPage = () => {
   const { treeId = '' } = useParams();
   const tree = useTree(treeId);
   const events = useTreeEvents(treeId);
@@ -76,7 +77,7 @@ export const EventsPage = () => {
   const setEmailEnabled = useSetEmailEnabled();
 
   if (tree.isPending) return <FullPageMessage>Đang tải…</FullPageMessage>;
-  const canEdit = tree.data?.role === 'owner' || tree.data?.role === 'editor';
+  const canEdit = canEditTree(tree.data?.role);
 
   return (
     <>

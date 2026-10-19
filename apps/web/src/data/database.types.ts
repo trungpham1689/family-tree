@@ -352,6 +352,9 @@ export type Database = {
           partner_b: string;
           status: string;
           tree_id: string;
+          marriage_year: number | null;
+          marriage_month: number | null;
+          marriage_day: number | null;
         };
         Insert: {
           created_at?: string;
@@ -362,6 +365,9 @@ export type Database = {
           partner_b: string;
           status?: string;
           tree_id?: string;
+          marriage_year?: number | null;
+          marriage_month?: number | null;
+          marriage_day?: number | null;
         };
         Update: {
           created_at?: string;
@@ -372,6 +378,9 @@ export type Database = {
           partner_b?: string;
           status?: string;
           tree_id?: string;
+          marriage_year?: number | null;
+          marriage_month?: number | null;
+          marriage_day?: number | null;
         };
         Relationships: [];
       };
@@ -446,6 +455,11 @@ export type Database = {
       disable_public_link: { Args: { target_tree: string }; Returns: undefined };
       public_tree: { Args: { token: string; password: string | null }; Returns: Json };
       public_tree_card: { Args: { token: string }; Returns: Json };
+      rotate_calendar_feed: { Args: Record<string, never>; Returns: string };
+      my_calendar_feed: { Args: Record<string, never>; Returns: string | null };
+      disable_calendar_feed: { Args: Record<string, never>; Returns: undefined };
+      reorder_children: { Args: { ordered_ids: string[] }; Returns: undefined };
+      merge_persons: { Args: { keep_person: string; drop_person: string }; Returns: undefined };
       import_into_tree: { Args: { target_tree: string; payload: Json }; Returns: number };
       import_new_tree: { Args: { tree_name: string; payload: Json }; Returns: string };
       tree_positions: {

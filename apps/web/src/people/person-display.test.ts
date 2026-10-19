@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { NO_DATE } from './partial-date-input';
-import { ageAtDeath, anniversaryText, describeDate, lifespanText, nameInitial } from './person-display';
+import { ageAtDeath, anniversaryText, describeDate, marriageText, lifespanText, nameInitial } from './person-display';
 
 describe('nameInitial', () => {
   it.each([
@@ -62,5 +62,14 @@ describe('anniversaryText', () => {
 
   it('không có ngày giỗ', () => {
     expect(anniversaryText({ day: null, month: null }, { year: 2026, month: 1, day: 1 })).toBeNull();
+  });
+});
+
+describe('marriageText', () => {
+  it('theo độ chính xác đã biết', () => {
+    expect(marriageText({ year: 1975, month: 4, day: 30 })).toBe('Cưới ngày 30/4/1975');
+    expect(marriageText({ year: 1975, month: 4, day: null })).toBe('Cưới tháng 4/1975');
+    expect(marriageText({ year: 1975, month: null, day: null })).toBe('Cưới năm 1975');
+    expect(marriageText({ year: null, month: null, day: null })).toBeNull();
   });
 });

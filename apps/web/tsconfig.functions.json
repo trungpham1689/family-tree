@@ -5,6 +5,7 @@
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
     "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
     "types": [],
     "skipLibCheck": true,
     "noEmit": true,
@@ -14,5 +15,5 @@
     "noUnusedParameters": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["functions", "src/share/og-meta.ts", "src/drive"]
+  "include": ["functions", "src/share/og-meta.ts", "src/drive", "src/calendar/feed.ts"]
 }

@@ -1,3 +1,4 @@
+import { isTreeOwner } from '../data/permissions';
 import { useCallback } from 'react';
 import { useParams } from 'react-router';
 import { useFamily, useSetOutsideGenerations, useTree } from '../data/tree-queries';
@@ -39,7 +40,7 @@ const OwnTreeExplorer = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGra
       personHref={personHref}
       allowAvatars
       saveDefault={
-        tree.role === 'owner'
+        isTreeOwner(tree.role)
           ? {
               busy: saveDefault.isPending,
               error: saveDefault.error?.message ?? null,
