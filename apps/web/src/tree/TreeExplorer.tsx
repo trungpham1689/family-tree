@@ -4,34 +4,15 @@ import { useNavigate } from 'react-router';
 import { usePersonAvatars } from '../data/tree-queries';
 import type { Person } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
-import { lifespanText } from '../people/person-display';
+import { OUTSIDE_OPTIONS, outsideLabel } from '../family/outside-generations';
 import { Button } from '../ui/Button';
 import { ErrorBanner, Select } from '../ui/fields';
-import { AVATAR_GAP, AVATAR_SIZE, FamilyTreeCanvas, type CanvasPerson, type FocusRequest } from './FamilyTreeCanvas';
+import { AVATAR_GAP, AVATAR_SIZE, FamilyTreeCanvas, type FocusRequest } from './FamilyTreeCanvas';
 import { initialCollapsed } from './initial-collapsed';
 import { PersonSearch } from './PersonSearch';
+import { toCanvasPersons } from './canvas-persons';
 import { planReveal } from './tree-search';
-
-const ORIENTATION_KEY = 'gia-pha:huong-cay';
-
-const readOrientation = (): Orientation => {
-  try {
-    return localStorage.getItem(ORIENTATION_KEY) === 'left-right' ? 'left-right' : 'top-down';
-  } catch {
-    return 'top-down';
-  }
-};
-
-const saveOrientation = (orientation: Orientation) => {
-  try {
-    localStorage.setItem(ORIENTATION_KEY, orientation);
-  } catch {
-    // Không lưu được thì chỉ mất ghi nhớ, Cây vẫn đổi hướng bình thường.
-  }
-};
-
-const OUTSIDE_OPTIONS = [0, 1, 2, 3, 4, 5];
-const outsideLabel = (n: number) => (n === 0 ? 'Chỉ đinh' : `Hiện Cháu ngoại ${n} đời`);
+import { describeReveal, readOrientation, saveOrientation } from './tree-view-state';
 
 export type SaveDefaultControl = {
   busy: boolean;
@@ -89,22 +70,7 @@ export const TreeExplorer = <P extends Person>({
   );
 
   const canvasPersons = useMemo(
-    () =>
-      new Map<string, CanvasPerson>(
-        graph.persons.map((person) => [
-          person.id,
-          {
-            id: person.id,
-            full_name: person.full_name,
-            gender: person.gender,
-            is_deceased: person.is_deceased,
-            lifespan: lifespanText(person),
-            marriedIn: graph.placement(person.id).kind === 'dau_re',
-            adopted: graph.parentsOf(person.id).some((parent) => parent.kind === 'nuoi'),
-            avatarUrl: showAvatars ? avatars.data?.get(person.id) : undefined,
-          },
-        ]),
-      ),
+    () => toCanvasPersons(graph, showAvatars ? (id) => avatars.data?.get(id) : undefined),
     [graph, showAvatars, avatars.data],
   );
 
@@ -132,17 +98,14 @@ export const TreeExplorer = <P extends Person>({
       collapsed,
       outsideGenerations,
     });
-    if (!plan) {
-      setNotice(`${graph.person(personId)?.full_name ?? 'Người này'} chưa nối vào cây nên không hiện trên Cây.`);
-      return;
+    const outcome = describeReveal(plan, graph.person(personId)?.full_name, outsideGenerations);
+    setNotice(outcome.notice);
+    if (outcome.collapsed) setCollapsed(outcome.collapsed);
+    if (outcome.outsideOverride !== null) setOutsideOverride(outcome.outsideOverride);
+    if (outcome.focus) {
+      setHighlightedId(personId);
+      setFocusRequest({ personId });
     }
-    setNotice(
-      plan.outsideGenerations > outsideGenerations ? `Đã chuyển sang ${outsideLabel(plan.outsideGenerations).toLowerCase()} để hiện người này.` : null,
-    );
-    setCollapsed(plan.collapsed);
-    if (plan.outsideGenerations !== outsideGenerations) setOutsideOverride(plan.outsideGenerations);
-    setHighlightedId(personId);
-    setFocusRequest({ personId });
   };
 
   const changeOrientation = () => {

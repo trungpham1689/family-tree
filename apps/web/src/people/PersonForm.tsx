@@ -4,7 +4,7 @@ import type { FamilyGraph } from '../family/family-graph';
 import { searchPersons } from '../tree/tree-search';
 import { Button } from '../ui/Button';
 import { ErrorBanner, TextAreaField, TextField } from '../ui/fields';
-import { findDuplicates, type DuplicateCandidate } from './duplicate-check';
+import { findDuplicates } from './duplicate-check';
 import { personLabel } from './person-label';
 import { PartialDateField } from './PartialDateField';
 import {
@@ -19,17 +19,15 @@ type PersonFormProps = {
   initial: PersonFormValues;
   /** Ẩn ô Thứ tự con khi không có ý nghĩa (ví dụ thêm vợ/chồng). */
   showBirthOrder?: boolean;
-  /** Người đã có trong gia phả, để cảnh báo khi tên trùng (không chặn lưu). */
-  existing?: readonly DuplicateCandidate[];
-  /** Để tìm & chọn Người phụ trách cúng giỗ. */
-  graph?: FamilyGraph<Person>;
+  /** Cây gia phả: để tìm & chọn Người phụ trách cúng giỗ, và cảnh báo khi tên trùng với Người đã có (không chặn lưu). */
+  graph?: FamilyGraph<Person> | undefined;
   /** Người đang sửa (nếu có), để gợi ý mặc định con/cháu của người này làm người phụ trách cúng giỗ. */
   currentPersonId?: string;
   /** Nội dung riêng của từng thao tác (chọn mẹ, loại cha/mẹ…), đặt trên nút lưu. */
   extra?: ReactNode;
   submitLabel: string;
-  busy: boolean;
-  serverError: string | null;
+  /** Trạng thái của thao tác lưu (một mutation của React Query): đang lưu và lỗi từ server. */
+  mutation: { isPending: boolean; error: { message: string } | null };
   onSubmit: (fields: PersonFields) => void;
   onCancel: () => void;
 };
@@ -43,19 +41,18 @@ const GENDER_OPTIONS = [
 export const PersonForm = ({
   initial,
   showBirthOrder = true,
-  existing,
   graph,
   currentPersonId,
   extra,
   submitLabel,
-  busy,
-  serverError,
+  mutation,
   onSubmit,
   onCancel,
 }: PersonFormProps) => {
   const [values, setValues] = useState(initial);
   const [errors, setErrors] = useState<PersonFormErrors>({});
-  const duplicates = existing ? findDuplicates(values.fullName, existing) : [];
+  // Người đang sửa không tính là "trùng" với chính mình.
+  const duplicates = graph ? findDuplicates(values.fullName, graph.persons.filter((other) => other.id !== currentPersonId)) : [];
   // Form mới chỉ mở phần cơ bản; sửa người đã có nhiều thông tin thì mở sẵn.
   const [showMore, setShowMore] = useState(initial !== undefined && hasDetails(initial));
 
@@ -213,14 +210,14 @@ export const PersonForm = ({
 
 
       {Object.keys(errors).length > 0 && <ErrorBanner>Còn ô chưa hợp lệ, hãy xem các dòng báo đỏ.</ErrorBanner>}
-      {serverError && <ErrorBanner>{serverError}</ErrorBanner>}
+      {mutation.error && <ErrorBanner>{mutation.error.message}</ErrorBanner>}
 
       <div className="sticky bottom-0 -mx-6 flex justify-end gap-3 border-t border-line bg-surface px-6 py-3">
         <Button variant="secondary" onClick={onCancel}>
           Huỷ
         </Button>
-        <Button type="submit" disabled={busy}>
-          {busy ? 'Đang lưu…' : submitLabel}
+        <Button type="submit" disabled={mutation.isPending}>
+          {mutation.isPending ? 'Đang lưu…' : submitLabel}
         </Button>
       </div>
     </form>

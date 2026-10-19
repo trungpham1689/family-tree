@@ -73,3 +73,14 @@ export const occurrencesInMonth = (source: CalendarSource, year: number, month: 
 export const WEEKDAY_NAMES = ['', '', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ nhật'] as const;
 
 export const weekdayName = (date: SolarDate): string => WEEKDAY_NAMES[mondayIndex(julianDay(date)) + 2]!;
+
+/** "2026-03" — khoá tháng dùng trong địa chỉ trang lịch (?thang=). */
+export const monthKey = ({ year, month }: { year: number; month: number }): string => `${year}-${String(month).padStart(2, '0')}`;
+
+/** Đọc lại khoá tháng; sai dạng hoặc tháng ngoài 1–12 thì null. */
+export const parseMonth = (text: string | null): { year: number; month: number } | null => {
+  const match = text?.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return null;
+  const month = Number(match[2]);
+  return month >= 1 && month <= 12 ? { year: Number(match[1]), month } : null;
+};

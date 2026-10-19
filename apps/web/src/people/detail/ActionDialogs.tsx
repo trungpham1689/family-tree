@@ -39,7 +39,6 @@ export const ActionDialogs = ({
   const otherParentId = chosenOtherParent ?? spouses[0]?.id ?? '';
   const [linkKind, setLinkKind] = useState<ParentLinkKind>('ruot');
 
-  const existing = graph.persons.filter((other) => other.id !== person.id);
 
   const finish = () => {
     for (const mutation of [addChild, addParent, addSpouse]) mutation.reset();
@@ -106,7 +105,6 @@ export const ActionDialogs = ({
       {action === 'add-child' && (
         <PersonForm
           initial={EMPTY_PERSON_FORM}
-          existing={existing}
           graph={graph}
           extra={
             <>
@@ -115,8 +113,7 @@ export const ActionDialogs = ({
             </>
           }
           submitLabel="Thêm con"
-          busy={addChild.isPending}
-          serverError={addChild.error?.message ?? null}
+          mutation={addChild}
           onCancel={finish}
           onSubmit={(fields) =>
             addChild.mutate(
@@ -130,12 +127,10 @@ export const ActionDialogs = ({
         <PersonForm
           initial={EMPTY_PERSON_FORM}
           showBirthOrder={false}
-          existing={existing}
           graph={graph}
           extra={kindPicker}
           submitLabel="Thêm"
-          busy={addParent.isPending}
-          serverError={addParent.error?.message ?? null}
+          mutation={addParent}
           onCancel={finish}
           onSubmit={(fields) => addParent.mutate({ childId: person.id, kind: linkKind, fields }, { onSuccess: finish })}
         />
@@ -144,11 +139,9 @@ export const ActionDialogs = ({
         <PersonForm
           initial={{ ...EMPTY_PERSON_FORM, gender: person.gender === 'nam' ? 'nu' : person.gender === 'nu' ? 'nam' : '' }}
           showBirthOrder={false}
-          existing={existing}
           graph={graph}
           submitLabel="Thêm"
-          busy={addSpouse.isPending}
-          serverError={addSpouse.error?.message ?? null}
+          mutation={addSpouse}
           onCancel={finish}
           onSubmit={(fields) => addSpouse.mutate({ personId: person.id, order: null, fields }, { onSuccess: finish })}
         />

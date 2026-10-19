@@ -1,6 +1,6 @@
 import { randomFamily } from '@gia-pha/tree-layout';
 import { describe, expect, it } from 'vitest';
-import { blankPerson } from '../data/blank-person';
+import { blankPerson } from '../test-support/person';
 import { buildFamilyGraph } from '../family/family-graph';
 import { defaultPhaDoConfig, pageSizeMm, readPhaDoConfig, type PhaDoConfig } from './config';
 import { MIN_READABLE_PT, renderPhaDo } from './render';

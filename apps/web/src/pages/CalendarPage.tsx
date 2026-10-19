@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { DayDetails } from '../calendar/DayDetails';
 import { MonthCalendar } from '../calendar/MonthCalendar';
-import { occurrencesInMonth, parseIsoDate, shiftMonth, todayInVietnam, toIsoDate } from '../calendar/month-grid';
+import { monthKey, occurrencesInMonth, parseIsoDate, parseMonth, shiftMonth, todayInVietnam, toIsoDate } from '../calendar/month-grid';
 import { dateKey, groupByDay, occurrencesBetween, type CalendarSource, type Occurrence, type OccurrenceKind } from '@gia-pha/reminders';
 import { OccurrenceList } from '../calendar/OccurrenceList';
 import { useMyCalendar } from '../data/tree-queries';
@@ -124,12 +124,3 @@ const Legend = () => (
     </span>
   </p>
 );
-
-const monthKey = ({ year, month }: { year: number; month: number }) => `${year}-${String(month).padStart(2, '0')}`;
-
-const parseMonth = (text: string | null) => {
-  const match = text?.match(/^(\d{4})-(\d{2})$/);
-  if (!match) return null;
-  const month = Number(match[2]);
-  return month >= 1 && month <= 12 ? { year: Number(match[1]), month } : null;
-};

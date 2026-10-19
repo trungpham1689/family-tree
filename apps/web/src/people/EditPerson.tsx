@@ -100,8 +100,7 @@ export const EditPerson = ({
         graph={graph}
         currentPersonId={person.id}
         submitLabel="Lưu thay đổi"
-        busy={update.isPending}
-        serverError={update.error?.message ?? null}
+        mutation={update}
         onCancel={onDone}
         onSubmit={(fields) => save(fields, baseVersion)}
       />

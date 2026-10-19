@@ -235,8 +235,7 @@ const GenerationCard = ({
             graph={graph}
             currentPersonId={person.id}
             submitLabel="Thêm"
-            busy={addChild.isPending}
-            serverError={addChild.isError ? addChild.error.message : null}
+            mutation={addChild}
             onCancel={() => setAdding(false)}
             onSubmit={(fields) =>
               addChild.mutate(

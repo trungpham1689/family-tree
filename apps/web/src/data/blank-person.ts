@@ -57,5 +57,3 @@ export const BLANK_PERSON: Person = {
   pending_delete_by: null,
   pending_delete_at: null,
 };
-
-export const blankPerson = (fields: Partial<Person> & { id: string; full_name: string }): Person => ({ ...BLANK_PERSON, ...fields });

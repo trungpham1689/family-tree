@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildMonthGrid, parseIsoDate, shiftMonth, todayInVietnam, toIsoDate, weekdayName } from './month-grid';
+import { buildMonthGrid, monthKey, parseIsoDate, parseMonth, shiftMonth, todayInVietnam, toIsoDate, weekdayName } from './month-grid';
 
 describe('buildMonthGrid', () => {
   it('tuần bắt đầu từ thứ Hai và chứa đủ ngày trong tháng', () => {
@@ -43,5 +43,15 @@ describe('tiện ích ngày', () => {
   it('tên thứ', () => {
     expect(weekdayName({ year: 2026, month: 10, day: 16 })).toBe('Thứ Sáu');
     expect(weekdayName({ year: 2026, month: 10, day: 18 })).toBe('Chủ nhật');
+  });
+});
+
+describe('monthKey / parseMonth', () => {
+  it('khoá tháng đọc ngược lại đúng; sai dạng hoặc tháng 13 thì null', () => {
+    expect(monthKey({ year: 2026, month: 3 })).toBe('2026-03');
+    expect(parseMonth('2026-03')).toEqual({ year: 2026, month: 3 });
+    expect(parseMonth('2026-13')).toBeNull();
+    expect(parseMonth('2026-3')).toBeNull();
+    expect(parseMonth(null)).toBeNull();
   });
 });

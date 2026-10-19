@@ -35,6 +35,10 @@ export const unmuteGioReminder = async (personId: string): Promise<void> => {
   failOn(error);
 };
 
+/** Độ sớm nhắc cho phép: đúng ngày hoặc trước 1, 3, 7 ngày (khớp check của cột reminder_prefs.offset_days). */
+export const REMINDER_OFFSETS = [0, 1, 3, 7] as const;
+export type ReminderOffset = (typeof REMINDER_OFFSETS)[number];
+
 export type ReminderPrefs = { offsetDays: number; emailEnabled: boolean; tienThuong: boolean };
 export type ReminderPrefsByTree = Map<string, ReminderPrefs>;
 
@@ -44,7 +48,7 @@ export const listReminderPrefs = async (): Promise<ReminderPrefsByTree> => {
   return new Map(data.map((row) => [row.tree_id, { offsetDays: row.offset_days, emailEnabled: row.email_enabled, tienThuong: row.tien_thuong }]));
 };
 
-export const setReminderOffset = async (input: { treeId: string; offsetDays: 0 | 1 | 3 | 7 }): Promise<void> => {
+export const setReminderOffset = async (input: { treeId: string; offsetDays: ReminderOffset }): Promise<void> => {
   const { error } = await supabase
     .from('reminder_prefs')
     .upsert({ tree_id: input.treeId, offset_days: input.offsetDays }, { onConflict: 'account_id,tree_id' });
@@ -70,11 +74,6 @@ export const listNotificationReads = async (): Promise<Set<string>> => {
   const { data, error } = await supabase.from('notification_reads').select('notification_key');
   failOn(error);
   return new Set(data.map((row) => row.notification_key));
-};
-
-export const markNotificationRead = async (notificationKey: string): Promise<void> => {
-  const { error } = await supabase.from('notification_reads').upsert({ notification_key: notificationKey });
-  failOn(error);
 };
 
 export const markNotificationsRead = async (notificationKeys: readonly string[]): Promise<void> => {

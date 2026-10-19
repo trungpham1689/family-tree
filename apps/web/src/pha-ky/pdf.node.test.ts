@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { blankPerson } from '../data/blank-person';
+import { blankPerson } from '../test-support/person';
 import { buildFamilyGraph } from '../family/family-graph';
 import { buildNarrative } from './narrative';
 import { narrativeToPdf } from './pdf';

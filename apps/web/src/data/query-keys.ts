@@ -30,9 +30,6 @@ export const queryKeys = {
   publicTree: (token: string, password: string | null) => ['public', token, password] as const,
 } satisfies Record<string, readonly unknown[] | ((...args: never[]) => readonly [QueryRoot, ...unknown[]])>;
 
-/** Tên cũ của `queryKeys` cho phần các khoá của gia phả. */
-export const treeKeys = queryKeys;
-
 export type QueryEffect = readonly (readonly unknown[])[];
 
 /** Thao tác → các truy vấn cần tải lại. Mỗi dòng nói vì sao. */

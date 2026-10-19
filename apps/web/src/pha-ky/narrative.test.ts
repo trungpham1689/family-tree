@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blankPerson } from '../data/blank-person';
+import { blankPerson } from '../test-support/person';
 import { buildFamilyGraph } from '../family/family-graph';
 import { branchSummaries, buildNarrative, closingNote, notablePersons, originSummary } from './narrative';
 

@@ -26,6 +26,7 @@ import { Button } from '../ui/Button';
 import { Collapsible } from '../ui/Collapsible';
 import { ErrorBanner, Select } from '../ui/fields';
 import { Footer } from '../ui/Footer';
+import { OUTSIDE_OPTIONS, outsideLabel } from '../family/outside-generations';
 import { useTreeExport } from '../export/use-tree-export';
 import { FullPageMessage } from '../ui/FullPageMessage';
 import { DecorationSettings, ScopeSettings, PaperSettings, FontSettings } from '../pha-do/PhaDoSettings';
@@ -93,9 +94,9 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
           <label className="block">
             <span className="mb-1 block font-medium">Hiển thị</span>
             <Select className="w-full" value={config.outsideGenerations} onChange={(event) => update({ outsideGenerations: Number(event.target.value) })}>
-              {[0, 1, 2, 3, 4, 5].map((n) => (
+              {OUTSIDE_OPTIONS.map((n) => (
                 <option key={n} value={n}>
-                  {n === 0 ? 'Chỉ đinh' : `Hiện Cháu ngoại ${n} đời`}
+                  {outsideLabel(n)}
                 </option>
               ))}
             </Select>

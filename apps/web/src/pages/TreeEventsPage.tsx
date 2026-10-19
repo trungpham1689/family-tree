@@ -1,5 +1,6 @@
 import { canEditEvent, canEditTree } from '../data/permissions';
 import { useAccountId } from '../data/query-keys';
+import { REMINDER_OFFSETS, type ReminderOffset } from '../data/reminders';
 import { fromJulianDay, julianDay, nextAnniversary } from '@gia-pha/lunar';
 import { occurrencesBetween, upcoming, type CalendarSource } from '@gia-pha/reminders';
 import { useMemo, useState, type FormEvent } from 'react';
@@ -34,12 +35,7 @@ import { ErrorBanner, Select, TextAreaField, TextField } from '../ui/fields';
 import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
 
-const OFFSET_OPTIONS: { value: 0 | 1 | 3 | 7; label: string }[] = [
-  { value: 0, label: 'Đúng ngày' },
-  { value: 1, label: 'Trước 1 ngày' },
-  { value: 3, label: 'Trước 3 ngày' },
-  { value: 7, label: 'Trước 7 ngày' },
-];
+const OFFSET_OPTIONS = REMINDER_OFFSETS.map((value) => ({ value, label: value === 0 ? 'Đúng ngày' : `Trước ${value} ngày` }));
 
 /** Giỗ, sinh nhật, Sự kiện chỉ của một Gia phả — lọc ra từ "Lịch của tôi" đã tải sẵn. */
 const useTreeCalendarSource = (treeId: string): CalendarSource | undefined => {
@@ -129,7 +125,7 @@ export const TreeEventsPage = () => {
               aria-label="Độ sớm nhắc"
               value={pref?.offsetDays ?? 0}
               disabled={setOffset.isPending}
-              onChange={(event) => setOffset.mutate({ treeId, offsetDays: Number(event.target.value) as 0 | 1 | 3 | 7 })}
+              onChange={(event) => setOffset.mutate({ treeId, offsetDays: Number(event.target.value) as ReminderOffset })}
             >
               {OFFSET_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>

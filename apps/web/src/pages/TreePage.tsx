@@ -159,11 +159,9 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
           <PersonForm
             initial={EMPTY_PERSON_FORM}
             showBirthOrder={false}
-            existing={family.data?.persons}
             graph={family.data}
             submitLabel="Thêm"
-            busy={createPerson.isPending}
-            serverError={createPerson.isError ? createPerson.error.message : null}
+            mutation={createPerson}
             onCancel={closeAddDialog}
             onSubmit={(fields) => createPerson.mutate(fields, { onSuccess: closeAddDialog })}
           />
