@@ -23,6 +23,8 @@ export const usePublicTree = (token: string, password: string | null) =>
     queryFn: () => fetchPublicTree(token, password),
     enabled: password !== null,
     retry: false,
+    // Bản công khai (kèm mật khẩu trong khoá truy vấn) không nên nằm lâu trong bộ nhớ như dữ liệu offline.
+    gcTime: 5 * 60_000,
   });
 
 export const useRotatePublicLink = (treeId: string) => {

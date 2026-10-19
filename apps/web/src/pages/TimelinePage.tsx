@@ -56,7 +56,7 @@ export const TimelinePage = () => {
 
         <ol className="mt-6 border-l-2 border-line pl-6">
           {years.map(([year, items]) => (
-            <li key={year} className="relative pb-6">
+            <li key={year} className="relative pb-6 [contain-intrinsic-size:auto_96px] [content-visibility:auto]">
               <span aria-hidden="true" className="absolute -left-[33px] top-1 size-3 rounded-full border-2 border-paper bg-son" />
               <h2 className="font-serif text-xl font-bold text-son">{year}</h2>
               <ul className="mt-1 space-y-2">

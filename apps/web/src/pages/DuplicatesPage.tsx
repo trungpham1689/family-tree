@@ -55,13 +55,8 @@ export const DuplicatesPage = () => {
                 graph={graph}
                 busy={merge.isPending}
                 error={merge.error?.message ?? null}
-                onMerge={(keepId, dropIds, done) => {
-                  // Gộp lần lượt; dừng ở lỗi đầu tiên (các lần đã xong vẫn giữ nguyên).
-                  void (async () => {
-                    for (const dropId of dropIds) await merge.mutateAsync({ keepId, dropId });
-                    done();
-                  })().catch(() => undefined);
-                }}
+                // Gộp cả nhóm trong một lần (tải lại gia phả một lần); lỗi hiện ở `merge.error`.
+                onMerge={(keepId, dropIds, done) => merge.mutate({ keepId, dropIds }, { onSuccess: done })}
               />
             ))}
           </div>

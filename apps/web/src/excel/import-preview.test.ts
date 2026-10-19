@@ -161,3 +161,21 @@ describe('hiệu năng', () => {
     expect(result.generations).toBeGreaterThanOrEqual(7);
   });
 });
+
+describe('danh sách theo vợ/chồng giữ vị trí khi có ô trống', () => {
+  it('"Còn,,Goá" và "1950,,1970": người thứ ba vẫn là Goá năm 1970, người thứ hai không bị dồn', () => {
+    const row = (data: Partial<Record<ColumnKey, string>>) => COLUMNS.map((c) => data[c.key] ?? null);
+    const preview = buildImportPreview([
+      HEADERS,
+      row({ code: 'A', fullName: 'Vợ A', gender: 'Nữ' }),
+      row({ code: 'B', fullName: 'Vợ B', gender: 'Nữ' }),
+      row({ code: 'C', fullName: 'Vợ C', gender: 'Nữ' }),
+      row({ code: 'X', fullName: 'Chồng X', gender: 'Nam', spouseCode: 'A, B, C', spouseStatus: 'Còn,,Goá', marriageDate: '1950,,1970' }),
+    ]);
+    expect(preview.errors).toEqual([]);
+    const byPartner = new Map(preview.payload!.unions.map((u) => [u.a === 'X' ? u.b : u.a, u]));
+    expect(byPartner.get('A')).toMatchObject({ status: 'con', marriageYear: 1950 });
+    expect(byPartner.get('B')).toMatchObject({ status: 'con', marriageYear: null });
+    expect(byPartner.get('C')).toMatchObject({ status: 'goa', marriageYear: 1970 });
+  });
+});

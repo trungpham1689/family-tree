@@ -199,6 +199,10 @@ const splitList = (text: string | undefined): string[] =>
     .map((part) => part.trim())
     .filter(Boolean);
 
+/** Như splitList nhưng giữ ô trống ("Còn,,Goá"), để giá trị theo từng vợ/chồng không lệch vị trí. */
+const splitCells = (text: string | undefined): string[] =>
+  text === undefined || text.trim() === '' ? [] : text.split(/[,;]/).map((part) => part.trim());
+
 export const buildImportPreview = (table: readonly (readonly CellValue[])[]): ImportPreview => {
   const errors: ImportError[] = [];
   const fail = (row: number, column: ColumnKey | null, message: string) =>
@@ -241,13 +245,13 @@ export const buildImportPreview = (table: readonly (readonly CellValue[])[]): Im
     if (birthOrder === 'invalid') fail(row, 'birthOrder', 'Thứ tự con là số từ 1 (con trưởng).');
     const spouseOrders = splitList(data.spouseOrder).map(parseOrder);
     if (spouseOrders.includes('invalid')) fail(row, 'spouseOrder', 'Thứ tự hôn phối là số từ 1 (vợ/chồng cả).');
-    const spouseStatuses = splitList(data.spouseStatus).map((text) => {
+    const spouseStatuses = splitCells(data.spouseStatus).map((text) => {
       const status = parseStatus(text);
       if (!status) fail(row, 'spouseStatus', `Tình trạng "${text}" không hiểu được. Ghi Còn, Ly hôn hoặc Goá.`);
       return status ?? 'con';
     });
-    const marriages = splitList(data.marriageDate).map((text): Marriage => {
-      if (text === '-') return { year: null, month: null, day: null };
+    const marriages = splitCells(data.marriageDate).map((text): Marriage => {
+      if (text === '-' || text === '') return { year: null, month: null, day: null };
       const input = parseDateText(text, { calendar: 'duong', leap: false });
       const year = input ? Number(input.year) : NaN;
       const month = input?.month ? Number(input.month) : null;

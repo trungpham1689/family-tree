@@ -10,6 +10,7 @@ import {
   linkParent,
   linkSpouse,
   loadFamily,
+  type FamilyData,
   mergePersons,
   reorderChildren,
   reorderUnions,
@@ -57,12 +58,18 @@ export const useTree = (treeId: string) => {
   return useQuery({ queryKey: treeKeys.detail(treeId), queryFn: () => getTree(treeId, accountId) });
 };
 
+// Hàm `select` phải có tham chiếu cố định: React Query chỉ nhớ kết quả khi select không đổi, nếu không đồ thị dựng lại mỗi lần render.
+/** Ảnh dạng data URL rất nặng: không giữ lâu như dữ liệu offline (mặc định 7 ngày, xem main.tsx). */
+const SHORT_GC_MS = 5 * 60_000;
+
+const toFamilyGraph = (data: FamilyData) => buildFamilyGraph(data);
+
 /** Cả Gia phả dưới dạng đồ thị: Người, quan hệ, Đời, Chi. */
 export const useFamily = (treeId: string) =>
   useQuery({
     queryKey: treeKeys.family(treeId),
     queryFn: () => loadFamily(treeId),
-    select: (data) => buildFamilyGraph(data),
+    select: toFamilyGraph,
   });
 
 export const useCreateTree = () => {
@@ -214,6 +221,7 @@ export const useAvatarDataUrl = (avatarPath: string | null) =>
     queryFn: () => fetchAvatarDataUrl(avatarPath!),
     enabled: avatarPath !== null,
     staleTime: Infinity,
+    gcTime: SHORT_GC_MS,
   });
 
 /** Ảnh đại diện của nhiều Người cùng lúc (Phả đồ), gom theo personId; chỉ tải khi `enabled`. */
@@ -229,6 +237,7 @@ export const usePersonAvatars = (persons: readonly { id: string; avatar_path: st
     },
     enabled: enabled && withAvatar.length > 0,
     staleTime: Infinity,
+    gcTime: SHORT_GC_MS,
   });
 };
 

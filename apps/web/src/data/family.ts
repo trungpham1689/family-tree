@@ -126,8 +126,10 @@ export const linkSpouse = async (input: { personId: string; spouseId: string }):
   check(await supabase.rpc('link_spouse', { person_id: input.personId, spouse_id: input.spouseId }));
 };
 
-/** Gộp người trùng `dropId` vào `keepId` (chỉ Chủ sở hữu); không hoàn tác được. */
-export const mergePersons = async (input: { keepId: string; dropId: string }): Promise<void> => {
-  const { error } = await supabase.rpc('merge_persons', { keep_person: input.keepId, drop_person: input.dropId });
-  failOn(error);
+/** Gộp lần lượt các người trùng `dropIds` vào `keepId` (chỉ Chủ sở hữu); không hoàn tác được. Dừng ở lỗi đầu tiên. */
+export const mergePersons = async (input: { keepId: string; dropIds: string[] }): Promise<void> => {
+  for (const dropId of input.dropIds) {
+    const { error } = await supabase.rpc('merge_persons', { keep_person: input.keepId, drop_person: dropId });
+    failOn(error);
+  }
 };

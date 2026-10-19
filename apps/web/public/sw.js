@@ -4,6 +4,11 @@
 const VERSION = 'v1';
 const SHELL = `gia-pha-shell-${VERSION}`;
 const ASSETS = `gia-pha-assets-${VERSION}`;
+// Mỗi deploy sinh các tệp /assets băm tên mới; giữ tối đa chừng này tệp (cũ nhất bỏ trước) để bộ nhớ không phình mãi.
+const MAX_ASSET_ENTRIES = 120;
+// Làm tươi bản dự phòng index.html tối đa mỗi giờ một lần, không phải mỗi lần chuyển trang.
+const SHELL_REFRESH_MS = 60 * 60 * 1000;
+let lastShellRefresh = 0;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(SHELL).then((cache) => cache.add('/index.html')).then(() => self.skipWaiting()));
@@ -18,6 +23,11 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+const trim = async (cache) => {
+  const keys = await cache.keys();
+  await Promise.all(keys.slice(0, Math.max(0, keys.length - MAX_ASSET_ENTRIES)).map((key) => cache.delete(key)));
+};
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -30,7 +40,10 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request).then(
         (response) => {
-          event.waitUntil(caches.open(SHELL).then((cache) => cache.add('/index.html')).catch(() => undefined));
+          if (Date.now() - lastShellRefresh > SHELL_REFRESH_MS) {
+            lastShellRefresh = Date.now();
+            event.waitUntil(caches.open(SHELL).then((cache) => cache.add('/index.html')).catch(() => undefined));
+          }
           return response;
         },
         () => caches.match('/index.html').then((cached) => cached ?? Response.error()),
@@ -46,7 +59,9 @@ self.addEventListener('fetch', (event) => {
         const cached = await cache.match(request);
         const network = fetch(request)
           .then((response) => {
-            if (response.ok) cache.put(request, response.clone());
+            if (response.ok) {
+              cache.put(request, response.clone()).then(() => trim(cache));
+            }
             return response;
           })
           .catch(() => cached ?? Response.error());
