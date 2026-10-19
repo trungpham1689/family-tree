@@ -156,7 +156,10 @@ export const FamilyTreeCanvas = ({
           <span aria-hidden="true" className="size-2.5 rounded-full border-2" style={{ borderColor: 'var(--color-son)' }} /> Nữ
         </span>
         <span className="flex items-center gap-1">
-          <span aria-hidden="true" className="size-2.5 rounded-full border border-line" style={{ backgroundColor: 'var(--color-deceased)' }} /> Đã mất (†)
+          <svg aria-hidden="true" viewBox="0 0 10 10" className="size-2.5">
+            <line x1="1" y1="9" x2="9" y2="1" stroke="black" strokeWidth="2" />
+          </svg>
+          Đã mất (†)
         </span>
       </p>
 
@@ -196,9 +199,9 @@ const NAME_CHARS = 18;
 const PersonBox = memo(({ node, person, highlighted, canToggle, onOpen, onToggle }: BoxProps) => {
   const lines = wrapName(person.full_name, NAME_CHARS);
   const isSpouse = node.role === 'spouse';
-  // Viền theo giới tính (nam/nữ/chưa rõ) để nhận ra ngay không cần đọc chữ; nền xám khi đã mất.
+  // Viền theo giới tính (nam/nữ/chưa rõ) để nhận ra ngay không cần đọc chữ; đã mất thì gạch chéo góc dưới phải.
   const genderColor = person.gender === 'nu' ? 'var(--color-son)' : person.gender === 'nam' ? 'var(--color-kim)' : 'var(--color-line)';
-  const fill = person.is_deceased ? 'var(--color-deceased)' : isSpouse ? 'var(--color-paper)' : 'var(--color-surface)';
+  const fill = isSpouse ? 'var(--color-paper)' : 'var(--color-surface)';
   const centerX = node.x + node.width / 2;
   const toggleX = node.x + 22;
   // Căn giữa theo chiều dọc: khối chữ gồm tên (1–2 dòng) và dòng năm sinh–mất nếu có.
@@ -247,6 +250,17 @@ const PersonBox = memo(({ node, person, highlighted, canToggle, onOpen, onToggle
           <text x={centerX} y={nameTop + lines.length * 18} textAnchor="middle" fontSize={13} fill="var(--color-ink-muted)">
             {person.is_deceased ? `† ${person.lifespan}` : person.lifespan}
           </text>
+        )}
+        {person.is_deceased && (
+          <line
+            aria-hidden="true"
+            x1={node.x + node.width - 4}
+            y1={node.y + node.height - 16}
+            x2={node.x + node.width - 16}
+            y2={node.y + node.height - 4}
+            stroke="black"
+            strokeWidth={2}
+          />
         )}
       </g>
 

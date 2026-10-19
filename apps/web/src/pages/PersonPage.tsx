@@ -116,7 +116,7 @@ const PersonDetail = ({ treeId, graph, person, canEdit, linkedPersonId }: Detail
         )}
       </header>
 
-      <ProfileInfo person={person} />
+      <ProfileInfo person={person} graph={graph} />
 
       <PhotoGallery treeId={treeId} person={person} canEdit={canEdit} />
 
@@ -281,7 +281,7 @@ const ActionDialogs = ({
 
   return (
     <Dialog open={action !== 'none'} title={titles[action]} onClose={finish}>
-      {action === 'edit' && <EditPerson treeId={treeId} person={person} onDone={finish} />}
+      {action === 'edit' && <EditPerson treeId={treeId} person={person} graph={graph} onDone={finish} />}
       {action === 'delete' && (
         <DeletePerson
           treeId={treeId}
@@ -295,6 +295,7 @@ const ActionDialogs = ({
         <PersonForm
           initial={EMPTY_PERSON_FORM}
           existing={existing}
+          graph={graph}
           extra={
             <>
               {otherParentPicker}
@@ -318,6 +319,7 @@ const ActionDialogs = ({
           initial={EMPTY_PERSON_FORM}
           showBirthOrder={false}
           existing={existing}
+          graph={graph}
           extra={kindPicker}
           submitLabel="Thêm"
           busy={addParent.isPending}
@@ -331,6 +333,7 @@ const ActionDialogs = ({
           initial={{ ...EMPTY_PERSON_FORM, gender: person.gender === 'nam' ? 'nu' : person.gender === 'nu' ? 'nam' : '' }}
           showBirthOrder={false}
           existing={existing}
+          graph={graph}
           submitLabel="Thêm"
           busy={addSpouse.isPending}
           serverError={addSpouse.error?.message ?? null}
@@ -605,13 +608,18 @@ const ReminderControls = ({ treeId, person, isMe }: { treeId: string; person: Pe
 const PersonAvatar = ({ person }: { person: Person }) => {
   const avatar = useAvatarDataUrl(person.avatar_path);
   const initial = person.full_name.trim().charAt(0).toUpperCase() || '?';
+  // Màu theo giới tính (như trên Cây) để nổi khỏi nền giấy, không chìm khi chưa có ảnh.
+  const genderColor = person.gender === 'nu' ? 'var(--color-son)' : person.gender === 'nam' ? 'var(--color-kim)' : 'var(--color-ink-muted)';
 
   return (
-    <div className="size-24 shrink-0 overflow-hidden rounded-full border border-line bg-paper">
+    <div
+      className="size-24 shrink-0 overflow-hidden rounded-full border-2"
+      style={{ borderColor: genderColor, backgroundColor: avatar.data ? undefined : genderColor }}
+    >
       {avatar.data ? (
         <img src={avatar.data} alt="" className="size-full object-cover" />
       ) : (
-        <span className="grid size-full place-items-center text-3xl font-bold text-ink-muted">{initial}</span>
+        <span className="grid size-full place-items-center text-3xl font-bold text-white">{initial}</span>
       )}
     </div>
   );

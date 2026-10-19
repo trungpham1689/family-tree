@@ -47,6 +47,7 @@ export const BLANK_PERSON: Person = {
   burial_map_url: null,
   worship_place: null,
   worship_keeper: null,
+  worship_keeper_id: null,
   created_at: '',
   updated_at: '',
   version: 0,

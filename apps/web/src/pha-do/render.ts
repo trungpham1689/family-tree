@@ -31,9 +31,9 @@ const COLORS = {
   line: '#5c534c',
   box: '#ffffff',
   spouseBox: '#fbf8f3',
-  // Viền theo giới tính, nền xám khi đã mất — nhận ra ngay không cần đọc chữ.
+  // Viền theo giới tính — nhận ra ngay không cần đọc chữ. Đã mất thì gạch chéo góc dưới phải.
   genderUnknown: '#a39a8f',
-  deceasedFill: '#c9bfae',
+  deceasedMark: '#000000',
 };
 
 export type PhaDoResult = {
@@ -68,7 +68,6 @@ const legend = (area: { x: number; y: number; width: number; height: number }): 
   const rows: [string, string][] = [
     [COLORS.kim, 'Nam'],
     [COLORS.son, 'Nữ'],
-    [COLORS.deceasedFill, 'Đã mất (†)'],
   ];
   let x = area.x;
   const items: DrawItem[] = [];
@@ -79,6 +78,10 @@ const legend = (area: { x: number; y: number; width: number; height: number }): 
     );
     x += swatch + 2 + label.length * 3.6 + 10;
   }
+  items.push(
+    { type: 'line', points: [[x, y + swatch / 2], [x + swatch, y - swatch / 2]], stroke: COLORS.deceasedMark, strokeWidth: 0.8 },
+    { type: 'text', x: x + swatch + 2, y, text: 'Đã mất (†)', sizePt: 9, bold: false, color: COLORS.muted, align: 'start' },
+  );
   return items;
 };
 
@@ -153,10 +156,22 @@ export const renderPhaDo = (
       width: node.width * scale,
       height: node.height * scale,
       radius: 8 * scale,
-      fill: person.is_deceased ? COLORS.deceasedFill : isSpouse ? COLORS.spouseBox : COLORS.box,
+      fill: isSpouse ? COLORS.spouseBox : COLORS.box,
       stroke: genderColor,
       strokeWidth: 2 * scale,
     });
+    if (person.is_deceased) {
+      const corner = 10 * scale;
+      items.push({
+        type: 'line',
+        points: [
+          [mx(node.x + node.width) - 2 * scale, my(node.y + node.height) - corner],
+          [mx(node.x + node.width) - corner, my(node.y + node.height) - 2 * scale],
+        ],
+        stroke: COLORS.deceasedMark,
+        strokeWidth: 1.5 * scale,
+      });
+    }
 
     const centerX = mx(node.x + node.width / 2);
     const nameLines = wrapName(person.full_name, NAME_CHARS).slice(0, 2);

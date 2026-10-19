@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useUpdatePerson } from '../data/tree-queries';
 import type { Person } from '../data/trees';
+import type { FamilyGraph } from '../family/family-graph';
 import { Button } from '../ui/Button';
 import { ErrorBanner } from '../ui/fields';
 import { diffPersonFields } from './person-conflict';
@@ -13,7 +14,17 @@ type Conflict = { fields: PersonFields; current: Person };
  * Sửa hồ sơ một Người với kiểm tra xung đột: version được chụp lúc mở form, nên dữ liệu tải lại
  * ngầm trong lúc đang sửa không làm mất dấu "bản mình đã đọc".
  */
-export const EditPerson = ({ treeId, person, onDone }: { treeId: string; person: Person; onDone: () => void }) => {
+export const EditPerson = ({
+  treeId,
+  person,
+  graph,
+  onDone,
+}: {
+  treeId: string;
+  person: Person;
+  graph: FamilyGraph<Person>;
+  onDone: () => void;
+}) => {
   const update = useUpdatePerson(treeId);
   const [baseVersion] = useState(person.version);
   const [initial] = useState(() => personToFormValues(person));
@@ -78,6 +89,8 @@ export const EditPerson = ({ treeId, person, onDone }: { treeId: string; person:
   return (
     <PersonForm
       initial={initial}
+      graph={graph}
+      currentPersonId={person.id}
       submitLabel="Lưu thay đổi"
       busy={update.isPending}
       serverError={update.error?.message ?? null}

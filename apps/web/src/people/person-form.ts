@@ -41,7 +41,7 @@ export type PersonFormValues = {
   burialPlace: string;
   burialMapUrl: string;
   worshipPlace: string;
-  worshipKeeper: string;
+  worshipKeeperId: string | null;
 };
 
 /** Các cột hồ sơ được ghi xuống database. */
@@ -86,7 +86,7 @@ export const PERSON_FIELD_KEYS = [
   'burial_place',
   'burial_map_url',
   'worship_place',
-  'worship_keeper',
+  'worship_keeper_id',
 ] as const satisfies readonly (keyof Insert<'persons'>)[];
 
 export type PersonFields = Required<Pick<Insert<'persons'>, (typeof PERSON_FIELD_KEYS)[number]>>;
@@ -122,7 +122,7 @@ export const EMPTY_PERSON_FORM: PersonFormValues = {
   burialPlace: '',
   burialMapUrl: '',
   worshipPlace: '',
-  worshipKeeper: '',
+  worshipKeeperId: null,
 };
 
 const text = (value: string): string | null => {
@@ -226,7 +226,7 @@ export const parsePersonForm = (values: PersonFormValues): PersonFormResult => {
     burial_place: deceased ? text(values.burialPlace) : null,
     burial_map_url: deceased ? mapUrl : null,
     worship_place: deceased ? text(values.worshipPlace) : null,
-    worship_keeper: deceased ? text(values.worshipKeeper) : null,
+    worship_keeper_id: deceased ? values.worshipKeeperId : null,
   } as PersonFields;
 
   return { ok: true, fields };
@@ -292,5 +292,5 @@ export const personToFormValues = (person: Row<'persons'>): PersonFormValues => 
   burialPlace: person.burial_place ?? '',
   burialMapUrl: person.burial_map_url ?? '',
   worshipPlace: person.worship_place ?? '',
-  worshipKeeper: person.worship_keeper ?? '',
+  worshipKeeperId: person.worship_keeper_id ?? null,
 });

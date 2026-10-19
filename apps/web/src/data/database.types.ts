@@ -85,6 +85,7 @@ export type Database = {
           burial_map_url: string | null;
           worship_place: string | null;
           worship_keeper: string | null;
+          worship_keeper_id: string | null;
           birth_order: number | null;
           birth_year: number | null;
           created_at: string;
@@ -136,6 +137,7 @@ export type Database = {
           burial_map_url?: string | null;
           worship_place?: string | null;
           worship_keeper?: string | null;
+          worship_keeper_id?: string | null;
           birth_order?: number | null;
           birth_year?: number | null;
           created_at?: string;
@@ -187,6 +189,7 @@ export type Database = {
           burial_map_url?: string | null;
           worship_place?: string | null;
           worship_keeper?: string | null;
+          worship_keeper_id?: string | null;
           birth_order?: number | null;
           birth_year?: number | null;
           created_at?: string;
@@ -208,6 +211,13 @@ export type Database = {
             columns: ['tree_id'];
             isOneToOne: false;
             referencedRelation: 'family_trees';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'persons_worship_keeper_id_fkey';
+            columns: ['worship_keeper_id'];
+            isOneToOne: false;
+            referencedRelation: 'persons';
             referencedColumns: ['id'];
           },
         ];

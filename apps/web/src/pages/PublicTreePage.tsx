@@ -113,7 +113,7 @@ const PublicPersonView = ({ data, token }: { data: PublicTree; token: string }) 
               <span className="rounded-full bg-paper px-3 py-1">{birthOrderLabel(person.birth_order)}</span>
             )}
           </p>
-          <ProfileInfo person={person} />
+          <ProfileInfo person={person} graph={graph} />
         </>
       )}
 

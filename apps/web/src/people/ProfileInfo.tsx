@@ -1,20 +1,20 @@
 import type { ReactNode } from 'react';
 import { todayInVietnam } from '../calendar/month-grid';
 import type { Person } from '../data/trees';
+import type { FamilyGraph } from '../family/family-graph';
 import { ageAtDeath, anniversaryText, currentAge, deathAgeLabel, describeDate } from './person-display';
 import { storedBirth, storedDeath } from './person-form';
 
 /** Hồ sơ một Người: chỉ hiện những mục có thông tin. Dùng cho trang có vai trò và trang công khai. */
-export const ProfileInfo = ({ person }: { person: Person }) => {
+export const ProfileInfo = ({ person, graph }: { person: Person; graph: FamilyGraph<Person> }) => {
   const today = todayInVietnam();
   const age = ageAtDeath(person);
   const alive = currentAge(person, today.year);
   const anniversary = person.is_deceased ? anniversaryText({ day: person.anniversary_day, month: person.anniversary_month }, today) : null;
+  const worshipKeeper = person.worship_keeper_id ? graph.person(person.worship_keeper_id)?.full_name ?? null : null;
   const rows: [string, ReactNode][] = [
     ['Tên thường gọi', person.common_name],
-    ['Tên huý', person.taboo_name],
     ['Tên tự / hiệu', person.courtesy_name],
-    ['Tên chữ Hán', person.han_name],
     ['Giới tính', person.gender === 'nam' ? 'Nam' : person.gender === 'nu' ? 'Nữ' : null],
     ['Ngày sinh', describeDate(storedBirth(person))],
     ['Tuổi', alive !== null ? `${alive} tuổi` : null],
@@ -52,7 +52,7 @@ export const ProfileInfo = ({ person }: { person: Person }) => {
           ),
         ],
         ['Nơi thờ', person.worship_place],
-        ['Người phụ trách cúng giỗ', person.worship_keeper],
+        ['Người phụ trách cúng giỗ', worshipKeeper],
       ]
     : [];
   const visible = [...rows, ...deathRows].filter(([, value]) => value);

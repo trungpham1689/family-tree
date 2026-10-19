@@ -54,7 +54,7 @@ const FIELD_GROUPS: readonly FieldGroup[] = [
   { label: 'Mộ phần', keys: ['burial_place'], format: text('burial_place') },
   { label: 'Link vị trí mộ', keys: ['burial_map_url'], format: text('burial_map_url') },
   { label: 'Nơi thờ', keys: ['worship_place'], format: text('worship_place') },
-  { label: 'Người phụ trách cúng giỗ', keys: ['worship_keeper'], format: text('worship_keeper') },
+  { label: 'Người phụ trách cúng giỗ', keys: ['worship_keeper_id'], format: text('worship_keeper_id') },
 ];
 
 export type FieldDifference = { label: string; mine: string; theirs: string };

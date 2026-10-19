@@ -11,8 +11,6 @@
   --color-paper: #fbf8f3;
   --color-surface: #ffffff;
   --color-line: #e4dcd1;
-  /* Nền ô Người đã mất trên Cây/Phả đồ — rõ hơn hẳn --color-line để không lẫn với nền trắng/kem. */
-  --color-deceased: #c9bfae;
   --color-son: #8a1c1c;
   --color-son-strong: #6e1414;
   --color-kim: #b8892b;

@@ -267,7 +267,8 @@ export const buildImportPreview = (table: readonly (readonly CellValue[])[]): Im
       burialPlace: data.burialPlace ?? '',
       burialMapUrl: data.burialMapUrl ?? '',
       worshipPlace: data.worshipPlace ?? '',
-      worshipKeeper: data.worshipKeeper ?? '',
+      // Người phụ trách cúng giỗ giờ là một Người được chọn trong app, không nhập tên tay qua Excel.
+      worshipKeeperId: null,
     };
     const result = parsePersonForm(values);
     if (!result.ok) {

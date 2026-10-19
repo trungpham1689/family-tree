@@ -68,7 +68,7 @@ describe('seam C: Phả đồ', () => {
     expect(names).toContain('范文');
   });
 
-  it('viền theo giới tính, nền xám và dấu † khi đã mất', () => {
+  it('viền theo giới tính, nền trắng và gạch chéo góc dưới phải khi đã mất', () => {
     const { drawing } = renderPhaDo(sample(), base);
     const rectBeforeName = (name: string) => {
       const nameIndex = drawing.items.findIndex((item) => item.type === 'text' && item.text === name);
@@ -79,16 +79,26 @@ describe('seam C: Phả đồ', () => {
       throw new Error(`Không tìm thấy ô của "${name}".`);
     };
 
-    // to: nam, đã mất → nền xám, viền màu nam.
+    // to: nam, đã mất → nền trắng (không xám), viền màu nam, có gạch chéo đen sau ô.
+    const toRectIndex = drawing.items.findIndex(
+      (item) => item.type === 'rect' && item === rectBeforeName('Phạm Văn Tổ'),
+    );
     const toRect = rectBeforeName('Phạm Văn Tổ');
-    expect(toRect.fill).toBe('#c9bfae');
+    expect(toRect.fill).toBe('#ffffff');
     expect(toRect.stroke).toBe('#b8892b');
+    const markAfterTo = drawing.items[toRectIndex + 1];
+    expect(markAfterTo?.type).toBe('line');
+    expect((markAfterTo as { stroke: string }).stroke).toBe('#000000');
     expect(texts(base).some((text) => text.startsWith('† '))).toBe(true);
 
-    // dau-a: nữ, còn sống (vợ) → nền ô vợ/chồng, viền màu nữ.
+    // dau-a: nữ, còn sống (vợ) → nền ô vợ/chồng, viền màu nữ, không gạch chéo.
+    const dauRectIndex = drawing.items.findIndex(
+      (item) => item.type === 'rect' && item === rectBeforeName('Nguyễn Thị Dâu'),
+    );
     const dauRect = rectBeforeName('Nguyễn Thị Dâu');
     expect(dauRect.fill).toBe('#fbf8f3');
     expect(dauRect.stroke).toBe('#8a1c1c');
+    expect(drawing.items[dauRectIndex + 1]?.type).not.toBe('line');
   });
 
   it('hiện ảnh đại diện khi bật, chỉ cho Người có ảnh', () => {
