@@ -203,6 +203,99 @@ const splitList = (text: string | undefined): string[] =>
 const splitCells = (text: string | undefined): string[] =>
   text === undefined || text.trim() === '' ? [] : text.split(/[,;]/).map((part) => part.trim());
 
+/** Gom `items` theo khoá: map khoá → danh sách giá trị. */
+const groupBy = <T>(items: readonly T[], key: (item: T) => string, value: (item: T) => string): Map<string, string[]> => {
+  const groups = new Map<string, string[]>();
+  for (const item of items) groups.set(key(item), [...(groups.get(key(item)) ?? []), value(item)]);
+  return groups;
+};
+
+/**
+ * Các vòng lặp tổ tiên (A là cha của B ... là cha của A), mỗi vòng là danh sách mã theo đường đi và quay lại điểm đầu.
+ * Phần tử cuối là người "đóng" vòng (nơi báo lỗi). Mỗi vòng chỉ báo một lần.
+ */
+export const findAncestorCycles = (codes: readonly string[], parentLinks: readonly { child: string; parent: string }[]): string[][] => {
+  const childrenOf = groupBy(parentLinks, (link) => link.parent, (link) => link.child);
+  const state = new Map<string, 'visiting' | 'done'>();
+  const reported = new Set<string>();
+  const cycles: string[][] = [];
+  const visit = (code: string, path: string[]) => {
+    state.set(code, 'visiting');
+    for (const child of childrenOf.get(code) ?? []) {
+      if (state.get(child) === 'visiting') {
+        const cycle = [...path.slice(path.indexOf(child)), code, child];
+        const key = [...new Set(cycle)].sort().join(',');
+        if (!reported.has(key)) {
+          reported.add(key);
+          cycles.push(cycle);
+        }
+      } else if (!state.has(child)) {
+        visit(child, [...path, code]);
+      }
+    }
+    state.set(code, 'done');
+  };
+  for (const code of codes) if (!state.has(code)) visit(code, []);
+  return cycles;
+};
+
+/**
+ * Chọn Thuỷ tổ (người gốc, không phải dâu/rể, có nhiều hậu duệ nhất) rồi tính Đời của mọi người nối được vào cây;
+ * dâu/rể cùng Đời với người phối ngẫu trong họ. `skip` thì không chọn ai.
+ */
+export const layoutGenerations = (input: {
+  codes: readonly string[];
+  skip: boolean;
+  marriedIn: (code: string) => boolean;
+  childrenOf: ReadonlyMap<string, readonly string[]>;
+  parentsOf: ReadonlyMap<string, readonly string[]>;
+  spousesOf: ReadonlyMap<string, readonly string[]>;
+}): { progenitorCode: string | null; generation: Map<string, number> } => {
+  const { codes, skip, marriedIn, childrenOf, parentsOf, spousesOf } = input;
+  const countDescendants = (code: string): number => {
+    const seen = new Set<string>();
+    const stack = [code];
+    while (stack.length > 0) {
+      for (const child of childrenOf.get(stack.pop()!) ?? []) {
+        if (!seen.has(child)) {
+          seen.add(child);
+          stack.push(child);
+        }
+      }
+    }
+    return seen.size;
+  };
+  const roots = skip ? [] : codes.filter((code) => !parentsOf.has(code) && !(marriedIn(code) && !parentsOf.has(code)));
+  let progenitorCode: string | null = null;
+  let best = -1;
+  for (const root of roots) {
+    const count = countDescendants(root);
+    if (count > best) {
+      best = count;
+      progenitorCode = root;
+    }
+  }
+
+  const generation = new Map<string, number>();
+  if (progenitorCode) {
+    generation.set(progenitorCode, 1);
+    const queue = [progenitorCode];
+    while (queue.length > 0) {
+      const code = queue.shift()!;
+      for (const child of childrenOf.get(code) ?? []) {
+        if (!generation.has(child)) {
+          generation.set(child, generation.get(code)! + 1);
+          queue.push(child);
+        }
+      }
+    }
+    for (const [code, value] of [...generation]) {
+      for (const spouse of spousesOf.get(code) ?? []) if (!generation.has(spouse) && !parentsOf.has(spouse)) generation.set(spouse, value);
+    }
+  }
+  return { progenitorCode, generation };
+};
+
 export const buildImportPreview = (table: readonly (readonly CellValue[])[]): ImportPreview => {
   const errors: ImportError[] = [];
   const fail = (row: number, column: ColumnKey | null, message: string) =>
@@ -433,84 +526,30 @@ export const buildImportPreview = (table: readonly (readonly CellValue[])[]): Im
   }
 
   // ---- Vòng lặp tổ tiên ----
-  const childrenOf = new Map<string, string[]>();
-  const parentsOf = new Map<string, string[]>();
-  for (const link of parentLinks) {
-    childrenOf.set(link.parent, [...(childrenOf.get(link.parent) ?? []), link.child]);
-    parentsOf.set(link.child, [...(parentsOf.get(link.child) ?? []), link.parent]);
+  const cycles = findAncestorCycles(parsed.map((entry) => entry.code), parentLinks);
+  for (const cycle of cycles) {
+    const names = cycle.map((member) => byCode.get(member)?.data.fullName ?? member);
+    fail(byCode.get(cycle[cycle.length - 1]!)!.row, 'fatherCode', `Vòng lặp tổ tiên: ${names.join(' → ')}. Một người không thể là tổ tiên của chính mình.`);
   }
-  const state = new Map<string, 'visiting' | 'done'>();
-  const reportedCycles = new Set<string>();
-  const visit = (code: string, path: string[]) => {
-    state.set(code, 'visiting');
-    for (const child of childrenOf.get(code) ?? []) {
-      if (state.get(child) === 'visiting') {
-        const cycle = [...path.slice(path.indexOf(child)), code, child];
-        const key = [...new Set(cycle)].sort().join(',');
-        if (!reportedCycles.has(key)) {
-          reportedCycles.add(key);
-          const names = cycle.map((member) => byCode.get(member)?.data.fullName ?? member);
-          fail(byCode.get(child)!.row, 'fatherCode', `Vòng lặp tổ tiên: ${names.join(' → ')}. Một người không thể là tổ tiên của chính mình.`);
-        }
-      } else if (!state.has(child)) {
-        visit(child, [...path, code]);
-      }
-    }
-    state.set(code, 'done');
-  };
-  for (const entry of parsed) if (!state.has(entry.code)) visit(entry.code, []);
 
   // ---- Thuỷ tổ, Đời ----
+  const childrenOf = groupBy(parentLinks, (link) => link.parent, (link) => link.child);
+  const parentsOf = groupBy(parentLinks, (link) => link.child, (link) => link.parent);
   const spousesOf = new Map<string, string[]>();
   for (const union of unions) {
     spousesOf.set(union.a, [...(spousesOf.get(union.a) ?? []), union.b]);
     spousesOf.set(union.b, [...(spousesOf.get(union.b) ?? []), union.a]);
   }
-  const marriedIn = (code: string) => Boolean(byCode.get(code)?.data.spouseCode) && !parentsOf.has(code);
-  const countDescendants = (code: string): number => {
-    const seen = new Set<string>();
-    const stack = [code];
-    while (stack.length > 0) {
-      for (const child of childrenOf.get(stack.pop()!) ?? []) {
-        if (!seen.has(child)) {
-          seen.add(child);
-          stack.push(child);
-        }
-      }
-    }
-    return seen.size;
-  };
-  const roots = errors.some((error) => error.message.startsWith('Vòng lặp'))
-    ? []
-    : parsed.filter((entry) => !parentsOf.has(entry.code) && !marriedIn(entry.code));
-  let progenitor: ParsedRow | null = null;
-  let best = -1;
-  for (const root of roots) {
-    const count = countDescendants(root.code);
-    if (count > best) {
-      best = count;
-      progenitor = root;
-    }
-  }
-
-  const generation = new Map<string, number>();
-  if (progenitor) {
-    generation.set(progenitor.code, 1);
-    const queue = [progenitor.code];
-    while (queue.length > 0) {
-      const code = queue.shift()!;
-      for (const child of childrenOf.get(code) ?? []) {
-        if (!generation.has(child)) {
-          generation.set(child, generation.get(code)! + 1);
-          queue.push(child);
-        }
-      }
-    }
-    // Dâu/rể đứng cùng Đời với người phối ngẫu trong họ.
-    for (const [code, value] of [...generation]) {
-      for (const spouse of spousesOf.get(code) ?? []) if (!generation.has(spouse) && !parentsOf.has(spouse)) generation.set(spouse, value);
-    }
-  }
+  const { progenitorCode, generation } = layoutGenerations({
+    codes: parsed.map((entry) => entry.code),
+    // Có vòng lặp thì không chọn Thuỷ tổ (lỗi đã báo ở trên).
+    skip: cycles.length > 0,
+    marriedIn: (code) => Boolean(byCode.get(code)?.data.spouseCode),
+    childrenOf,
+    parentsOf,
+    spousesOf,
+  });
+  const progenitor = progenitorCode ? (byCode.get(progenitorCode) ?? null) : null;
 
   const nameOf = (code: string) => byCode.get(code)?.data.fullName ?? code;
   const people: PreviewPerson[] = parsed.map((entry) => {

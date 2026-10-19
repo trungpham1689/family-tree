@@ -1,6 +1,16 @@
 import { fetchAll } from '@gia-pha/db-paging';
 import { createClient } from '@supabase/supabase-js';
-import type { CalendarEvent, CalendarMarriage, CalendarPerson } from '@gia-pha/reminders';
+import {
+  CALENDAR_EVENT_COLUMNS,
+  CALENDAR_MARRIAGE_COLUMNS,
+  CALENDAR_PERSON_COLUMNS,
+  isCalendarPerson,
+  toCalendarMarriages,
+  type CalendarEvent,
+  type CalendarMarriage,
+  type CalendarPerson,
+  type MarriageRow,
+} from '@gia-pha/reminders';
 
 export type ReminderData = {
   source: { trees: { id: string; name: string }[]; persons: CalendarPerson[]; events: CalendarEvent[]; marriages: CalendarMarriage[] };
@@ -8,12 +18,10 @@ export type ReminderData = {
   recipientsByTree: Map<string, string[]>;
 };
 
-type MarriageRow = Omit<CalendarMarriage, 'names'> & { status: string; a: { full_name: string } | null; b: { full_name: string } | null };
-
 /** Mọi dữ liệu Worker cần, đọc bằng service_role (bỏ qua RLS — đây là tiến trình nền, không phải một tài khoản). */
 export const loadReminderData = async (supabaseUrl: string, serviceRoleKey: string): Promise<ReminderData> => {
   const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
-  // Danh sách cột các bảng lịch cũng nằm ở apps/web/src/data/calendar.ts và hàm SQL public_share.calendar_feed — sửa cả ba khi thêm trường.
+  // Cột và bộ lọc của nguồn lịch lấy từ @gia-pha/reminders (calendar-source.ts), dùng chung với web và đối chiếu với hàm SQL calendar_feed.
   const readAll = async <Row>(table: string, columns: string, orderBy: string[]): Promise<Row[]> => {
     const { data, error } = await fetchAll<Row>((from, to) => {
       let query = supabase.from(table).select(columns);
@@ -25,13 +33,9 @@ export const loadReminderData = async (supabaseUrl: string, serviceRoleKey: stri
   };
   const [trees, persons, events, unions, roles, prefs, approvals] = await Promise.all([
     readAll<{ id: string; name: string }>('family_trees', 'id, name', ['id']),
-    readAll<CalendarPerson>('persons', 'id, tree_id, full_name, is_deceased, anniversary_day, anniversary_month, birth_solar_date', ['id']),
-    readAll<CalendarEvent>('tree_events', 'id, tree_id, title, calendar, repeats_yearly, year, month, day, leap, start_time, location', ['id']),
-    readAll<MarriageRow>(
-      'unions',
-      'id, tree_id, partner_a, marriage_year, marriage_month, marriage_day, status, a:persons!unions_partner_a_fkey(full_name), b:persons!unions_partner_b_fkey(full_name)',
-      ['id'],
-    ),
+    readAll<CalendarPerson>('persons', CALENDAR_PERSON_COLUMNS, ['id']),
+    readAll<CalendarEvent>('tree_events', CALENDAR_EVENT_COLUMNS, ['id']),
+    readAll<MarriageRow>('unions', CALENDAR_MARRIAGE_COLUMNS, ['id']),
     readAll<{ account_id: string; tree_id: string; role: string }>('tree_roles', 'account_id, tree_id, role', ['tree_id', 'account_id']),
     readAll<{ account_id: string; tree_id: string; email_enabled: boolean }>('reminder_prefs', 'account_id, tree_id, email_enabled', ['account_id', 'tree_id']),
     readAll<{ account_id: string; approved: boolean }>('account_approvals', 'account_id, approved', ['account_id']),
@@ -57,8 +61,5 @@ export const loadReminderData = async (supabaseUrl: string, serviceRoleKey: stri
     if (role.role !== 'owner' && role.role !== 'editor') continue;
     recipientsByTree.set(role.tree_id, [...(recipientsByTree.get(role.tree_id) ?? []), email]);
   }
-  const marriages = unions
-    .filter((union) => union.marriage_day !== null && union.status !== 'ly_hon')
-    .map(({ a, b, status: _status, ...union }) => ({ ...union, names: [a?.full_name, b?.full_name].filter(Boolean).join(' & ') }));
-  return { source: { trees, persons, events, marriages }, recipientsByTree };
+  return { source: { trees, persons: persons.filter(isCalendarPerson), events, marriages: toCalendarMarriages(unions) }, recipientsByTree };
 };

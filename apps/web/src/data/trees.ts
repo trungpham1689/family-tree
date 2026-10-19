@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { Row } from './database.types';
-import { dbErrorMessage, type DbErrorLike } from './db-error-message';
+import { dbErrorMessage, hasDbCode, type DbErrorLike } from './db-error-message';
 import type { PersonFields } from '../people/person-form';
 
 /**
@@ -94,7 +94,7 @@ export const updatePerson = async (personId: string, fields: PersonFields, versi
     .eq('id', personId)
     .select('*')
     .single();
-  if (error?.message?.includes('STALE_VERSION')) {
+  if (hasDbCode(error, 'STALE_VERSION')) {
     const current = unwrap(await supabase.from('persons').select('*').eq('id', personId).single());
     return { status: 'conflict', current };
   }

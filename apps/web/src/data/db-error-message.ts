@@ -8,7 +8,7 @@ export type DbErrorLike = {
   details?: string | null | undefined;
 };
 
-const BUSINESS_MESSAGES: Record<string, (details?: string | null) => string> = {
+export const BUSINESS_MESSAGES: Record<string, (details?: string | null) => string> = {
   TREE_LIMIT_REACHED: (details) =>
     `Bạn đã tạo đủ số gia phả cho phép. ${details ?? ''}`.trim() +
     ' Hãy xoá bớt một gia phả cũ nếu muốn tạo mới.',
@@ -24,6 +24,17 @@ const BUSINESS_MESSAGES: Record<string, (details?: string | null) => string> = {
   ACCOUNT_NOT_FOUND: () => 'Chưa có tài khoản dùng email này. Mời họ tạo tài khoản trước rồi mời lại.',
   ALREADY_OWNER: () => 'Người này đã là Chủ sở hữu của gia phả.',
   CANNOT_CHANGE_OWNER: () => 'Không thể đổi hay gỡ vai trò của Chủ sở hữu.',
+  NOT_ALLOWED: () => 'Bạn không có quyền làm việc này trong gia phả.',
+  NOT_TREE_MEMBER: () => 'Bạn chưa có vai trò trong gia phả này.',
+  INVALID_ROLE: () => 'Vai trò không hợp lệ. Chỉ mời được Biên tập viên hoặc Người xem.',
+  LINK_NOT_ENABLED: () => 'Link chia sẻ công khai chưa được bật.',
+  PASSWORD_TOO_SHORT: () => 'Mật khẩu quá ngắn. Hãy đặt ít nhất 4 ký tự.',
+  SAME_PERSON: () => 'Hãy chọn hai người khác nhau.',
+  UNION_NOT_FOUND: () => 'Không tìm thấy cuộc hôn phối này. Có thể đã bị xoá; hãy tải lại trang.',
+  PHOTO_NOT_FOUND: () => 'Không tìm thấy ảnh này. Có thể đã bị xoá; hãy tải lại trang.',
+  PHOTO_PATH_INVALID: () => 'Đường dẫn ảnh không thuộc gia phả này.',
+  PHOTO_IMMUTABLE: () => 'Không thể chuyển ảnh sang Người hay gia phả khác.',
+  TREE_IMMUTABLE: () => 'Không thể chuyển Người sang gia phả khác.',
 };
 
 const POSTGRES_MESSAGES: Record<string, string> = {
@@ -46,3 +57,7 @@ export const dbErrorMessage = (error: DbErrorLike): string => {
   if (/failed to fetch|network/i.test(message)) return 'Không kết nối được máy chủ. Hãy kiểm tra mạng rồi thử lại.';
   return FALLBACK;
 };
+
+/** Lỗi có mang mã nghiệp vụ này không (mã do migration raise trong `message`) — dùng thay cho so chuỗi rải rác. */
+export const hasDbCode = (error: DbErrorLike | null | undefined, code: keyof typeof BUSINESS_MESSAGES): boolean =>
+  Boolean(error?.message?.includes(code));

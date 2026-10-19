@@ -28,38 +28,60 @@ const json = (body: unknown, status: number): Response => Response.json(body, { 
 
 const bearer = (request: Request): string | null => /^Bearer (.+)$/.exec(request.headers.get('authorization') ?? '')?.[1] ?? null;
 
-const rpcAllowed = async (env: PhotoEnv, jwt: string, fn: 'can_view_tree' | 'can_edit_tree' | 'is_tree_owner', treeId: string, doFetch: typeof fetch) => {
-  const response = await doFetch(`${env.VITE_SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+type Rule = { fn: 'can_view_tree' | 'can_edit_tree' | 'is_tree_owner' | 'can_edit_person'; args: Record<string, string> };
+
+const treeRule = (fn: 'can_view_tree' | 'can_edit_tree' | 'is_tree_owner', treeId: string): Rule => ({ fn, args: { target_tree: treeId } });
+
+const rpcAllowed = async (env: PhotoEnv, jwt: string, rule: Rule, doFetch: typeof fetch) => {
+  const response = await doFetch(`${env.VITE_SUPABASE_URL}/rest/v1/rpc/${rule.fn}`, {
     method: 'POST',
     headers: { apikey: env.VITE_SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ target_tree: treeId }),
+    body: JSON.stringify(rule.args),
   });
   if (response.status === 401) return null;
   return response.ok && (await response.json()) === true;
 };
 
-const treeName = async (env: PhotoEnv, jwt: string, treeId: string, doFetch: typeof fetch): Promise<string> => {
-  const response = await doFetch(`${env.VITE_SUPABASE_URL}/rest/v1/family_trees?id=eq.${treeId}&select=name`, {
+/** Đọc bảng bằng quyền người gọi (RLS áp dụng); lỗi thì coi như không có dòng nào. */
+const restRows = async <Row>(env: PhotoEnv, jwt: string, query: string, doFetch: typeof fetch): Promise<Row[]> => {
+  const response = await doFetch(`${env.VITE_SUPABASE_URL}/rest/v1/${query}`, {
     headers: { apikey: env.VITE_SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${jwt}` },
   });
-  const rows = response.ok ? ((await response.json()) as { name: string }[]) : [];
-  return rows[0]?.name ?? treeId;
+  return response.ok ? ((await response.json()) as Row[]) : [];
 };
 
-/** Trả Response lỗi nếu không đủ quyền, null nếu được phép. */
+const treeName = async (env: PhotoEnv, jwt: string, treeId: string, doFetch: typeof fetch): Promise<string> =>
+  (await restRows<{ name: string }>(env, jwt, `family_trees?id=eq.${treeId}&select=name`, doFetch))[0]?.name ?? treeId;
+
+/**
+ * Quy tắc xoá một file ảnh, đúng như RLS của dòng dữ liệu trỏ tới file đó:
+ * ảnh của Người → `can_edit_person`; ảnh bìa gia phả → Chủ sở hữu; chưa có dòng nào (file mồ côi vừa tải lên,
+ * trình duyệt đang dọn sau khi lưu dòng lỗi) → Biên tập viên của gia phả.
+ */
+const deletionRule = async (env: PhotoEnv, jwt: string, treeId: string, fileId: string, doFetch: typeof fetch): Promise<Rule> => {
+  const path = encodeURIComponent(`${treeId}/${fileId}`);
+  const [photo] = await restRows<{ person_id: string }>(env, jwt, `person_photos?storage_path=eq.${path}&select=person_id`, doFetch);
+  if (photo) return { fn: 'can_edit_person', args: { target_person: photo.person_id } };
+  const cover = await restRows<{ id: string }>(env, jwt, `family_trees?id=eq.${treeId}&photo_path=eq.${path}&select=id`, doFetch);
+  return treeRule(cover.length > 0 ? 'is_tree_owner' : 'can_edit_tree', treeId);
+};
+
+/** Trả Response lỗi nếu không đủ quyền, null nếu được phép. `rule` có thể là hàm để tra thêm dữ liệu sau khi biết người gọi. */
 const authorize = async (
   request: Request,
   env: PhotoEnv,
   treeId: string,
-  need: 'can_view_tree' | 'can_edit_tree' | 'is_tree_owner',
+  rule: Rule | ((jwt: string) => Promise<Rule | Response>),
   doFetch: typeof fetch,
 ): Promise<Response | null> => {
   const jwt = bearer(request);
   if (!jwt) return json({ error: 'Cần đăng nhập.' }, 401);
   if (!UUID.test(treeId)) return json({ error: 'Gia phả không hợp lệ.' }, 400);
-  const allowed = await rpcAllowed(env, jwt, need, treeId, doFetch);
+  const resolved = typeof rule === 'function' ? await rule(jwt) : rule;
+  if (resolved instanceof Response) return resolved;
+  const allowed = await rpcAllowed(env, jwt, resolved, doFetch);
   if (allowed === null) return json({ error: 'Phiên đăng nhập hết hạn. Hãy đăng nhập lại.' }, 401);
-  return allowed ? null : json({ error: 'Bạn không có quyền với ảnh của gia phả này.' }, 403);
+  return allowed ? null : json({ error: 'Bạn không có quyền với ảnh này.' }, 403);
 };
 
 const failure = (error: unknown): Response =>
@@ -74,8 +96,20 @@ export const handleUpload = async (request: Request, env: PhotoEnv, doFetch: typ
   if (kind !== 'member' && kind !== 'tree') return json({ error: 'Loại ảnh không hợp lệ.' }, 400);
   if (kind === 'member' && !UUID.test(personId ?? '')) return json({ error: 'Thiếu Người của ảnh.' }, 400);
 
-  // Ảnh Người: Biên tập viên trở lên (như RLS bảng person_photos). Ảnh gia phả: chỉ Chủ sở hữu (như RLS family_trees).
-  const denied = await authorize(request, env, treeId, kind === 'tree' ? 'is_tree_owner' : 'can_edit_tree', doFetch);
+  // Ảnh Người: Chủ sở hữu hoặc Biên tập viên đã tạo Người đó (như RLS bảng person_photos). Ảnh gia phả: chỉ Chủ sở hữu (như RLS family_trees).
+  const denied = await authorize(
+    request,
+    env,
+    treeId,
+    kind === 'tree'
+      ? treeRule('is_tree_owner', treeId)
+      : async (jwt) => {
+          const [person] = await restRows<{ tree_id: string }>(env, jwt, `persons?id=eq.${personId}&select=tree_id`, doFetch);
+          // Người phải thuộc đúng gia phả của thư mục sẽ nhận file.
+          return person?.tree_id === treeId ? { fn: 'can_edit_person', args: { target_person: personId! } } : json({ error: 'Không tìm thấy Người trong gia phả này.' }, 404);
+        },
+    doFetch,
+  );
   if (denied) return denied;
 
   const mimeType = request.headers.get('content-type')?.split(';')[0]?.trim() ?? '';
@@ -112,7 +146,7 @@ export const handleUpload = async (request: Request, env: PhotoEnv, doFetch: typ
 export const handleDownload = async (request: Request, env: PhotoEnv, fileId: string, doFetch: typeof fetch = fetch): Promise<Response> => {
   const treeId = new URL(request.url).searchParams.get('treeId') ?? '';
   if (!DRIVE_ID.test(fileId)) return json({ error: 'Ảnh không hợp lệ.' }, 400);
-  const denied = await authorize(request, env, treeId, 'can_view_tree', doFetch);
+  const denied = await authorize(request, env, treeId, treeRule('can_view_tree', treeId), doFetch);
   if (denied) return denied;
   try {
     const upstream = await downloadImage(await getAccessToken(env, doFetch), fileId, treeId, doFetch);
@@ -133,7 +167,7 @@ export const handleDownload = async (request: Request, env: PhotoEnv, fileId: st
 export const handleDelete = async (request: Request, env: PhotoEnv, fileId: string, doFetch: typeof fetch = fetch): Promise<Response> => {
   const treeId = new URL(request.url).searchParams.get('treeId') ?? '';
   if (!DRIVE_ID.test(fileId)) return json({ error: 'Ảnh không hợp lệ.' }, 400);
-  const denied = await authorize(request, env, treeId, 'can_edit_tree', doFetch);
+  const denied = await authorize(request, env, treeId, (jwt) => deletionRule(env, jwt, treeId, fileId, doFetch), doFetch);
   if (denied) return denied;
   try {
     await deleteImage(await getAccessToken(env, doFetch), fileId, treeId, doFetch);
@@ -146,7 +180,7 @@ export const handleDelete = async (request: Request, env: PhotoEnv, fileId: stri
 /** DELETE /api/photos?treeId=… — xoá cả thư mục ảnh của gia phả trên Drive; chỉ Chủ sở hữu (dùng khi xoá gia phả). */
 export const handleDeleteTree = async (request: Request, env: PhotoEnv, doFetch: typeof fetch = fetch): Promise<Response> => {
   const treeId = new URL(request.url).searchParams.get('treeId') ?? '';
-  const denied = await authorize(request, env, treeId, 'is_tree_owner', doFetch);
+  const denied = await authorize(request, env, treeId, treeRule('is_tree_owner', treeId), doFetch);
   if (denied) return denied;
   try {
     await deleteTreeFolder(await getAccessToken(env, doFetch), treeId, doFetch);

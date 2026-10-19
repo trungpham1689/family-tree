@@ -37,7 +37,8 @@ import {
 import {
   fetchAvatarDataUrl,
   listPersonPhotos,
-  purgePersonPhotos,
+  discardStoredFiles,
+  listPersonPhotoPaths,
   purgeTreePhotos,
   removePersonPhoto,
   removeTreePhoto,
@@ -46,55 +47,39 @@ import {
   updatePhotoCaption,
   uploadPersonPhoto,
 } from './photos';
-import { treeKeys, useAccountId, useFamilyMutation } from './query-keys';
+import { effects, queryKeys, useAccountId, useFamilyMutation, useMutationWithEffects } from './query-keys';
 
 export const useMyTrees = () => {
   const accountId = useAccountId();
-  return useQuery({ queryKey: treeKeys.mine(accountId), queryFn: () => listMyTrees(accountId) });
+  return useQuery({ queryKey: queryKeys.mine(accountId), queryFn: () => listMyTrees(accountId) });
 };
 
 export const useTree = (treeId: string) => {
   const accountId = useAccountId();
-  return useQuery({ queryKey: treeKeys.detail(treeId), queryFn: () => getTree(treeId, accountId) });
+  return useQuery({ queryKey: queryKeys.detail(treeId), queryFn: () => getTree(treeId, accountId) });
 };
 
-// Hàm `select` phải có tham chiếu cố định: React Query chỉ nhớ kết quả khi select không đổi, nếu không đồ thị dựng lại mỗi lần render.
 /** Ảnh dạng data URL rất nặng: không giữ lâu như dữ liệu offline (mặc định 7 ngày, xem main.tsx). */
 const SHORT_GC_MS = 5 * 60_000;
 
+// Hàm `select` phải có tham chiếu cố định: React Query chỉ nhớ kết quả khi select không đổi, nếu không đồ thị dựng lại mỗi lần render.
 const toFamilyGraph = (data: FamilyData) => buildFamilyGraph(data);
 
 /** Cả Gia phả dưới dạng đồ thị: Người, quan hệ, Đời, Chi. */
 export const useFamily = (treeId: string) =>
   useQuery({
-    queryKey: treeKeys.family(treeId),
+    queryKey: queryKeys.family(treeId),
     queryFn: () => loadFamily(treeId),
     select: toFamilyGraph,
   });
 
-export const useCreateTree = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: createTree,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trees', 'mine'] }),
-  });
-};
+export const useCreateTree = () => useMutationWithEffects(createTree, effects.treeMeta);
 
-export const useRenameTree = (treeId: string) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: { name: string; description: string | null }) => renameTree(treeId, input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trees'] }),
-  });
-};
+export const useRenameTree = (treeId: string) =>
+  useMutationWithEffects((input: { name: string; description: string | null }) => renameTree(treeId, input), effects.treeMeta);
 
-export const useSetOutsideGenerations = (treeId: string) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (outsideGenerations: number) => setTreeOutsideGenerations(treeId, outsideGenerations),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trees'] }),
-  });
-};
+export const useSetOutsideGenerations = (treeId: string) =>
+  useMutationWithEffects((outsideGenerations: number) => setTreeOutsideGenerations(treeId, outsideGenerations), effects.treeMeta);
 
 export const useDeleteTree = (treeId: string) => {
   const queryClient = useQueryClient();
@@ -104,115 +89,64 @@ export const useDeleteTree = (treeId: string) => {
       return deleteTree(treeId);
     },
     onSuccess: () => {
-      queryClient.removeQueries({ queryKey: treeKeys.detail(treeId) });
-      return queryClient.invalidateQueries({ queryKey: ['trees', 'mine'] });
+      queryClient.removeQueries({ queryKey: queryKeys.detail(treeId) });
+      return queryClient.invalidateQueries({ queryKey: ['trees'] });
     },
   });
 };
 
-export const useCreatePerson = (treeId: string) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (fields: PersonFields) => createPerson(treeId, fields),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) }),
-  });
-};
+export const useCreatePerson = (treeId: string) =>
+  useMutationWithEffects((fields: PersonFields) => createPerson(treeId, fields), () => effects.family(treeId));
 
 /** Sửa hồ sơ có kiểm tra xung đột; khi xung đột vẫn tải lại để mọi màn hình thấy bản mới. */
-export const useUpdatePerson = (treeId: string) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ personId, fields, version }: { personId: string; fields: PersonFields; version: number }) =>
-      updatePerson(personId, fields, version),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) }),
-  });
+export const useUpdatePerson = (treeId: string) =>
+  useMutationWithEffects(
+    ({ personId, fields, version }: { personId: string; fields: PersonFields; version: number }) => updatePerson(personId, fields, version),
+    () => effects.family(treeId),
+  );
+
+/**
+ * Xoá Người rồi dọn file ảnh của họ: database quyết định trước (RLS / quyền Chủ sở hữu), file chỉ bị xoá khi việc đó đã thành.
+ * Danh sách file phải lấy trước vì xoá Người kéo theo xoá dòng ảnh.
+ */
+const withPhotoCleanup = (remove: (personId: string) => Promise<void>) => async (personId: string) => {
+  const paths = await listPersonPhotoPaths(personId);
+  await remove(personId);
+  await discardStoredFiles(paths);
 };
 
-export const useDeletePerson = (treeId: string) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    // Ảnh trên Drive không tự mất khi xoá Người (dòng ảnh trong database mới tự xoá theo), nên xoá file trước.
-    mutationFn: async (personId: string) => {
-      await purgePersonPhotos(personId);
-      return deletePerson(personId);
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) }),
-  });
-};
+export const useDeletePerson = (treeId: string) => useMutationWithEffects(withPhotoCleanup(deletePerson), () => effects.deletion(treeId));
 
 /** Biên tập viên gửi yêu cầu xoá (Người mình tạo), chờ Chủ sở hữu duyệt. */
-export const useRequestDeletePerson = (treeId: string) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: requestDeletePerson,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) }),
-  });
-};
+export const useRequestDeletePerson = (treeId: string) => useMutationWithEffects(requestDeletePerson, () => effects.deletion(treeId));
 
-export const useApproveDeletePerson = (treeId: string) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (personId: string) => {
-      await purgePersonPhotos(personId);
-      return approveDeletePerson(personId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) });
-      queryClient.invalidateQueries({ queryKey: treeKeys.pendingDeletions(treeId) });
-    },
-  });
-};
+export const useApproveDeletePerson = (treeId: string) =>
+  useMutationWithEffects(withPhotoCleanup(approveDeletePerson), () => effects.deletion(treeId));
 
-export const useRejectDeletePerson = (treeId: string) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: rejectDeletePerson,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) });
-      queryClient.invalidateQueries({ queryKey: treeKeys.pendingDeletions(treeId) });
-    },
-  });
-};
+export const useRejectDeletePerson = (treeId: string) => useMutationWithEffects(rejectDeletePerson, () => effects.deletion(treeId));
 
 /** Yêu cầu xoá đang chờ của Gia phả; chỉ Chủ sở hữu gọi được. */
 export const usePendingDeletions = (treeId: string, enabled: boolean) =>
   useQuery({
-    queryKey: treeKeys.pendingDeletions(treeId),
+    queryKey: queryKeys.pendingDeletions(treeId),
     queryFn: () => listPendingDeletions(treeId),
     enabled,
   });
 
-const photosKey = (personId: string) => ['photos', personId] as const;
-
 /** Ảnh tư liệu của một Người. */
 export const usePersonPhotos = (personId: string) =>
-  useQuery({ queryKey: photosKey(personId), queryFn: () => listPersonPhotos(personId) });
+  useQuery({ queryKey: queryKeys.photos(personId), queryFn: () => listPersonPhotos(personId) });
 
-/** Mọi thao tác đổi ảnh tư liệu đều có thể đổi avatar_path (trigger), nên tải lại cả hai. */
-const usePhotoMutation = <Input, Output>(treeId: string, personId: string, mutationFn: (input: Input) => Promise<Output>) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn,
-    onSuccess: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: photosKey(personId) }),
-        queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) }),
-      ]),
-  });
-};
+const usePhotoMutation = <Input, Output>(treeId: string, personId: string, mutationFn: (input: Input) => Promise<Output>) =>
+  useMutationWithEffects(mutationFn, () => effects.photos(treeId, personId));
 
 export const useUploadPhoto = (treeId: string, personId: string) => usePhotoMutation(treeId, personId, uploadPersonPhoto);
 export const useSetAvatarPhoto = (treeId: string, personId: string) => usePhotoMutation(treeId, personId, setAvatarPhoto);
 export const useUpdatePhotoCaption = (treeId: string, personId: string) => usePhotoMutation(treeId, personId, updatePhotoCaption);
 export const useRemovePhoto = (treeId: string, personId: string) => usePhotoMutation(treeId, personId, removePersonPhoto);
 
-const useTreePhotoMutation = <Input, Output>(mutationFn: (input: Input) => Promise<Output>) => {
-  const queryClient = useQueryClient();
-  return useMutation({ mutationFn, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trees'] }) });
-};
-
-export const useSetTreePhoto = () => useTreePhotoMutation(setTreePhoto);
-export const useRemoveTreePhoto = () => useTreePhotoMutation(removeTreePhoto);
+export const useSetTreePhoto = () => useMutationWithEffects(setTreePhoto, effects.treeMeta);
+export const useRemoveTreePhoto = () => useMutationWithEffects(removeTreePhoto, effects.treeMeta);
 
 /** Ảnh đại diện của một Người, tải về và chuyển sẵn thành data URL; null khi chưa có ảnh. */
 export const useAvatarDataUrl = (avatarPath: string | null) =>
@@ -271,7 +205,7 @@ export const useImportExcel = () => {
   });
 };
 
-export { treeKeys } from './query-keys';
+export { queryKeys, treeKeys } from './query-keys';
 export * from './public-link-queries';
 export * from './members-queries';
 export * from './calendar-queries';

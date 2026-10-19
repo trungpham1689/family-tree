@@ -7,7 +7,7 @@ import {
   setHiddenFromPublic,
   setPublicLinkPassword,
 } from './public-tree';
-import { treeKeys, useFamilyMutation } from './query-keys';
+import { queryKeys, useFamilyMutation } from './query-keys';
 
 // ---------------------------------------------------------------------------
 // Link chia sẻ công khai
@@ -31,7 +31,7 @@ export const useRotatePublicLink = (treeId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (password: string) => rotatePublicLink(treeId, password),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.detail(treeId) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.detail(treeId) }),
   });
 };
 
@@ -44,7 +44,7 @@ export const useDisablePublicLink = (treeId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => disablePublicLink(treeId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.detail(treeId) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.detail(treeId) }),
   });
 };
 

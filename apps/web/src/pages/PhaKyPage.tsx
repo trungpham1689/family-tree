@@ -3,10 +3,10 @@ import { useParams } from 'react-router';
 import { toIsoDate, todayInVietnam } from '../calendar/month-grid';
 import { loadFontBinary } from '../data/pha-do';
 import { useAvatarDataUrl, useFamily, usePersonAvatars, useTree } from '../data/tree-queries';
-import { anniversaryText } from '../people/person-display';
 import { kindLabel } from '../family/labels';
 import { exportFileName } from '../lib/download';
 import { branchSummaries, buildNarrative, closingNote, notablePersons, originSummary } from '../pha-ky/narrative';
+import { buildFrontSections, toPdfSections, type PhaKySection } from '../pha-ky/sections';
 import { TreeTabs } from '../tree/TreeTabs';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
@@ -27,6 +27,11 @@ export const PhaKyPage = () => {
   const notable = useMemo(() => (family.data ? notablePersons(family.data) : []), [family.data]);
   const origin = useMemo(() => (family.data ? originSummary(family.data) : null), [family.data]);
   const branches = useMemo(() => (family.data ? branchSummaries(family.data) : []), [family.data]);
+  const description = tree.data?.description ?? null;
+  const frontSections = useMemo(
+    () => buildFrontSections({ description, origin, branches, notable, today }),
+    [description, origin, branches, notable, today],
+  );
 
   const cover = useAvatarDataUrl(tree.data?.photo_path ?? null);
   const avatars = usePersonAvatars(family.data?.persons ?? [], true);
@@ -45,37 +50,7 @@ export const PhaKyPage = () => {
         loadFontBinary('/fonts/NotoSerif-700Bold.ttf'),
       ]);
 
-      const before = [
-        tree.data.description ? { heading: 'Lời mở đầu', paragraphs: [tree.data.description] } : null,
-        origin?.progenitorName
-          ? {
-              heading: 'Nguồn gốc và Thuỷ tổ',
-              paragraphs: [
-                `Dòng họ tôn ${origin.progenitorName} làm Thuỷ tổ — người đời đầu tiên còn ghi lại được.` +
-                  (origin.hometown ? ` Quê quán tại ${origin.hometown}.` : ''),
-                ...(origin.anniversaryDay !== null && origin.anniversaryMonth !== null
-                  ? [`Giỗ Thuỷ tổ: ${anniversaryText({ day: origin.anniversaryDay, month: origin.anniversaryMonth }, today)}`]
-                  : []),
-                ...(origin.worshipPlace
-                  ? [`Nơi thờ: ${origin.worshipPlace}${origin.worshipKeeper ? ` (người phụ trách: ${origin.worshipKeeper})` : ''}`]
-                  : []),
-                ...(origin.burialPlace ? [`Mộ tổ: ${origin.burialPlace}`] : []),
-              ],
-            }
-          : null,
-        branches.length > 0
-          ? {
-              heading: 'Các chi trong họ',
-              paragraphs: branches.map((branch) => `${branch.founderName} — ${branch.memberCount} người.`),
-            }
-          : null,
-        notable.length > 0
-          ? {
-              heading: 'Người có chức tước, công trạng',
-              paragraphs: notable.map((person) => `${person.fullName} — ${person.title}`),
-            }
-          : null,
-      ].filter((section) => section !== null);
+      const before = toPdfSections(frontSections);
 
       const after = generations.length > 0 ? [{ heading: 'Lời kết', paragraphs: [closingNote(today)] }] : [];
 
@@ -115,76 +90,9 @@ export const PhaKyPage = () => {
 
             {cover.data && <img src={cover.data} alt={`Ảnh gia phả ${tree.data?.name ?? ''}`} className="mx-auto max-h-80 rounded-2xl border border-line object-cover" />}
 
-            {tree.data?.description && (
-              <section aria-label="Lời mở đầu" className="rounded-2xl border border-son/30 bg-son/5 p-5">
-                <h2 className="font-serif text-xl font-bold text-son">Lời mở đầu</h2>
-                <p className="mt-2 whitespace-pre-line leading-relaxed italic">{tree.data.description}</p>
-              </section>
-            )}
-
-            {origin?.progenitorName && (
-              <section aria-label="Nguồn gốc và Thuỷ tổ" className="rounded-2xl border border-line bg-surface p-5">
-                <h2 className="font-serif text-xl font-bold">Nguồn gốc và Thuỷ tổ</h2>
-                <p className="mt-2 leading-relaxed">
-                  Dòng họ tôn{' '}
-                  <a href={`#${origin.progenitorId}`} className="font-semibold text-son hover:underline">
-                    {origin.progenitorName}
-                  </a>{' '}
-                  làm Thuỷ tổ — người đời đầu tiên còn ghi lại được.
-                  {origin.hometown && ` Quê quán tại ${origin.hometown}.`}
-                </p>
-                {(origin.anniversaryDay !== null || origin.worshipPlace || origin.burialPlace) && (
-                  <ul className="mt-3 space-y-1 text-ink-muted">
-                    {origin.anniversaryDay !== null && origin.anniversaryMonth !== null && (
-                      <li>
-                        Giỗ Thuỷ tổ: {anniversaryText({ day: origin.anniversaryDay, month: origin.anniversaryMonth }, today)}
-                      </li>
-                    )}
-                    {origin.worshipPlace && (
-                      <li>
-                        Nơi thờ: {origin.worshipPlace}
-                        {origin.worshipKeeper ? ` (người phụ trách: ${origin.worshipKeeper})` : ''}
-                      </li>
-                    )}
-                    {origin.burialPlace && <li>Mộ tổ: {origin.burialPlace}</li>}
-                  </ul>
-                )}
-              </section>
-            )}
-
-            {branches.length > 0 && (
-              <section aria-label="Các chi trong họ" className="rounded-2xl border border-line bg-surface p-5">
-                <h2 className="font-serif text-xl font-bold">Các chi trong họ</h2>
-                <p className="mt-1 text-sm text-ink-muted">Mỗi chi do một người con của Thuỷ tổ (Đời 2) lập ra.</p>
-                <ul className="mt-3 space-y-2">
-                  {branches.map((branch) => (
-                    <li key={branch.branchId}>
-                      <a href={`#${branch.branchId}`} className="font-semibold text-son hover:underline">
-                        {branch.founderName}
-                      </a>
-                      <span className="text-ink-muted"> — {branch.memberCount} người</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            {notable.length > 0 && (
-              <section aria-label="Người có chức tước, công trạng" className="rounded-2xl border border-line bg-surface p-5">
-                <h2 className="font-serif text-xl font-bold">Người có chức tước, công trạng</h2>
-                <p className="mt-1 text-sm text-ink-muted">Theo ô "Chức vụ / danh hiệu" trong hồ sơ từng người.</p>
-                <ul className="mt-3 space-y-2">
-                  {notable.map((person) => (
-                    <li key={person.personId}>
-                      <a href={`#${person.personId}`} className="font-semibold text-son hover:underline">
-                        {person.fullName}
-                      </a>
-                      <span className="text-ink-muted"> — {person.title}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
+            {frontSections.map((section) => (
+              <FrontSection key={section.kind} section={section} />
+            ))}
             {generations.map((group) => (
               <section key={group.generation}>
                 <div className="flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-son/20 pb-2">
@@ -261,4 +169,71 @@ export const PhaKyPage = () => {
       <Footer />
     </>
   );
+};
+
+/** Một khối trước phần theo Đời, vẽ từ dữ liệu của `buildFrontSections` (cùng nguồn với file PDF). */
+const FrontSection = ({ section }: { section: PhaKySection }) => {
+  switch (section.kind) {
+    case 'intro':
+      return (
+        <section aria-label={section.heading} className="rounded-2xl border border-son/30 bg-son/5 p-5">
+          <h2 className="font-serif text-xl font-bold text-son">{section.heading}</h2>
+          <p className="mt-2 whitespace-pre-line leading-relaxed italic">{section.text}</p>
+        </section>
+      );
+    case 'origin':
+      return (
+        <section aria-label={section.heading} className="rounded-2xl border border-line bg-surface p-5">
+          <h2 className="font-serif text-xl font-bold">{section.heading}</h2>
+          <p className="mt-2 leading-relaxed">
+            {section.before}
+            <a href={`#${section.progenitorId}`} className="font-semibold text-son hover:underline">
+              {section.progenitorName}
+            </a>
+            {section.after}
+          </p>
+          {section.facts.length > 0 && (
+            <ul className="mt-3 space-y-1 text-ink-muted">
+              {section.facts.map((fact) => (
+                <li key={fact}>{fact}</li>
+              ))}
+            </ul>
+          )}
+        </section>
+      );
+    case 'branches':
+      return (
+        <section aria-label={section.heading} className="rounded-2xl border border-line bg-surface p-5">
+          <h2 className="font-serif text-xl font-bold">{section.heading}</h2>
+          <p className="mt-1 text-sm text-ink-muted">Mỗi chi do một người con của Thuỷ tổ (Đời 2) lập ra.</p>
+          <ul className="mt-3 space-y-2">
+            {section.items.map((item) => (
+              <li key={item.id}>
+                <a href={`#${item.id}`} className="font-semibold text-son hover:underline">
+                  {item.name}
+                </a>
+                <span className="text-ink-muted"> — {item.memberCount} người</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      );
+    case 'notable':
+      return (
+        <section aria-label={section.heading} className="rounded-2xl border border-line bg-surface p-5">
+          <h2 className="font-serif text-xl font-bold">{section.heading}</h2>
+          <p className="mt-1 text-sm text-ink-muted">Theo ô "Chức vụ / danh hiệu" trong hồ sơ từng người.</p>
+          <ul className="mt-3 space-y-2">
+            {section.items.map((item) => (
+              <li key={item.id}>
+                <a href={`#${item.id}`} className="font-semibold text-son hover:underline">
+                  {item.name}
+                </a>
+                <span className="text-ink-muted"> — {item.title}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      );
+  }
 };

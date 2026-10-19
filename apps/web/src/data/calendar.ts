@@ -1,4 +1,14 @@
-import type { CalendarEvent, CalendarMarriage, CalendarPerson, CalendarSource } from '@gia-pha/reminders';
+import {
+  CALENDAR_EVENT_COLUMNS,
+  CALENDAR_MARRIAGE_COLUMNS,
+  CALENDAR_PERSON_COLUMNS,
+  CALENDAR_PERSON_FILTER,
+  toCalendarMarriages,
+  type CalendarEvent,
+  type CalendarPerson,
+  type CalendarSource,
+  type MarriageRow,
+} from '@gia-pha/reminders';
 import { fetchAll } from '../lib/fetch-all';
 import { supabase } from '../lib/supabase';
 import type { Row } from './database.types';
@@ -14,14 +24,6 @@ const fail = (error: { code?: string; message?: string } | null) => {
   failOn(error);
 };
 
-// Cùng bộ cột với apps/worker/src/fetch-data.ts và hàm SQL public_share.calendar_feed: thêm trường lịch thì sửa cả ba.
-const PERSON_COLUMNS = 'id, tree_id, full_name, is_deceased, anniversary_day, anniversary_month, birth_solar_date, death_solar_date';
-const MARRIAGE_COLUMNS =
-  'id, tree_id, partner_a, marriage_year, marriage_month, marriage_day, a:persons!unions_partner_a_fkey(full_name), b:persons!unions_partner_b_fkey(full_name)';
-
-type MarriageRow = Omit<CalendarMarriage, 'names'> & { a: { full_name: string } | null; b: { full_name: string } | null };
-const EVENT_COLUMNS = 'id, tree_id, title, calendar, repeats_yearly, year, month, day, leap, start_time, location';
-
 /**
  * Dữ liệu cho "Lịch của tôi": mọi Gia phả tài khoản có vai trò. Chỉ tải những Người có giỗ
  * (đã mất) hoặc có ngày sinh dương đầy đủ — RLS bảo đảm chỉ thấy Gia phả của mình.
@@ -34,18 +36,18 @@ export const loadMyCalendar = async (accountId: string): Promise<CalendarSource>
     fetchAll((from, to) =>
       supabase
         .from('persons')
-        .select(PERSON_COLUMNS)
+        .select(CALENDAR_PERSON_COLUMNS)
         .in('tree_id', ids)
-        .or('is_deceased.eq.true,birth_solar_date.not.is.null')
+        .or(CALENDAR_PERSON_FILTER)
         .order('id')
         .range(from, to),
     ),
-    fetchAll((from, to) => supabase.from('tree_events').select(EVENT_COLUMNS).in('tree_id', ids).order('id').range(from, to)),
+    fetchAll((from, to) => supabase.from('tree_events').select(CALENDAR_EVENT_COLUMNS).in('tree_id', ids).order('id').range(from, to)),
     // Chỉ cuộc hôn phối đã biết đủ ngày cưới và chưa ly hôn.
     fetchAll((from, to) =>
       supabase
         .from('unions')
-        .select(MARRIAGE_COLUMNS)
+        .select(CALENDAR_MARRIAGE_COLUMNS)
         .in('tree_id', ids)
         .not('marriage_day', 'is', null)
         .neq('status', 'ly_hon')
@@ -60,10 +62,7 @@ export const loadMyCalendar = async (accountId: string): Promise<CalendarSource>
     trees: trees.map(({ id, name }) => ({ id, name })),
     persons: (persons.data ?? []) as CalendarPerson[],
     events: (events.data ?? []) as CalendarEvent[],
-    marriages: ((marriages.data ?? []) as unknown as MarriageRow[]).map(({ a, b, ...marriage }) => ({
-      ...marriage,
-      names: [a?.full_name, b?.full_name].filter(Boolean).join(' & '),
-    })),
+    marriages: toCalendarMarriages((marriages.data ?? []) as unknown as MarriageRow[]),
   };
 };
 

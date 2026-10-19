@@ -14,7 +14,7 @@ const env: PhotoEnv = {
 type Call = { url: string; method: string };
 
 /** Giả Supabase + Drive: `roles` là các hàm vai trò trả true; Drive giữ thư mục/file trong bộ nhớ. */
-const fakeServer = (options: { allow?: string[]; fileTree?: string } = {}) => {
+const fakeServer = (options: { allow?: string[]; fileTree?: string; personTree?: string; photoRow?: boolean; coverPhoto?: boolean } = {}) => {
   const allow = new Set(options.allow ?? []);
   const calls: Call[] = [];
   let folderCount = 0;
@@ -29,6 +29,9 @@ const fakeServer = (options: { allow?: string[]; fileTree?: string } = {}) => {
       const authorization = (init?.headers as Record<string, string> | undefined)?.authorization;
       return authorization === 'Bearer bad' ? json({}, 401) : json(allow.has(fn));
     }
+    if (url.startsWith('https://db.test/rest/v1/persons')) return json([{ tree_id: options.personTree ?? TREE }]);
+    if (url.startsWith('https://db.test/rest/v1/person_photos')) return json(options.photoRow ? [{ person_id: PERSON }] : []);
+    if (url.startsWith('https://db.test/rest/v1/family_trees') && url.includes('photo_path')) return json(options.coverPhoto ? [{ id: TREE }] : []);
     if (url.startsWith('https://db.test/rest/v1/family_trees')) return json([{ name: 'Họ Phạm' }]);
     if (url === 'https://oauth2.googleapis.com/token') return json({ access_token: 'drive-token' });
     if (url.startsWith('https://www.googleapis.com/drive/v3/files?q=')) {
@@ -60,7 +63,7 @@ const upload = (query: string, headers: Record<string, string> = {}, body: BodyI
 
 describe('/api/photos', () => {
   it('Biên tập viên tải ảnh Người: tạo Family-tree/{tên}/Ảnh Gia Phả + Ảnh Người rồi trả id file', async () => {
-    const server = fakeServer({ allow: ['can_edit_tree'] });
+    const server = fakeServer({ allow: ['can_edit_person'] });
     const response = await handleUpload(upload(`treeId=${TREE}&kind=member&personId=${PERSON}`), env, server.doFetch);
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({ fileId: 'driveFileId123' });
@@ -68,7 +71,7 @@ describe('/api/photos', () => {
   });
 
   it('lần tải thứ hai dùng lại thư mục, không tạo thêm', async () => {
-    const server = fakeServer({ allow: ['can_edit_tree'] });
+    const server = fakeServer({ allow: ['can_edit_person'] });
     await handleUpload(upload(`treeId=${TREE}&kind=member&personId=${PERSON}`), env, server.doFetch);
     await handleUpload(upload(`treeId=${TREE}&kind=member&personId=${PERSON}`), env, server.doFetch);
     expect(server.folders).toHaveLength(4);
@@ -91,14 +94,14 @@ describe('/api/photos', () => {
   });
 
   it('từ chối loại file lạ và ảnh quá lớn', async () => {
-    const server = fakeServer({ allow: ['can_edit_tree'] });
+    const server = fakeServer({ allow: ['can_edit_person'] });
     const query = `treeId=${TREE}&kind=member&personId=${PERSON}`;
     expect((await handleUpload(upload(query, { 'content-type': 'application/pdf' }), env, server.doFetch)).status).toBe(415);
     expect((await handleUpload(upload(query, {}, new Uint8Array(5 * 1024 * 1024)), env, server.doFetch)).status).toBe(413);
   });
 
   it('Content-Length quá lớn bị từ chối trước khi đọc thân yêu cầu', async () => {
-    const server = fakeServer({ allow: ['can_edit_tree'] });
+    const server = fakeServer({ allow: ['can_edit_person'] });
     const response = await handleUpload(upload(`treeId=${TREE}&kind=member&personId=${PERSON}`, { 'content-length': String(50 * 1024 * 1024) }), env, server.doFetch);
     expect(response.status).toBe(413);
     expect(server.calls.some((call) => call.url.includes('googleapis'))).toBe(false);
@@ -120,6 +123,26 @@ describe('/api/photos', () => {
     expect((await handleDelete(request(), env, 'driveFileId123', fakeServer({ allow: ['can_edit_tree'] }).doFetch)).status).toBe(204);
   });
 
+  it('quyền ảnh của Người theo đúng RLS: Biên tập viên không phải người tạo bị chặn ở cả tải lên và xoá', async () => {
+    const memberQuery = `treeId=${TREE}&kind=member&personId=${PERSON}`;
+    expect((await handleUpload(upload(memberQuery), env, fakeServer({ allow: ['can_edit_tree'] }).doFetch)).status).toBe(403);
+    // Người thuộc gia phả khác với thư mục đích: không tải được dù có quyền sửa Người.
+    const otherTree = fakeServer({ allow: ['can_edit_person'], personTree: '33333333-3333-3333-3333-333333333333' });
+    expect((await handleUpload(upload(memberQuery), env, otherTree.doFetch)).status).toBe(404);
+
+    const request = () => new Request(`https://app.test/api/photos/driveFileId123?treeId=${TREE}`, { method: 'DELETE', headers: { authorization: 'Bearer user' } });
+    const denied = fakeServer({ allow: ['can_edit_tree'], photoRow: true });
+    expect((await handleDelete(request(), env, 'driveFileId123', denied.doFetch)).status).toBe(403);
+    expect(denied.calls.some((call) => call.method === 'DELETE' && call.url.includes('googleapis'))).toBe(false);
+    expect((await handleDelete(request(), env, 'driveFileId123', fakeServer({ allow: ['can_edit_person'], photoRow: true }).doFetch)).status).toBe(204);
+  });
+
+  it('ảnh bìa gia phả chỉ Chủ sở hữu xoá được', async () => {
+    const request = () => new Request(`https://app.test/api/photos/driveFileId123?treeId=${TREE}`, { method: 'DELETE', headers: { authorization: 'Bearer user' } });
+    expect((await handleDelete(request(), env, 'driveFileId123', fakeServer({ allow: ['can_edit_tree'], coverPhoto: true }).doFetch)).status).toBe(403);
+    expect((await handleDelete(request(), env, 'driveFileId123', fakeServer({ allow: ['is_tree_owner'], coverPhoto: true }).doFetch)).status).toBe(204);
+  });
+
   it('xoá ảnh gọi Drive xoá file thật (DELETE files/{id})', async () => {
     const server = fakeServer({ allow: ['can_edit_tree'] });
     const request = new Request(`https://app.test/api/photos/driveFileId123?treeId=${TREE}`, { method: 'DELETE', headers: { authorization: 'Bearer user' } });
@@ -131,7 +154,7 @@ describe('/api/photos', () => {
     const request = () => new Request(`https://app.test/api/photos?treeId=${TREE}`, { method: 'DELETE', headers: { authorization: 'Bearer user' } });
     expect((await handleDeleteTree(request(), env, fakeServer({ allow: ['can_edit_tree'] }).doFetch)).status).toBe(403);
 
-    const server = fakeServer({ allow: ['is_tree_owner', 'can_edit_tree'] });
+    const server = fakeServer({ allow: ['is_tree_owner', 'can_edit_person'] });
     await handleUpload(upload(MEMBER_QUERY_FOR_TREE), env, server.doFetch); // tạo thư mục
     const response = await handleDeleteTree(request(), env, server.doFetch);
     expect(response.status).toBe(204);

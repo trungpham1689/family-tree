@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import type { ParentLinkKind, UnionStatus } from '../family/family-graph';
 import type { PersonFields } from '../people/person-form';
 import type { Row } from './database.types';
-import { DataError, failOn } from './trees';
+import { failOn } from './trees';
 
 export type FamilyData = {
   persons: Row<'persons'>[];
@@ -56,7 +56,7 @@ export const addParent = async (input: { childId: string; kind: ParentLinkKind; 
 export const addSpouse = async (input: { personId: string; order: number | null; fields: PersonFields }): Promise<string> =>
   check(await supabase.rpc('add_spouse', { person_id: input.personId, union_order: input.order, person: input.fields }));
 
-/** Đổi thứ tự hôn phối (nhìn từ phía `viewerId`) và/hoặc trạng thái của một cuộc hôn phối. */
+/** Đổi thứ tự hôn phối (nhìn từ phía `viewerId`), trạng thái và/hoặc ngày cưới của một cuộc hôn phối, một lần gọi. */
 export const updateUnion = async (input: {
   unionId: string;
   viewerId: string;
@@ -65,29 +65,22 @@ export const updateUnion = async (input: {
   /** Ngày cưới (dương); `null` ở từng phần = chưa biết. Truyền cả ba cùng lúc. */
   marriage?: { year: number | null; month: number | null; day: number | null };
 }): Promise<void> => {
-  const { data: union, error: readError } = await supabase
-    .from('unions')
-    .select('partner_a')
-    .eq('id', input.unionId)
-    .single();
-  if (readError) throw new DataError(readError);
-  const orderColumn = union.partner_a === input.viewerId ? 'order_for_a' : 'order_for_b';
-  const { error } = await supabase
-    .from('unions')
-    .update({
-      ...(input.order !== undefined ? { [orderColumn]: input.order } : {}),
-      ...(input.status !== undefined ? { status: input.status } : {}),
-      ...(input.marriage ? { marriage_year: input.marriage.year, marriage_month: input.marriage.month, marriage_day: input.marriage.day } : {}),
-    })
-    .eq('id', input.unionId);
+  const { error } = await supabase.rpc('update_union', {
+    target_union: input.unionId,
+    viewer: input.viewerId,
+    ...(input.order !== undefined ? { new_order: input.order } : {}),
+    ...(input.status !== undefined ? { new_status: input.status } : {}),
+    ...(input.marriage
+      ? { set_marriage: true, new_marriage_year: input.marriage.year, new_marriage_month: input.marriage.month, new_marriage_day: input.marriage.day }
+      : {}),
+  });
   failOn(error);
 };
 
-/** Đổi Thứ tự hôn phối (nhìn từ phía viewerId) theo danh sách đã kéo thả. */
+/** Đổi Thứ tự hôn phối (nhìn từ phía viewerId) theo danh sách đã kéo thả, một lần gọi. */
 export const reorderUnions = async (input: { viewerId: string; orderedUnionIds: string[] }): Promise<void> => {
-  await Promise.all(
-    input.orderedUnionIds.map((unionId, index) => updateUnion({ unionId, viewerId: input.viewerId, order: index + 1 })),
-  );
+  const { error } = await supabase.rpc('reorder_unions', { viewer_id: input.viewerId, ordered_union_ids: input.orderedUnionIds });
+  failOn(error);
 };
 
 export const updateParentLinkKind = async (input: { childId: string; parentId: string; kind: ParentLinkKind }) => {
@@ -126,10 +119,8 @@ export const linkSpouse = async (input: { personId: string; spouseId: string }):
   check(await supabase.rpc('link_spouse', { person_id: input.personId, spouse_id: input.spouseId }));
 };
 
-/** Gộp lần lượt các người trùng `dropIds` vào `keepId` (chỉ Chủ sở hữu); không hoàn tác được. Dừng ở lỗi đầu tiên. */
+/** Gộp các người trùng `dropIds` vào `keepId` (chỉ Chủ sở hữu); một transaction nên lỗi thì không gộp gì. Không hoàn tác được. */
 export const mergePersons = async (input: { keepId: string; dropIds: string[] }): Promise<void> => {
-  for (const dropId of input.dropIds) {
-    const { error } = await supabase.rpc('merge_persons', { keep_person: input.keepId, drop_person: dropId });
-    failOn(error);
-  }
+  const { error } = await supabase.rpc('merge_persons_group', { keep_person: input.keepId, drop_persons: input.dropIds });
+  failOn(error);
 };

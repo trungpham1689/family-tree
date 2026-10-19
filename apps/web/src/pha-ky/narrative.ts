@@ -111,7 +111,8 @@ export const originSummary = (graph: FamilyGraph<Person>): OriginSummary => {
     anniversaryDay: progenitor?.anniversary_day ?? null,
     anniversaryMonth: progenitor?.anniversary_month ?? null,
     worshipPlace: progenitor?.worship_place ?? null,
-    worshipKeeper: progenitor?.worship_keeper ?? null,
+    // Người phụ trách giờ là một Người được chọn (worship_keeper_id); cột chữ cũ chỉ còn ở dữ liệu trước đây.
+    worshipKeeper: (progenitor?.worship_keeper_id ? graph.person(progenitor.worship_keeper_id)?.full_name : null) ?? progenitor?.worship_keeper ?? null,
     burialPlace: progenitor?.burial_place ?? null,
   };
 };

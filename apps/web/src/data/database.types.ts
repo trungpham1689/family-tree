@@ -459,6 +459,21 @@ export type Database = {
       my_calendar_feed: { Args: Record<string, never>; Returns: string | null };
       disable_calendar_feed: { Args: Record<string, never>; Returns: undefined };
       reorder_children: { Args: { ordered_ids: string[] }; Returns: undefined };
+      merge_persons_group: { Args: { keep_person: string; drop_persons: string[] }; Returns: undefined };
+      reorder_unions: { Args: { viewer_id: string; ordered_union_ids: string[] }; Returns: undefined };
+      update_union: {
+        Args: {
+          target_union: string;
+          viewer: string;
+          new_order?: number;
+          new_status?: string;
+          set_marriage?: boolean;
+          new_marriage_year?: number | null;
+          new_marriage_month?: number | null;
+          new_marriage_day?: number | null;
+        };
+        Returns: undefined;
+      };
       merge_persons: { Args: { keep_person: string; drop_person: string }; Returns: undefined };
       import_into_tree: { Args: { target_tree: string; payload: Json }; Returns: number };
       import_new_tree: { Args: { tree_name: string; payload: Json }; Returns: string };

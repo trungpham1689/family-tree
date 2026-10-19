@@ -1,5 +1,5 @@
-import { fromJulianDay, julianDay, type SolarDate } from '@gia-pha/lunar';
-import { occurrencesBetween, type CalendarSource, type Occurrence } from '@gia-pha/reminders';
+import { julianDay, type SolarDate } from '@gia-pha/lunar';
+import { digestOccurrences, type CalendarSource, type Occurrence } from '@gia-pha/reminders';
 
 /** Chu kỳ gửi: cứ 5 ngày một lần, mỗi lần gom 5 ngày tới — không ngày nào bị bỏ sót hay gửi hai lần. */
 export const DIGEST_PERIOD_DAYS = 5;
@@ -20,8 +20,7 @@ export const buildDigests = (input: {
   /** Email người nhận theo Gia phả: Chủ sở hữu + Biên tập viên đã duyệt, chưa tắt email. */
   recipientsByTree: ReadonlyMap<string, readonly string[]>;
 }): TreeDigest[] => {
-  const windowEnd = fromJulianDay(julianDay(input.today) + DIGEST_PERIOD_DAYS - 1);
-  const occurrences = occurrencesBetween(input.source, input.today, windowEnd);
+  const occurrences = digestOccurrences(input.source, input.today, DIGEST_PERIOD_DAYS);
   return input.source.trees.flatMap((tree) => {
     const emails = input.recipientsByTree.get(tree.id) ?? [];
     const own = occurrences.filter((occurrence) => occurrence.treeId === tree.id);

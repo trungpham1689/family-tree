@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import readXlsxFile from 'read-excel-file/node';
 import writeXlsxFile from 'write-excel-file/node';
 import { COLUMNS, EXAMPLE_ROWS, type ColumnKey, type RawRow } from './columns';
-import { buildImportPreview, parseDateText, type CellValue } from './import-preview';
+import { buildImportPreview, findAncestorCycles, layoutGenerations, parseDateText, type CellValue } from './import-preview';
 import { DATA_SHEET, GUIDE_SHEET, templateSheets } from './template';
 
 const HEADERS = COLUMNS.map((column) => column.header);
@@ -177,5 +177,47 @@ describe('danh sách theo vợ/chồng giữ vị trí khi có ô trống', () =
     expect(byPartner.get('A')).toMatchObject({ status: 'con', marriageYear: 1950 });
     expect(byPartner.get('B')).toMatchObject({ status: 'con', marriageYear: null });
     expect(byPartner.get('C')).toMatchObject({ status: 'goa', marriageYear: 1970 });
+  });
+});
+
+describe('findAncestorCycles', () => {
+  it('không có vòng thì rỗng; có vòng thì báo đúng một lần, kết thúc ở người đóng vòng', () => {
+    expect(findAncestorCycles(['A', 'B'], [{ parent: 'A', child: 'B' }])).toEqual([]);
+    const cycles = findAncestorCycles(['A', 'B', 'C'], [
+      { parent: 'A', child: 'B' },
+      { parent: 'B', child: 'C' },
+      { parent: 'C', child: 'A' },
+    ]);
+    expect(cycles).toHaveLength(1);
+    expect(cycles[0]![0]).toBe(cycles[0]![cycles[0]!.length - 1]);
+  });
+});
+
+describe('layoutGenerations', () => {
+  const groups = (pairs: [string, string][]) => {
+    const m = new Map<string, string[]>();
+    for (const [k, v] of pairs) m.set(k, [...(m.get(k) ?? []), v]);
+    return m;
+  };
+
+  it('Thuỷ tổ là gốc nhiều hậu duệ nhất; dâu/rể cùng Đời với vợ/chồng; người rời không có Đời', () => {
+    const result = layoutGenerations({
+      codes: ['T', 'C1', 'C2', 'V', 'X', 'Y'],
+      skip: false,
+      marriedIn: (code) => code === 'V',
+      childrenOf: groups([['T', 'C1'], ['T', 'C2'], ['X', 'Y']]),
+      parentsOf: groups([['C1', 'T'], ['C2', 'T'], ['Y', 'X']]),
+      spousesOf: groups([['C1', 'V'], ['V', 'C1']]),
+    });
+    expect(result.progenitorCode).toBe('T');
+    expect(Object.fromEntries(result.generation)).toEqual({ T: 1, C1: 2, C2: 2, V: 2 });
+  });
+
+  it('skip thì không chọn ai', () => {
+    const empty = new Map<string, string[]>();
+    expect(layoutGenerations({ codes: ['A'], skip: true, marriedIn: () => false, childrenOf: empty, parentsOf: empty, spousesOf: empty })).toEqual({
+      progenitorCode: null,
+      generation: new Map(),
+    });
   });
 });

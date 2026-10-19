@@ -12,3 +12,15 @@ export {
 } from './occurrences.ts';
 export { dueReminders, notificationKey, tienThuongOf, type DueReminder } from './due-reminders.ts';
 export { onThisDay, type HistoryItem } from './this-day.ts';
+export {
+  CALENDAR_EVENT_COLUMNS,
+  CALENDAR_MARRIAGE_COLUMNS,
+  CALENDAR_PERSON_COLUMNS,
+  CALENDAR_PERSON_FILTER,
+  isCalendarPerson,
+  marriageNames,
+  parseCalendarSource,
+  toCalendarMarriages,
+  type MarriageRow,
+} from './calendar-source.ts';
+export { bellReminders, digestOccurrences, MAX_OFFSET_DAYS, type TreeReminderPrefs } from './reminder-policy.ts';

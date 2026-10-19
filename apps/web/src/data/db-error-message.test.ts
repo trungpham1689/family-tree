@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dbErrorMessage } from './db-error-message';
+import { dbErrorMessage, hasDbCode } from './db-error-message';
 
 describe('dbErrorMessage', () => {
   it('giải thích giới hạn số gia phả kèm chi tiết từ database', () => {
@@ -46,5 +46,16 @@ describe('dbErrorMessage', () => {
 
   it('có câu mặc định', () => {
     expect(dbErrorMessage({ message: 'lạ' })).toBe('Có lỗi xảy ra. Hãy thử lại sau ít phút.');
+  });
+
+  it('mọi mã nghiệp vụ mà migration raise đều có câu tiếng Việt riêng (không rơi vào câu chung)', () => {
+    for (const code of ['NOT_ALLOWED', 'NOT_TREE_MEMBER', 'INVALID_ROLE', 'LINK_NOT_ENABLED', 'PASSWORD_TOO_SHORT', 'SAME_PERSON', 'UNION_NOT_FOUND', 'PHOTO_NOT_FOUND', 'PHOTO_PATH_INVALID', 'PHOTO_IMMUTABLE', 'TREE_IMMUTABLE']) {
+      expect(dbErrorMessage({ message: code }), code).not.toBe('Có lỗi xảy ra. Hãy thử lại sau ít phút.');
+    }
+  });
+
+  it('hasDbCode nhận ra mã trong message', () => {
+    expect(hasDbCode({ message: 'STALE_VERSION' }, 'STALE_VERSION')).toBe(true);
+    expect(hasDbCode(null, 'STALE_VERSION')).toBe(false);
   });
 });

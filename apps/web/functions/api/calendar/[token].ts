@@ -3,7 +3,7 @@
  * App lịch không đăng nhập được, nên quyền nằm ở token bí mật trong URL (tạo lại được, xem migration lich_dang_ky);
  * database chỉ trả tên + ngày của các gia phả mà tài khoản đó có vai trò.
  */
-import type { CalendarSource } from '@gia-pha/reminders';
+import { parseCalendarSource } from '@gia-pha/reminders';
 import { feedToIcs } from '../../../src/calendar/feed';
 import { todayInVietnam } from '../../../src/calendar/month-grid';
 
@@ -35,8 +35,10 @@ export const onRequestGet = async ({ request, env, params, waitUntil }: Context)
     body: JSON.stringify({ token }),
   });
   if (!response.ok) return new Response('Không đọc được lịch lúc này.', { status: 502, headers: { 'content-type': 'text/plain; charset=utf-8' } });
-  const source = (await response.json()) as CalendarSource | null;
-  if (!source) return NOT_FOUND.clone();
+  const payload: unknown = await response.json();
+  if (payload === null) return NOT_FOUND.clone();
+  const source = parseCalendarSource(payload);
+  if (!source) return new Response('Dữ liệu lịch không đúng định dạng.', { status: 502, headers: { 'content-type': 'text/plain; charset=utf-8' } });
   const body = feedToIcs(source, todayInVietnam());
   if (edgeCache) {
     waitUntil(edgeCache.put(request.url, new Response(body, { headers: { 'content-type': CLIENT_HEADERS['content-type'], 'cache-control': `public, max-age=${CACHE_SECONDS}` } })));
