@@ -31,6 +31,42 @@ jobs:
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
 
+  migrations-pg17:
+    # Áp mọi migration lên Postgres 17 thật (PGlite chỉ là bản giả lập) rồi kiểm các bất biến của catalog.
+    # Fidelity: vẫn là superuser và dùng tests/db/supabase-shim.sql thay cho phần Supabase; engine thì là thật.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Áp shim Supabase và mọi migration (theo thứ tự tên file)
+        run: |
+          psql -v ON_ERROR_STOP=1 -q -f tests/db/supabase-shim.sql
+          for file in $(ls supabase/migrations/*.sql | sort); do
+            echo "== $file"
+            psql -v ON_ERROR_STOP=1 -q -f "$file"
+          done
+      - name: Kiểm bất biến catalog (mỗi dòng là một vi phạm)
+        run: |
+          violations=$(psql -v ON_ERROR_STOP=1 -tA -f tests/db/catalog-invariants.sql)
+          if [ -n "$violations" ]; then echo "$violations"; exit 1; fi
+
   e2e:
     # Test khói: app thật trong Chromium, chạy trên backend giả lập (PGlite + PostgREST + auth giả).
     runs-on: ubuntu-latest

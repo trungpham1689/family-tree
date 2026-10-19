@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canEditTree, isTreeOwner, personPermissions } from './permissions';
+import { canEditEvent, canEditTree, isTreeOwner, personPermissions } from './permissions';
 
 const person = (extra: Partial<{ created_by: string | null; pending_delete_by: string | null }> = {}) => ({ created_by: 'bt1', pending_delete_by: null, ...extra });
 
@@ -32,5 +32,15 @@ describe('personPermissions (khớp luật RLS của persons)', () => {
     expect(personPermissions('owner', 'chu', person({ pending_delete_by: 'bt1' }))).toMatchObject({ reviewDeletion: true, involvedInDeletion: true });
     expect(personPermissions('owner', 'chu', person())).toMatchObject({ reviewDeletion: false });
     expect(personPermissions('editor', 'bt2', person({ pending_delete_by: 'bt1' })).involvedInDeletion).toBe(false);
+  });
+});
+
+describe('canEditEvent (khớp RLS tree_events)', () => {
+  it('Chủ sở hữu mọi Sự kiện; Biên tập viên chỉ Sự kiện mình tạo; Người xem không', () => {
+    expect(canEditEvent('owner', 'chu', { created_by: 'bt1' })).toBe(true);
+    expect(canEditEvent('editor', 'bt1', { created_by: 'bt1' })).toBe(true);
+    expect(canEditEvent('editor', 'bt2', { created_by: 'bt1' })).toBe(false);
+    expect(canEditEvent('viewer', 'bt1', { created_by: 'bt1' })).toBe(false);
+    expect(canEditEvent('editor', null, { created_by: null })).toBe(false);
   });
 });

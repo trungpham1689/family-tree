@@ -263,4 +263,17 @@ describe('seam B: ngày cưới, lịch đăng ký, gộp người trùng', () =
       expect(row).toEqual({ anon: false, authenticated: false, service: true });
     });
   });
+
+  describe('dọn Storage cũ', () => {
+    it('còn ảnh đường dẫn cũ thì không gỡ policy; hết ảnh cũ thì gỡ', async () => {
+      const policies = async () => (await db.admin.query<{ policyname: string }>("select policyname from pg_policies where schemaname = 'storage' and tablename = 'objects'")).rows.length;
+      // Các migration đã chạy hàm một lần khi chưa có dữ liệu: policy đã được gỡ trong DB trống của test.
+      expect(await policies()).toBe(0);
+      const legacy = await owner.query<{ id: string }>('insert into person_photos (person_id, storage_path) values ($1, $2) returning id', [rootId, `${treeId}/${rootId}/cu.jpg`]);
+      const [{ result }] = (await db.admin.query<{ result: string }>('select private.drop_legacy_photo_storage() as result')).rows as [{ result: string }];
+      expect(result).toContain('Chưa gỡ');
+      await owner.query('delete from person_photos where id = $1', [legacy[0]!.id]);
+      expect(((await db.admin.query<{ result: string }>('select private.drop_legacy_photo_storage() as result')).rows[0]!.result)).toContain('Đã gỡ');
+    });
+  });
 });

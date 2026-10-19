@@ -127,6 +127,10 @@ Chưa làm bước này thì nhắc nhở vẫn chạy trong app (chuông "Nhắ
      node --experimental-strip-types scripts/migrate-photos-to-drive.mjs
    ```
 
+Sau khi chạy `migrate-photos-to-drive.mjs` xong (không còn ảnh đường dẫn cũ), chạy `select private.drop_legacy_photo_storage();` trong SQL Editor: hàm tự kiểm rồi gỡ policy Storage cũ (còn ảnh cũ thì không gỡ gì và báo lý do). Bucket `avatars` rỗng còn lại thì xoá trong Dashboard → Storage.
+
+Muốn xem định nghĩa hiện hành của một hàm SQL: đọc `supabase/schema-functions.sql` (tạo tự động từ các migration; sau khi sửa hàm chạy `pnpm schema:snapshot` rồi commit file này, nếu quên thì `pnpm test:db` báo lệch).
+
 Quy cách ảnh cho người dùng: Người — ảnh vuông/dọc, mặt ở giữa, tối thiểu 300×300px (nên ≥800px); ảnh gia phả — ảnh ngang, tối thiểu 1200×800px; cả hai tối đa 5MB, JPEG/PNG/WEBP, tối đa 3 ảnh/Người. Trình duyệt tự thu nhỏ (Người 1000px, gia phả 1600px) và nén JPEG nên mỗi ảnh còn khoảng 100–300KB trên Drive; Function chặn cứng ở 4MB.
 
 Lịch đăng ký (`/api/calendar/<token>.ics`) cũng là một Pages Function, dùng hai biến `VITE_SUPABASE_*` như `/p/<token>`; không cần thêm biến nào.

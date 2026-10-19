@@ -14,7 +14,8 @@
     "test": "vitest run --project unit",
     "test:db": "vitest run --project db",
     "test:all": "vitest run",
-    "test:e2e": "bash e2e/rebuild.sh && node e2e/smoke.mjs"
+    "test:e2e": "bash e2e/rebuild.sh && node e2e/smoke.mjs",
+    "schema:snapshot": "UPDATE_SCHEMA_SNAPSHOT=1 vitest run --project db tests/db/schema-functions.test.ts"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.10",

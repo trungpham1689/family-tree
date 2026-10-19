@@ -1,4 +1,5 @@
-import { canEditTree } from '../data/permissions';
+import { canEditEvent, canEditTree } from '../data/permissions';
+import { useAccountId } from '../data/query-keys';
 import { fromJulianDay, julianDay, nextAnniversary } from '@gia-pha/lunar';
 import { occurrencesBetween, upcoming, type CalendarSource } from '@gia-pha/reminders';
 import { useMemo, useState, type FormEvent } from 'react';
@@ -77,9 +78,11 @@ export const TreeEventsPage = () => {
   const setOffset = useSetReminderOffset();
   const setEmailEnabled = useSetEmailEnabled();
   const setTienThuong = useSetTienThuong();
+  const accountId = useAccountId();
 
   if (tree.isPending) return <FullPageMessage>Đang tải…</FullPageMessage>;
   const canEdit = canEditTree(tree.data?.role);
+  const role = tree.data?.role;
 
   return (
     <>
@@ -158,7 +161,7 @@ export const TreeEventsPage = () => {
         {events.isSuccess && events.data.length > 0 && (
           <ul className="mt-6 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
             {events.data.map((event) => (
-              <EventRow key={event.id} treeId={treeId} event={event} canEdit={canEdit} onEdit={() => setEditing(event)} />
+              <EventRow key={event.id} treeId={treeId} event={event} canEdit={canEditEvent(role, accountId, event)} onEdit={() => setEditing(event)} />
             ))}
           </ul>
         )}

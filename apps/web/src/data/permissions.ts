@@ -36,3 +36,7 @@ export const personPermissions = (
     involvedInDeletion: person.pending_delete_by !== null && (owner || person.pending_delete_by === accountId),
   };
 };
+
+/** Quyền trên một Sự kiện: Chủ sở hữu mọi Sự kiện; Biên tập viên chỉ Sự kiện mình tạo (cùng luật với RLS tree_events). */
+export const canEditEvent = (role: TreeRole | undefined, accountId: string | null, event: { created_by: string | null }): boolean =>
+  isTreeOwner(role) || (canEditTree(role) && accountId !== null && event.created_by === accountId);
