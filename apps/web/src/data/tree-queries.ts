@@ -38,6 +38,7 @@ import {
   linkSpouse,
   loadFamily,
   reorderChildren,
+  reorderUnions,
   setProgenitor,
   updateParentLinkKind,
   updateUnion,
@@ -261,6 +262,7 @@ export const useAddParent = (treeId: string) => useFamilyMutation(treeId, addPar
 export const useAddSpouse = (treeId: string) => useFamilyMutation(treeId, addSpouse);
 export const useUpdateUnion = (treeId: string) => useFamilyMutation(treeId, updateUnion);
 export const useReorderChildren = (treeId: string) => useFamilyMutation(treeId, reorderChildren);
+export const useReorderUnions = (treeId: string) => useFamilyMutation(treeId, reorderUnions);
 export const useUpdateParentLinkKind = (treeId: string) => useFamilyMutation(treeId, updateParentLinkKind);
 export const useSetProgenitor = (treeId: string) => useFamilyMutation(treeId, setProgenitor);
 export const useLinkParent = (treeId: string) => useFamilyMutation(treeId, linkParent);

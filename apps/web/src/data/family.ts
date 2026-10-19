@@ -77,6 +77,13 @@ export const updateUnion = async (input: {
   if (error) throw new DataError(error);
 };
 
+/** Đổi Thứ tự hôn phối (nhìn từ phía viewerId) theo danh sách đã kéo thả. */
+export const reorderUnions = async (input: { viewerId: string; orderedUnionIds: string[] }): Promise<void> => {
+  await Promise.all(
+    input.orderedUnionIds.map((unionId, index) => updateUnion({ unionId, viewerId: input.viewerId, order: index + 1 })),
+  );
+};
+
 export const updateParentLinkKind = async (input: { childId: string; parentId: string; kind: ParentLinkKind }) => {
   const { error } = await supabase
     .from('parent_links')

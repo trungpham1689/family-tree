@@ -15,6 +15,7 @@ import {
   useRemovePhoto,
   useReminderWatch,
   useReorderChildren,
+  useReorderUnions,
   useSetAvatarPhoto,
   useSetHiddenFromPublic,
   useSetProgenitor,
@@ -26,7 +27,7 @@ import {
   useUploadPhoto,
 } from '../data/tree-queries';
 import type { Person } from '../data/trees';
-import type { ChildRelative, FamilyGraph, ParentLinkKind, UnionStatus } from '../family/family-graph';
+import type { ChildRelative, FamilyGraph, ParentLinkKind, SpouseRelative, UnionStatus } from '../family/family-graph';
 import { birthOrderLabel, kindLabel, LINK_KIND_LABELS, spouseLabel, UNION_STATUS_LABELS } from '../family/labels';
 import { lifespanText, nameInitial } from '../people/person-display';
 import { DeletePerson } from '../people/DeletePerson';
@@ -158,20 +159,7 @@ const PersonDetail = ({ treeId, graph, person, canEdit, isOwner, accountId, link
         {spouses.length === 0 ? (
           <Empty>Chưa ghi vợ/chồng.</Empty>
         ) : (
-          spouses.map((spouse) => (
-            <RelativeRow
-              key={spouse.unionId}
-              treeId={treeId}
-              relative={spouse.person}
-              caption={spouseLabel(spouse.person.gender, spouse.order)}
-            >
-              {canEdit ? (
-                <UnionControls treeId={treeId} viewerId={person.id} unionId={spouse.unionId} order={spouse.order} status={spouse.status} />
-              ) : (
-                spouse.status !== 'con' && <Tag>{UNION_STATUS_LABELS[spouse.status]}</Tag>
-              )}
-            </RelativeRow>
-          ))
+          <ReorderableSpouses treeId={treeId} viewerId={person.id} items={spouses} canEdit={canEdit} />
         )}
       </Section>
 
@@ -382,38 +370,20 @@ const LinkKindSelect = ({ treeId, childId, parentId, value }: { treeId: string; 
 
 const STATUS_VALUES: UnionStatus[] = ['con', 'ly_hon', 'goa'];
 
-const UnionControls = ({
+const UnionStatusSelect = ({
   treeId,
   viewerId,
   unionId,
-  order,
   status,
 }: {
   treeId: string;
   viewerId: string;
   unionId: string;
-  order: number;
   status: UnionStatus;
 }) => {
   const update = useUpdateUnion(treeId);
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <label className="flex items-center gap-1 text-sm">
-        Thứ
-        <Select
-          aria-label="Thứ tự hôn phối"
-          className="min-h-11 pl-3"
-          value={order}
-          disabled={update.isPending}
-          onChange={(event) => update.mutate({ unionId, viewerId, order: Number(event.target.value) })}
-        >
-          {Array.from({ length: 10 }, (_, index) => index + 1).map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
-        </Select>
-      </label>
       <Select
         aria-label="Trạng thái hôn phối"
         className="min-h-11"
@@ -526,32 +496,27 @@ const RelativeRow = ({
   </li>
 );
 
-/** Danh sách con kéo thả được để đổi Thứ tự con; số thứ tự tự đánh lại 1..N khi thả, gồm con của mọi vợ/chồng. */
-const ReorderableChildren = ({
-  treeId,
-  items,
-  canEdit,
-}: {
-  treeId: string;
-  items: ChildRelative<Person>[];
-  canEdit: boolean;
-}) => {
-  const reorder = useReorderChildren(treeId);
-  const byId = new Map(items.map((child) => [child.person.id, child]));
-  const sourceOrder = items.map((child) => child.person.id);
+type DragHandleProps = {
+  onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+  onPointerMove: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+  onPointerUp: () => void;
+};
+
+/**
+ * Kéo thả để đổi thứ tự một danh sách (con, vợ/chồng…): tính lại vị trí tối đa một lần mỗi khung
+ * hình thay vì mỗi sự kiện pointermove, và trượt mượt (FLIP) khi thứ tự đổi thay vì nhảy khựng.
+ */
+const useDragReorder = (sourceOrder: string[], enabled: boolean, onReorder: (order: string[]) => void) => {
   const sourceKey = sourceOrder.join(',');
-  // Chỉ dùng thứ tự đang kéo khi nó còn khớp dữ liệu hiện có; dữ liệu đổi (thêm/xoá con, lưu xong) thì quay lại thứ tự từ server.
+  // Chỉ dùng thứ tự đang kéo khi nó còn khớp dữ liệu hiện có; dữ liệu đổi (thêm/xoá, lưu xong) thì quay lại thứ tự từ server.
   const [dragState, setDragState] = useState({ key: sourceKey, order: sourceOrder });
   const order = dragState.key === sourceKey ? dragState.order : sourceOrder;
   const rowRefs = useRef(new Map<string, HTMLLIElement>());
   const draggingId = useRef<string | null>(null);
-  // Tính lại vị trí tối đa một lần mỗi khung hình thay vì mỗi sự kiện pointermove (có thể bắn rất nhanh),
-  // để tránh đọc layout (getBoundingClientRect) liên tục làm giật khi kéo.
   const pendingClientY = useRef<number | null>(null);
   const rafId = useRef<number | null>(null);
-  const canDrag = canEdit && items.length > 1;
+  const canDrag = enabled && sourceOrder.length > 1;
 
-  // FLIP: trượt mượt từ vị trí cũ sang vị trí mới mỗi khi thứ tự đổi, thay vì nhảy khựng.
   const orderKey = order.join(',');
   const prevRects = useRef(new Map<string, DOMRect>());
   useLayoutEffect(() => {
@@ -575,7 +540,7 @@ const ReorderableChildren = ({
   const reorderedBy = (clientY: number): string[] | null => {
     const id = draggingId.current;
     if (!id) return null;
-    const rows = order.flatMap((childId) => rowRefs.current.get(childId) ?? []);
+    const rows = order.flatMap((itemId) => rowRefs.current.get(itemId) ?? []);
     let targetIndex = rows.length - 1;
     for (let index = 0; index < rows.length; index++) {
       const rect = rows[index]?.getBoundingClientRect();
@@ -592,35 +557,58 @@ const ReorderableChildren = ({
     return next;
   };
 
-  const onPointerDown = (id: string) => (event: ReactPointerEvent<HTMLButtonElement>) => {
-    draggingId.current = id;
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-
-  const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (!draggingId.current) return;
-    pendingClientY.current = event.clientY;
-    if (rafId.current !== null) return;
-    rafId.current = requestAnimationFrame(() => {
-      rafId.current = null;
+  const dragHandleProps = (id: string): DragHandleProps => ({
+    onPointerDown: (event) => {
+      draggingId.current = id;
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    onPointerMove: (event) => {
+      if (!draggingId.current) return;
+      pendingClientY.current = event.clientY;
+      if (rafId.current !== null) return;
+      rafId.current = requestAnimationFrame(() => {
+        rafId.current = null;
+        const clientY = pendingClientY.current;
+        const next = clientY === null ? null : reorderedBy(clientY);
+        if (next) setDragState({ key: sourceKey, order: next });
+      });
+    },
+    onPointerUp: () => {
+      if (!draggingId.current) return;
+      if (rafId.current !== null) {
+        cancelAnimationFrame(rafId.current);
+        rafId.current = null;
+      }
       const clientY = pendingClientY.current;
-      const next = clientY === null ? null : reorderedBy(clientY);
-      if (next) setDragState({ key: sourceKey, order: next });
-    });
+      const finalOrder = (clientY === null ? null : reorderedBy(clientY)) ?? order;
+      draggingId.current = null;
+      pendingClientY.current = null;
+      if (finalOrder.some((id, index) => id !== sourceOrder[index])) onReorder(finalOrder);
+    },
+  });
+
+  const setRef = (id: string, element: HTMLLIElement | null) => {
+    if (element) rowRefs.current.set(id, element);
+    else rowRefs.current.delete(id);
   };
 
-  const onPointerUp = () => {
-    if (!draggingId.current) return;
-    if (rafId.current !== null) {
-      cancelAnimationFrame(rafId.current);
-      rafId.current = null;
-    }
-    const clientY = pendingClientY.current;
-    const finalOrder = (clientY === null ? null : reorderedBy(clientY)) ?? order;
-    draggingId.current = null;
-    pendingClientY.current = null;
-    if (finalOrder.some((id, index) => id !== sourceOrder[index])) reorder.mutate(finalOrder);
-  };
+  return { order, canDrag, setRef, dragHandleProps };
+};
+
+/** Danh sách con kéo thả được để đổi Thứ tự con; số thứ tự tự đánh lại 1..N khi thả, gồm con của mọi vợ/chồng. */
+const ReorderableChildren = ({
+  treeId,
+  items,
+  canEdit,
+}: {
+  treeId: string;
+  items: ChildRelative<Person>[];
+  canEdit: boolean;
+}) => {
+  const reorder = useReorderChildren(treeId);
+  const byId = new Map(items.map((child) => [child.person.id, child]));
+  const sourceOrder = items.map((child) => child.person.id);
+  const { order, canDrag, setRef, dragHandleProps } = useDragReorder(sourceOrder, canEdit, (next) => reorder.mutate(next));
 
   return (
     <>
@@ -628,22 +616,13 @@ const ReorderableChildren = ({
         const child = byId.get(id);
         if (!child) return [];
         return (
-          <li
-            key={id}
-            ref={(element) => {
-              if (element) rowRefs.current.set(id, element);
-              else rowRefs.current.delete(id);
-            }}
-            className="flex flex-wrap items-center gap-3 px-5 py-3"
-          >
+          <li key={id} ref={(element) => setRef(id, element)} className="flex flex-wrap items-center gap-3 px-5 py-3">
             {canDrag && (
               <button
                 type="button"
                 aria-label="Kéo để đổi thứ tự con"
                 className="cursor-grab touch-none select-none px-1 text-xl text-ink-muted active:cursor-grabbing"
-                onPointerDown={onPointerDown(id)}
-                onPointerMove={onPointerMove}
-                onPointerUp={onPointerUp}
+                {...dragHandleProps(id)}
               >
                 ⠿
               </button>
@@ -655,6 +634,60 @@ const ReorderableChildren = ({
               <span className="text-lg font-semibold group-hover:text-son group-hover:underline">{child.person.full_name}</span>
               <span className="ml-2 text-ink-muted">{lifespanText(child.person)}</span>
             </Link>
+          </li>
+        );
+      })}
+      {reorder.isError && <li className="px-5 py-3 text-sm text-danger">{reorder.error.message}</li>}
+    </>
+  );
+};
+
+/** Danh sách vợ/chồng kéo thả được để đổi Thứ tự hôn phối; "Vợ cả/Vợ hai…" tự đánh lại khi thả. */
+const ReorderableSpouses = ({
+  treeId,
+  viewerId,
+  items,
+  canEdit,
+}: {
+  treeId: string;
+  viewerId: string;
+  items: SpouseRelative<Person>[];
+  canEdit: boolean;
+}) => {
+  const reorder = useReorderUnions(treeId);
+  const byId = new Map(items.map((spouse) => [spouse.unionId, spouse]));
+  const sourceOrder = items.map((spouse) => spouse.unionId);
+  const { order, canDrag, setRef, dragHandleProps } = useDragReorder(sourceOrder, canEdit, (next) =>
+    reorder.mutate({ viewerId, orderedUnionIds: next }),
+  );
+
+  return (
+    <>
+      {order.flatMap((unionId, index) => {
+        const spouse = byId.get(unionId);
+        if (!spouse) return [];
+        return (
+          <li key={unionId} ref={(element) => setRef(unionId, element)} className="flex flex-wrap items-center gap-3 px-5 py-3">
+            {canDrag && (
+              <button
+                type="button"
+                aria-label="Kéo để đổi thứ tự vợ/chồng"
+                className="cursor-grab touch-none select-none px-1 text-xl text-ink-muted active:cursor-grabbing"
+                {...dragHandleProps(unionId)}
+              >
+                ⠿
+              </button>
+            )}
+            <Link to={`/gia-pha/${treeId}/nguoi/${spouse.person.id}`} className="group min-w-0 flex-1">
+              <span className="block text-sm text-ink-muted">{spouseLabel(spouse.person.gender, index + 1)}</span>
+              <span className="text-lg font-semibold group-hover:text-son group-hover:underline">{spouse.person.full_name}</span>
+              <span className="ml-2 text-ink-muted">{lifespanText(spouse.person)}</span>
+            </Link>
+            {canEdit ? (
+              <UnionStatusSelect treeId={treeId} viewerId={viewerId} unionId={spouse.unionId} status={spouse.status} />
+            ) : (
+              spouse.status !== 'con' && <Tag>{UNION_STATUS_LABELS[spouse.status]}</Tag>
+            )}
           </li>
         );
       })}
