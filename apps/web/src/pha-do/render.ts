@@ -139,7 +139,8 @@ export const renderPhaDo = (
   // đụng khung/hoạ tiết trang trí (những thứ đó nằm ngoài vùng này theo layoutDecoration).
   const availableHeight = area.height - LEGEND_HEIGHT;
   const fitScale = Math.min(availableWidth / layout.width, availableHeight / layout.height);
-  const scale = Math.min(fitScale, MAX_NAME_PT / (NAME_SIZE * PT_PER_MM));
+  const maxNamePt = MAX_NAME_PT * (config.fontScale || 1);
+  const scale = Math.min(fitScale, maxNamePt / (NAME_SIZE * PT_PER_MM));
   const namePt = NAME_SIZE * scale * PT_PER_MM;
   const smallPt = SMALL_SIZE * scale * PT_PER_MM;
 

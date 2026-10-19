@@ -8,7 +8,7 @@ const n = (value: number) => Number(value.toFixed(3));
 export type EmbeddedFonts = { regularBase64: string; boldBase64: string };
 
 /** Bản vẽ → SVG đúng kích thước giấy (mm), dùng để xem trước và xuất PNG. */
-export const drawingToSvg = (drawing: Drawing, fonts?: EmbeddedFonts): string => {
+export const drawingToSvg = (drawing: Drawing, fonts?: EmbeddedFonts, previewFontFamily?: string): string => {
   const parts = drawing.items.map((item, index) => {
     switch (item.type) {
       case 'rect':
@@ -30,7 +30,7 @@ export const drawingToSvg = (drawing: Drawing, fonts?: EmbeddedFonts): string =>
     }
   });
   return [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${drawing.width}mm" height="${drawing.height}mm" viewBox="0 0 ${drawing.width} ${drawing.height}" font-family="${fonts ? "'PhaDo'" : "'Noto Serif', serif"}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${drawing.width}mm" height="${drawing.height}mm" viewBox="0 0 ${drawing.width} ${drawing.height}" font-family="${fonts ? "'PhaDo'" : (previewFontFamily ?? "'Noto Serif', serif")}">`,
     fonts
       ? `<style>@font-face{font-family:'PhaDo';font-weight:400;src:url(data:font/ttf;base64,${fonts.regularBase64}) format('truetype')}@font-face{font-family:'PhaDo';font-weight:700;src:url(data:font/ttf;base64,${fonts.boldBase64}) format('truetype')}</style>`
       : '',

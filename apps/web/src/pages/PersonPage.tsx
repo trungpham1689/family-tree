@@ -179,35 +179,36 @@ const PersonDetail = ({ treeId, graph, person, canEdit, isOwner, accountId, link
       </Section>
 
       {canEditThisPerson && !person.pending_delete_by && (
-        <div className="mt-10 space-y-6 border-t border-line pt-6">
+        <div className="mt-10 space-y-4 border-t border-line pt-6">
+          <h2 className="font-serif text-xl font-bold">Hành động khác</h2>
           {placement.kind !== 'thuy_to' && placement.kind !== 'dau_re' && (
-            <div>
-              <Button variant="ghost" disabled={setProgenitor.isPending} onClick={() => setProgenitor.mutate(person.id)}>
-                Đặt người này làm Thuỷ tổ
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-3">
+              <p className="text-sm text-ink-muted">Đời của mọi người sẽ được tính lại từ người này.</p>
+              <Button variant="secondary" disabled={setProgenitor.isPending} onClick={() => setProgenitor.mutate(person.id)}>
+                Đặt làm Thuỷ tổ
               </Button>
-              <p className="mt-1 text-sm text-ink-muted">Đời của mọi người sẽ được tính lại từ người này.</p>
               {setProgenitor.isError && <ErrorBanner>{setProgenitor.error.message}</ErrorBanner>}
             </div>
           )}
           {placement.kind === 'dinh' && (
-            <div>
-              <Button
-                variant="ghost"
-                disabled={setFoundsBranch.isPending}
-                onClick={() => setFoundsBranch.mutate({ personId: person.id, foundsBranch: !person.founds_branch })}
-              >
-                {person.founds_branch ? 'Bỏ lập chi' : 'Lập chi mới từ người này'}
-              </Button>
-              <p className="mt-1 text-sm text-ink-muted">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-3">
+              <p className="text-sm text-ink-muted">
                 {person.founds_branch
                   ? 'Người này và con cháu đang tính là một chi riêng trong Phả ký.'
                   : 'Người này và con cháu sẽ tính là một chi riêng trong Phả ký.'}
               </p>
+              <Button
+                variant="secondary"
+                disabled={setFoundsBranch.isPending}
+                onClick={() => setFoundsBranch.mutate({ personId: person.id, foundsBranch: !person.founds_branch })}
+              >
+                {person.founds_branch ? 'Bỏ lập chi' : 'Lập chi mới'}
+              </Button>
               {setFoundsBranch.isError && <ErrorBanner>{setFoundsBranch.error.message}</ErrorBanner>}
             </div>
           )}
           <HiddenFromPublicToggle treeId={treeId} person={person} />
-          <Button variant="ghost" className="text-danger" onClick={() => setAction('delete')}>
+          <Button variant="secondary" onClick={() => setAction('delete')}>
             {isOwner ? 'Xoá người này' : 'Gửi yêu cầu xoá'}
           </Button>
         </div>
@@ -430,7 +431,7 @@ const UnionStatusSelect = ({
 const HiddenFromPublicToggle = ({ treeId, person }: { treeId: string; person: Person }) => {
   const setHidden = useSetHiddenFromPublic(treeId);
   return (
-    <div>
+    <div className="rounded-xl border border-line bg-surface px-4 py-3">
       <label className="flex min-h-12 cursor-pointer items-center gap-3">
         <input
           type="checkbox"

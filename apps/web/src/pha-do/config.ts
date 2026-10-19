@@ -25,6 +25,22 @@ export const EXTRA_LINE_LABELS: Record<ExtraLine, string> = {
   que: 'Quê quán',
 };
 
+/** Vài phông đã nạp sẵn cho cả trang (Google Fonts trong index.html) hoặc phông hệ thống — không cần cài thêm. */
+export type PhaDoFontFamily = 'noto-serif' | 'be-vietnam-pro' | 'system';
+
+export const FONT_FAMILY_LABELS: Record<PhaDoFontFamily, string> = {
+  'noto-serif': 'Noto Serif (trang trọng)',
+  'be-vietnam-pro': 'Be Vietnam Pro (hiện đại)',
+  system: 'Chữ hệ thống',
+};
+
+/** CSS font-family thật dùng khi xem trước; bản xuất PDF/PNG luôn nhúng NotoSerif để chắc chắn đủ dấu. */
+export const FONT_FAMILY_CSS: Record<PhaDoFontFamily, string> = {
+  'noto-serif': "'Noto Serif', ui-serif, Georgia, serif",
+  'be-vietnam-pro': "'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif",
+  system: 'ui-serif, Georgia, serif',
+};
+
 export type PhaDoConfig = {
   decoration: Decoration;
   scope: PhaDoScope;
@@ -37,7 +53,13 @@ export type PhaDoConfig = {
   extraLines: ExtraLine[];
   /** Hiện ảnh đại diện trong mỗi ô, với Người đã có ảnh. */
   showAvatars: boolean;
+  /** Hệ số cỡ chữ tối đa (1 = mặc định 28pt); vẫn bị giới hạn theo khổ giấy thật sự chứa được. */
+  fontScale: number;
+  /** Chỉ áp dụng khi xem trước trên trang; bản xuất luôn là NotoSerif. */
+  fontFamily: PhaDoFontFamily;
 };
+
+export const FONT_SCALE_OPTIONS = [0.75, 1, 1.3, 1.6] as const;
 
 export const defaultPhaDoConfig = (outsideGenerations: number): PhaDoConfig => ({
   scope: { kind: 'all' },
@@ -49,6 +71,8 @@ export const defaultPhaDoConfig = (outsideGenerations: number): PhaDoConfig => (
   extraLines: [],
   showAvatars: false,
   decoration: DEFAULT_DECORATION,
+  fontScale: 1,
+  fontFamily: 'noto-serif',
 });
 
 /** Kích thước trang (mm) theo khổ và hướng giấy. */
@@ -103,5 +127,10 @@ export const readPhaDoConfig = (stored: unknown, outsideGenerations: number): Ph
       ? [...new Set(stored.extraLines.filter((line): line is ExtraLine => EXTRA_LINES.includes(line as ExtraLine)))].slice(0, 2)
       : [],
     showAvatars: stored.showAvatars === true,
+    fontScale: number(stored.fontScale, 0.5, 2, fallback.fontScale),
+    fontFamily:
+      stored.fontFamily === 'noto-serif' || stored.fontFamily === 'be-vietnam-pro' || stored.fontFamily === 'system'
+        ? stored.fontFamily
+        : fallback.fontFamily,
   };
 };

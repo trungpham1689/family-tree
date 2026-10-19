@@ -183,7 +183,7 @@ const MemberRow = ({ treeId, member, canManage }: MemberRowProps) => {
               <option value="editor">{ROLE_LABELS.editor}</option>
               <option value="viewer">{ROLE_LABELS.viewer}</option>
             </Select>
-            <Button variant="ghost" className="text-danger" onClick={() => setRemoving(true)}>
+            <Button variant="ghost" className="text-danger!" onClick={() => setRemoving(true)}>
               Gỡ
             </Button>
           </div>

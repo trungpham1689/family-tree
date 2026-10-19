@@ -177,6 +177,19 @@ export const PhaKyPage = () => {
                 </ul>
               </section>
             )}
+            {generations.length > 0 && (
+              <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-muted">
+                <span className="flex items-center gap-1.5">
+                  <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-kim bg-paper" /> Nam
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-son bg-paper" /> Nữ
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-dashed border-kim bg-paper" /> Dâu/Rể (viền đứt)
+                </span>
+              </p>
+            )}
             {generations.map((group) => (
               <section key={group.generation}>
                 <div className="flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-son/20 pb-2">
@@ -187,13 +200,15 @@ export const PhaKyPage = () => {
                   </p>
                 </div>
                 <div className="mt-4 space-y-5 border-l-2 border-line pl-6">
-                  {group.items.map((item, index) => (
+                  {group.items.map((item, index) => {
+                    // Cùng quy ước với Phả đồ: viền vàng kim = Nam, viền đỏ son = Nữ; nét đứt = Dâu/Rể (vào họ), nét liền = huyết thống.
+                    const genderBorder = item.gender === 'nam' ? 'border-kim' : item.gender === 'nu' ? 'border-son' : 'border-[#a39a8f]';
+                    const dashed = item.kind === 'dau_re';
+                    return (
                     <article key={item.personId} id={item.personId} className="relative -ml-px target:rounded-xl target:bg-kim-soft/40">
                       <span
                         aria-hidden="true"
-                        className={`absolute -left-[1.9rem] size-3 rounded-full border-2 border-paper ${index === 0 ? 'top-0' : 'top-1.5'} ${
-                          item.kind === 'thuy_to' ? 'bg-kim' : 'bg-son'
-                        }`}
+                        className={`absolute -left-[1.9rem] size-3.5 rounded-full border-2 bg-paper ${genderBorder} ${dashed ? 'border-dashed' : 'border-solid'} ${index === 0 ? 'top-0' : 'top-1'}`}
                       />
                       <h3 className="flex flex-wrap items-baseline gap-2 font-serif text-lg font-bold">
                         {item.name}
@@ -206,7 +221,8 @@ export const PhaKyPage = () => {
                       </h3>
                       {item.detail && <p className="mt-1 leading-relaxed text-ink">{item.detail}</p>}
                     </article>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
             ))}

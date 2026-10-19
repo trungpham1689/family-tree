@@ -36,7 +36,7 @@ export const TreeTabs = ({ treeId }: { treeId: string }) => {
             </option>
           ))}
         </select>
-        <div className="hidden gap-1 sm:flex">
+        <div className="hidden gap-1 overflow-x-auto sm:flex [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TABS.map((tab) => (
             <NavLink
               key={tab.label}

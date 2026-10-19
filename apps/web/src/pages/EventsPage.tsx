@@ -192,7 +192,7 @@ const EventRow = ({ treeId, event, canEdit, onEdit }: { treeId: string; event: T
             <Button variant="ghost" onClick={onEdit}>
               Sửa
             </Button>
-            <Button variant="ghost" className="text-danger" onClick={() => setConfirming(true)}>
+            <Button variant="ghost" className="text-danger!" onClick={() => setConfirming(true)}>
               Xoá
             </Button>
           </div>

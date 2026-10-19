@@ -135,7 +135,7 @@ export const PublicLinkPanel = ({ tree }: { tree: TreeWithRole }) => {
               <Button variant="ghost" onClick={() => setMode('rotate')}>
                 Tạo lại link
               </Button>
-              <Button variant="ghost" className="text-danger" onClick={() => setMode('disable')}>
+              <Button variant="ghost" className="text-danger!" onClick={() => setMode('disable')}>
                 Tắt link
               </Button>
             </div>

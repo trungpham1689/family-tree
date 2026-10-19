@@ -87,7 +87,7 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
                 <Button variant="secondary" onClick={() => setRenaming(true)}>
                   Sửa thông tin
                 </Button>
-                <Button variant="ghost" className="text-danger" onClick={() => setDeleting(true)}>
+                <Button variant="ghost" className="text-danger!" onClick={() => setDeleting(true)}>
                   Xoá
                 </Button>
               </>

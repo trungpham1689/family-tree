@@ -38,6 +38,13 @@
     line-height: 1.55;
   }
 
+  /* Footer dính đáy màn hình (Footer tự "mt-auto") kể cả khi nội dung trang ngắn. */
+  #root {
+    display: flex;
+    min-height: 100dvh;
+    flex-direction: column;
+  }
+
   :focus-visible {
     outline: 3px solid var(--color-kim);
     outline-offset: 2px;

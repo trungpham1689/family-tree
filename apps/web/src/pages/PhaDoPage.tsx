@@ -9,11 +9,15 @@ import { personLabel } from '../people/person-label';
 import { PersonPicker } from '../people/PersonPicker';
 import {
   EXTRA_LINE_LABELS,
+  FONT_FAMILY_CSS,
+  FONT_FAMILY_LABELS,
+  FONT_SCALE_OPTIONS,
   PAPER_SIZES,
   readPhaDoConfig,
   type ExtraLine,
   type PaperName,
   type PhaDoConfig,
+  type PhaDoFontFamily,
 } from '../pha-do/config';
 import { defaultTitle, FRAME_LABELS, type Decoration, type FrameStyle } from '../pha-do/decoration';
 import { DESKTOP_LIMITS, IOS_LIMITS, isAppleMobile, planPng } from '../pha-do/png';
@@ -22,6 +26,7 @@ import { drawingToSvg } from '../pha-do/svg';
 import { TreeTabs } from '../tree/TreeTabs';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
+import { Collapsible } from '../ui/Collapsible';
 import { ErrorBanner, Select, TextField } from '../ui/fields';
 import { Footer } from '../ui/Footer';
 import { exportFileName } from '../lib/download';
@@ -41,7 +46,7 @@ export const PhaDoPage = () => {
     <>
       <AppHeader />
       <TreeTabs treeId={treeId} />
-      <main className="mx-auto max-w-7xl px-4 py-6">
+      <main className="w-full px-4 py-6 lg:px-8">
         <h1 className="font-serif text-3xl font-bold text-son">Phả đồ</h1>
         {error && <ErrorBanner>{error.message}</ErrorBanner>}
         {tree.data && family.data && saved.isSuccess && (
@@ -76,7 +81,7 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
     () => planPng(result.drawing, isAppleMobile() ? IOS_LIMITS : DESKTOP_LIMITS),
     [result.drawing],
   );
-  const svg = useMemo(() => drawingToSvg(result.drawing), [result]);
+  const svg = useMemo(() => drawingToSvg(result.drawing, undefined, FONT_FAMILY_CSS[config.fontFamily]), [result, config.fontFamily]);
   const update = (patch: Partial<PhaDoConfig>) => setConfig((current) => ({ ...current, ...patch }));
 
   const exportDate = toIsoDate(todayInVietnam());
@@ -123,56 +128,64 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
 
   return (
     <div className="mt-4 grid gap-6 lg:grid-cols-[22rem_1fr]">
-      <aside className="space-y-6">
-        <ScopeSettings graph={graph} config={config} onChange={update} />
-        <DecorationSettings treeName={tree.name} decoration={config.decoration} onChange={(patch) => update({ decoration: { ...config.decoration, ...patch } })} />
+      <aside className="space-y-3">
+        <Collapsible title="Phạm vi & nội dung" defaultOpen>
+          <ScopeSettings graph={graph} config={config} onChange={update} />
 
-        <label className="block">
-          <span className="mb-1 block font-medium">Hiển thị</span>
-          <Select className="w-full" value={config.outsideGenerations} onChange={(event) => update({ outsideGenerations: Number(event.target.value) })}>
-            {[0, 1, 2, 3, 4, 5].map((n) => (
-              <option key={n} value={n}>
-                {n === 0 ? 'Chỉ đinh' : `Hiện Cháu ngoại ${n} đời`}
-              </option>
-            ))}
-          </Select>
-        </label>
+          <label className="block">
+            <span className="mb-1 block font-medium">Hiển thị</span>
+            <Select className="w-full" value={config.outsideGenerations} onChange={(event) => update({ outsideGenerations: Number(event.target.value) })}>
+              {[0, 1, 2, 3, 4, 5].map((n) => (
+                <option key={n} value={n}>
+                  {n === 0 ? 'Chỉ đinh' : `Hiện Cháu ngoại ${n} đời`}
+                </option>
+              ))}
+            </Select>
+          </label>
 
-        <PaperSettings config={config} onChange={update} />
+          <label className="flex min-h-12 items-center gap-3">
+            <input
+              type="checkbox"
+              className="size-5 accent-son"
+              checked={config.showAvatars}
+              onChange={(event) => update({ showAvatars: event.target.checked })}
+            />
+            Hiện ảnh đại diện trong mỗi ô
+          </label>
 
-        <label className="flex min-h-12 items-center gap-3">
-          <input
-            type="checkbox"
-            className="size-5 accent-son"
-            checked={config.showAvatars}
-            onChange={(event) => update({ showAvatars: event.target.checked })}
-          />
-          Hiện ảnh đại diện trong mỗi ô
-        </label>
+          <fieldset>
+            <legend className="mb-1 font-medium">Thêm trong mỗi ô (tối đa 2 dòng)</legend>
+            <p className="mb-2 text-sm text-ink-muted">Luôn có tên và năm sinh – mất.</p>
+            {(Object.keys(EXTRA_LINE_LABELS) as ExtraLine[]).map((line) => {
+              const checked = config.extraLines.includes(line);
+              return (
+                <label key={line} className="flex min-h-11 items-center gap-3">
+                  <input
+                    type="checkbox"
+                    className="size-5 accent-son"
+                    checked={checked}
+                    disabled={!checked && config.extraLines.length >= 2}
+                    onChange={() =>
+                      update({ extraLines: checked ? config.extraLines.filter((item) => item !== line) : [...config.extraLines, line] })
+                    }
+                  />
+                  {EXTRA_LINE_LABELS[line]}
+                </label>
+              );
+            })}
+          </fieldset>
+        </Collapsible>
 
-        <fieldset>
-          <legend className="mb-1 font-medium">Thêm trong mỗi ô (tối đa 2 dòng)</legend>
-          <p className="mb-2 text-sm text-ink-muted">Luôn có tên và năm sinh – mất.</p>
-          {(Object.keys(EXTRA_LINE_LABELS) as ExtraLine[]).map((line) => {
-            const checked = config.extraLines.includes(line);
-            return (
-              <label key={line} className="flex min-h-11 items-center gap-3">
-                <input
-                  type="checkbox"
-                  className="size-5 accent-son"
-                  checked={checked}
-                  disabled={!checked && config.extraLines.length >= 2}
-                  onChange={() =>
-                    update({ extraLines: checked ? config.extraLines.filter((item) => item !== line) : [...config.extraLines, line] })
-                  }
-                />
-                {EXTRA_LINE_LABELS[line]}
-              </label>
-            );
-          })}
-        </fieldset>
+        <Collapsible title="Trang trí" defaultOpen>
+          <DecorationSettings treeName={tree.name} decoration={config.decoration} onChange={(patch) => update({ decoration: { ...config.decoration, ...patch } })} />
+        </Collapsible>
 
-        <div className="space-y-3 border-t border-line pt-4">
+        <Collapsible title="Khổ giấy & chữ">
+          <PaperSettings config={config} onChange={update} />
+          <FontSettings config={config} onChange={update} />
+        </Collapsible>
+
+        <div className="space-y-3 rounded-xl border border-line bg-surface p-4">
           <Button className="w-full" disabled={exporting !== null || result.personCount === 0} onClick={exportPdf}>
             {exporting === 'pdf' ? 'Đang tạo PDF…' : 'Xuất PDF (in ấn)'}
           </Button>
@@ -421,5 +434,48 @@ const PaperSettings = ({ config, onChange }: { config: PhaDoConfig; onChange: (p
         </label>
       ))}
     </div>
+  </fieldset>
+);
+
+const FONT_SCALE_LABELS: Record<(typeof FONT_SCALE_OPTIONS)[number], string> = {
+  0.75: 'Nhỏ',
+  1: 'Vừa',
+  1.3: 'Lớn',
+  1.6: 'Rất lớn',
+};
+
+const FontSettings = ({ config, onChange }: { config: PhaDoConfig; onChange: (patch: Partial<PhaDoConfig>) => void }) => (
+  <fieldset className="space-y-2 border-t border-line pt-3">
+    <legend className="mb-1 font-medium">Cỡ chữ</legend>
+    <div className="grid grid-cols-4 gap-2">
+      {FONT_SCALE_OPTIONS.map((scale) => (
+        <label
+          key={scale}
+          className={`flex min-h-11 cursor-pointer items-center justify-center rounded-xl border px-1 text-center text-sm ${
+            config.fontScale === scale ? 'border-son bg-son/5 font-semibold text-son' : 'border-line'
+          }`}
+        >
+          <input type="radio" className="sr-only" checked={config.fontScale === scale} onChange={() => onChange({ fontScale: scale })} />
+          {FONT_SCALE_LABELS[scale]}
+        </label>
+      ))}
+    </div>
+    <p className="text-sm text-ink-muted">Chữ vẫn tự co lại nếu không đủ chỗ trên khổ giấy đã chọn.</p>
+
+    <label className="block pt-2">
+      <span className="mb-1 block font-medium">Phông chữ</span>
+      <Select
+        className="w-full"
+        value={config.fontFamily}
+        onChange={(event) => onChange({ fontFamily: event.target.value as PhaDoFontFamily })}
+      >
+        {(Object.keys(FONT_FAMILY_LABELS) as PhaDoFontFamily[]).map((family) => (
+          <option key={family} value={family}>
+            {FONT_FAMILY_LABELS[family]}
+          </option>
+        ))}
+      </Select>
+      <span className="mt-1 block text-sm text-ink-muted">Chỉ đổi khi xem trước; bản xuất PDF/PNG luôn dùng phông có đủ dấu tiếng Việt.</span>
+    </label>
   </fieldset>
 );
