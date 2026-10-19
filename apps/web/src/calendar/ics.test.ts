@@ -39,6 +39,12 @@ describe('occurrencesToIcs', () => {
     expect(ics).toContain('SUMMARY:Họp họ\\; ăn cơm\\, uống trà');
   });
 
+  it('xuống dòng (kể cả CR) trong tiêu đề không chèn được dòng mới vào file .ics', () => {
+    const ics = occurrencesToIcs([occurrence({ title: 'A\r\nATTENDEE:evil\rB' })], new Date('2026-01-01T00:00:00Z'));
+    expect(ics).toContain('SUMMARY:A\\nATTENDEE:evil\\nB');
+    expect(ics.split('\r\n').some((line) => line.startsWith('ATTENDEE'))).toBe(false);
+  });
+
   it('mỗi dịp có UID riêng, không trùng nhau', () => {
     const ics = occurrencesToIcs(
       [occurrence({ personId: 'a' }), occurrence({ personId: 'b' })],

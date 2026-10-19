@@ -1,5 +1,6 @@
 import {
   deleteImage,
+  deleteTreeFolder,
   downloadImage,
   DriveError,
   ensureTreeFolders,
@@ -79,6 +80,8 @@ export const handleUpload = async (request: Request, env: PhotoEnv, doFetch: typ
 
   const mimeType = request.headers.get('content-type')?.split(';')[0]?.trim() ?? '';
   if (!IMAGE_TYPES.has(mimeType)) return json({ error: 'Chỉ nhận ảnh JPEG, PNG hoặc WEBP.' }, 415);
+  // Từ chối sớm theo Content-Length, đỡ phải đọc cả thân yêu cầu quá khổ vào bộ nhớ.
+  if (Number(request.headers.get('content-length')) > MAX_UPLOAD_BYTES) return json({ error: `Ảnh phải nhỏ hơn ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB.` }, 413);
   const bytes = await request.arrayBuffer();
   if (bytes.byteLength === 0 || bytes.byteLength > MAX_UPLOAD_BYTES) {
     return json({ error: `Ảnh phải nhỏ hơn ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB.` }, 413);
@@ -116,6 +119,7 @@ export const handleDownload = async (request: Request, env: PhotoEnv, fileId: st
     return new Response(upstream.body, {
       headers: {
         'content-type': upstream.headers.get('content-type') ?? 'image/jpeg',
+        'x-content-type-options': 'nosniff',
         // Mỗi lần đổi ảnh là một file Drive mới (id mới) nên nội dung một id không bao giờ đổi.
         'cache-control': 'private, max-age=86400, immutable',
       },
@@ -133,6 +137,19 @@ export const handleDelete = async (request: Request, env: PhotoEnv, fileId: stri
   if (denied) return denied;
   try {
     await deleteImage(await getAccessToken(env, doFetch), fileId, treeId, doFetch);
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    return failure(error);
+  }
+};
+
+/** DELETE /api/photos?treeId=… — xoá cả thư mục ảnh của gia phả trên Drive; chỉ Chủ sở hữu (dùng khi xoá gia phả). */
+export const handleDeleteTree = async (request: Request, env: PhotoEnv, doFetch: typeof fetch = fetch): Promise<Response> => {
+  const treeId = new URL(request.url).searchParams.get('treeId') ?? '';
+  const denied = await authorize(request, env, treeId, 'is_tree_owner', doFetch);
+  if (denied) return denied;
+  try {
+    await deleteTreeFolder(await getAccessToken(env, doFetch), treeId, doFetch);
     return new Response(null, { status: 204 });
   } catch (error) {
     return failure(error);

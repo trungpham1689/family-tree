@@ -41,6 +41,25 @@ describe('seam B: Ảnh tư liệu', () => {
     expect(person!.avatar_path).toBe(photo!.storage_path);
   });
 
+  it('tải/đổi ảnh không làm form "Sửa thông tin" đang mở bị báo xung đột (version không tăng)', async () => {
+    const [before] = await owner.query<{ version: number }>('select version from persons where id = $1', [personId]);
+    await addPhoto(owner, { is_avatar: true });
+    const [after] = await owner.query<{ version: number }>('select version from persons where id = $1', [personId]);
+    expect(after!.version).toBe(before!.version);
+
+    // Lưu với version đã đọc từ trước khi tải ảnh vẫn được, và lần sửa thật vẫn tăng version.
+    const saved = await owner.query<{ version: number }>("update persons set full_name = 'Tổ Mới', version = $2 where id = $1 returning version", [
+      personId,
+      before!.version,
+    ]);
+    expect(saved[0]!.version).toBe(before!.version + 1);
+  });
+
+  it('mặc định mỗi Người tối đa 3 ảnh', async () => {
+    const [row] = await owner.query<{ value: number }>("select value from app_settings where key = 'max_photos_per_person'");
+    expect(row!.value).toBe(3);
+  });
+
   it('xoá ảnh đại diện thì persons.avatar_path về null', async () => {
     const [photo] = await addPhoto(owner, { is_avatar: true });
     await owner.query('delete from person_photos where id = $1', [photo!.id]);

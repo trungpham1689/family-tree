@@ -47,6 +47,10 @@ export const onRequestGet = async ({ request, env, params }: Context): Promise<R
       'content-type': 'text/html; charset=utf-8',
       // Tiêu đề có thể đổi khi chủ gia phả đổi tên; không cache lâu.
       'cache-control': 'public, max-age=300',
+      'x-robots-tag': 'noindex, nofollow, noarchive, nosnippet',
+      'x-content-type-options': 'nosniff',
+      'x-frame-options': 'DENY',
+      'referrer-policy': 'strict-origin-when-cross-origin',
     },
   });
 };

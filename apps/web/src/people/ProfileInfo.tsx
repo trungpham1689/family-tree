@@ -45,7 +45,7 @@ export const ProfileInfo = ({ person, graph }: { person: Person; graph: FamilyGr
                   rel="noopener noreferrer"
                   className="inline-flex min-h-11 items-center rounded-xl bg-son px-4 font-semibold text-white"
                 >
-                  Chỉ đường
+                  📍 Mở bản đồ
                 </a>
               )}
             </span>

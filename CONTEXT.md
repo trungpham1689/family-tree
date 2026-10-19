@@ -56,13 +56,13 @@ Ngày sinh dương lịch của một Người còn sống, lặp lại mỗi n�
 Một mốc thời gian gắn với một gia phả: giỗ, sinh nhật, họp họ hoặc ngày do người dùng tự tạo. Mỗi sự kiện theo lịch âm hoặc dương, lặp hằng năm hoặc không.
 
 **Nhắc nhở**
-Thông báo gửi tới tài khoản trước một sự kiện. Giỗ: trong app và email. Sinh nhật: chỉ trong app, chỉ cho Người còn sống.
+Thông báo gửi tới tài khoản trước một sự kiện. Giỗ, sinh nhật (chỉ Người còn sống) và Sự kiện: trong app và email.
 
 **Danh sách nhắc giỗ**
 Tập Người mà một tài khoản muốn được nhắc giỗ trong một gia phả. Mặc định là tổ tiên trực hệ (khoảng 4 đời) của Người được liên kết với tài khoản; tài khoản tự thêm hoặc bớt.
 
 **Bản tin nhắc**
-Một email mỗi ngày cho mỗi tài khoản, gom mọi nhắc nhở đến hạn hôm đó.
+Một email gửi chung cho Chủ sở hữu và Biên tập viên của một gia phả, cứ 5 ngày một lần, gom giỗ, sinh nhật (người còn sống) và sự kiện của 5 ngày tới, mỗi loại một khối riêng. Không có gì sắp tới thì không gửi.
 
 **Ngày không đầy đủ**
 Một ngày chỉ biết năm, hoặc tháng-năm, hoặc có thể kèm dấu "khoảng". Ngày sinh và ngày mất có thể nhập theo âm hoặc dương; khi đủ ngày-tháng-năm thì tự đổi sang lịch kia.

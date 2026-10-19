@@ -140,3 +140,10 @@ export const deleteImage = async (token: string, fileId: string, treeId: string,
   const response = await doFetch(`${API}/files/${encodeURIComponent(fileId)}`, authed(token, { method: 'DELETE' }));
   await check(response, 'xoá ảnh');
 };
+
+/** Xoá cả thư mục của gia phả (kèm mọi ảnh bên trong) — dùng khi xoá gia phả. Không có thư mục thì coi như xong. */
+export const deleteTreeFolder = async (token: string, treeId: string, doFetch: Fetch = fetch): Promise<void> => {
+  const folderId = await findFolder(token, 'tree', treeId, doFetch);
+  if (!folderId) return;
+  await check(await doFetch(`${API}/files/${encodeURIComponent(folderId)}`, authed(token, { method: 'DELETE' })), 'xoá thư mục gia phả');
+};

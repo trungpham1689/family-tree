@@ -1,4 +1,5 @@
 import type { CalendarEvent, CalendarPerson, CalendarSource } from '@gia-pha/reminders';
+import { fetchAll } from '../lib/fetch-all';
 import { supabase } from '../lib/supabase';
 import type { Row } from './database.types';
 import { DataError, listMyTrees } from './trees';
@@ -25,12 +26,16 @@ export const loadMyCalendar = async (accountId: string): Promise<CalendarSource>
   const ids = trees.map((tree) => tree.id);
   if (ids.length === 0) return { trees: [], persons: [], events: [] };
   const [persons, events] = await Promise.all([
-    supabase
-      .from('persons')
-      .select(PERSON_COLUMNS)
-      .in('tree_id', ids)
-      .or('is_deceased.eq.true,birth_solar_date.not.is.null'),
-    supabase.from('tree_events').select(EVENT_COLUMNS).in('tree_id', ids),
+    fetchAll((from, to) =>
+      supabase
+        .from('persons')
+        .select(PERSON_COLUMNS)
+        .in('tree_id', ids)
+        .or('is_deceased.eq.true,birth_solar_date.not.is.null')
+        .order('id')
+        .range(from, to),
+    ),
+    fetchAll((from, to) => supabase.from('tree_events').select(EVENT_COLUMNS).in('tree_id', ids).order('id').range(from, to)),
   ]);
   fail(persons.error);
   fail(events.error);

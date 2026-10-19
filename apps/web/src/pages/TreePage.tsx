@@ -13,6 +13,7 @@ import {
   useSetTreePhoto,
   useTree,
 } from '../data/tree-queries';
+import type { BackupProgress } from '../backup/download-backup';
 import { ImagePicker } from '../people/PersonPhotos';
 import type { Person, TreeWithRole } from '../data/trees';
 import { lifespanText, nameInitial } from '../people/person-display';
@@ -93,7 +94,7 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
             <p className="mt-2 text-sm text-ink-muted">Vai trò của bạn: {ROLE_LABELS[tree.role]}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {family.isSuccess && !isEmpty && <ExportButton tree={tree} graph={family.data} />}
+            {canEdit && family.isSuccess && !isEmpty && <ExportButton tree={tree} graph={family.data} />}
             {isOwner && (
               <>
                 <Button variant="secondary" onClick={() => setRenaming(true)}>
@@ -106,9 +107,9 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
             )}
           </div>
         </div>
-        {canEdit && family.isSuccess && !isEmpty && (
+        {isOwner && family.isSuccess && !isEmpty && (
           <p className="mt-2 text-sm text-ink-muted">
-            Nên bấm “Xuất Excel” định kỳ để giữ bản sao lưu — phần mềm chưa có thùng rác để khôi phục.
+            Nên bấm “Tải tất cả dữ liệu” ở cuối trang (dữ liệu + ảnh) định kỳ để giữ bản sao lưu trên máy — phần mềm chưa có thùng rác để khôi phục.
           </p>
         )}
       </header>
@@ -155,6 +156,11 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
             <p className="mt-1 text-sm text-ink-muted">
               Người thuộc họ nhưng chưa biết nối vào đâu. Họ nằm ở mục “Chưa nối vào cây” cho tới khi được gắn.
             </p>
+          </div>
+        )}
+        {isOwner && family.isSuccess && !isEmpty && (
+          <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-line pt-6">
+            <BackupButton tree={tree} />
           </div>
         )}
       </section>
@@ -429,6 +435,48 @@ const GenerationCard = ({
         )}
       </Dialog>
     </li>
+  );
+};
+
+/** Tải một file .zip chứa toàn bộ dữ liệu và ảnh của gia phả để lưu trên máy. */
+const BackupButton = ({ tree }: { tree: TreeWithRole }) => {
+  const [progress, setProgress] = useState<BackupProgress | null>(null);
+  const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+
+  const label = !progress
+    ? `Tải tất cả dữ liệu của ${tree.name}`
+    : progress.stage === 'images' && progress.total
+      ? `Đang tải ảnh ${progress.done}/${progress.total}…`
+      : progress.stage === 'zip'
+        ? 'Đang đóng gói…'
+        : 'Đang tải dữ liệu…';
+
+  const run = async () => {
+    setMessage(null);
+    setProgress({ stage: 'data' });
+    try {
+      const { downloadFullBackup } = await import('../backup/download-backup');
+      const failed = await downloadFullBackup(tree, toIsoDate(todayInVietnam()), setProgress);
+      setMessage(
+        failed === 0
+          ? { tone: 'ok', text: 'Đã tải file sao lưu (.zip) về máy.' }
+          : { tone: 'error', text: `Đã tải file sao lưu, nhưng ${failed} ảnh không tải được (xem HUONG-DAN.txt trong file).` },
+      );
+    } catch (error) {
+      setMessage({ tone: 'error', text: error instanceof Error ? error.message : 'Không tạo được file sao lưu. Hãy thử lại.' });
+    } finally {
+      setProgress(null);
+    }
+  };
+
+  return (
+    <>
+      <Button variant="secondary" disabled={progress !== null} onClick={run}>
+        {label}
+      </Button>
+      {message?.tone === 'error' && <ErrorBanner>{message.text}</ErrorBanner>}
+      {message?.tone === 'ok' && <p role="status" className="basis-full text-sm text-ink-muted">{message.text}</p>}
+    </>
   );
 };
 

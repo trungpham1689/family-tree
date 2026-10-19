@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { handleDelete, handleDownload, handleUpload, type PhotoEnv } from './photo-handler';
+import { handleDelete, handleDeleteTree, handleDownload, handleUpload, type PhotoEnv } from './photo-handler';
 
 const TREE = '11111111-1111-1111-1111-111111111111';
 const PERSON = '22222222-2222-2222-2222-222222222222';
@@ -49,6 +49,8 @@ const fakeServer = (options: { allow?: string[]; fileTree?: string } = {}) => {
   return { doFetch, calls, folders };
 };
 
+const MEMBER_QUERY_FOR_TREE = `treeId=${TREE}&kind=member&personId=${PERSON}`;
+
 const upload = (query: string, headers: Record<string, string> = {}, body: BodyInit = new Uint8Array([1, 2, 3])) =>
   new Request(`https://app.test/api/photos?${query}`, {
     method: 'POST',
@@ -95,10 +97,19 @@ describe('/api/photos', () => {
     expect((await handleUpload(upload(query, {}, new Uint8Array(5 * 1024 * 1024)), env, server.doFetch)).status).toBe(413);
   });
 
+  it('Content-Length quá lớn bị từ chối trước khi đọc thân yêu cầu', async () => {
+    const server = fakeServer({ allow: ['can_edit_tree'] });
+    const response = await handleUpload(upload(`treeId=${TREE}&kind=member&personId=${PERSON}`, { 'content-length': String(50 * 1024 * 1024) }), env, server.doFetch);
+    expect(response.status).toBe(413);
+    expect(server.calls.some((call) => call.url.includes('googleapis'))).toBe(false);
+  });
+
   it('chỉ người xem được gia phả mới đọc ảnh; ảnh của gia phả khác bị chặn', async () => {
     const request = () => new Request(`https://app.test/api/photos/driveFileId123?treeId=${TREE}`, { headers: { authorization: 'Bearer user' } });
     expect((await handleDownload(request(), env, 'driveFileId123', fakeServer().doFetch)).status).toBe(403);
-    expect((await handleDownload(request(), env, 'driveFileId123', fakeServer({ allow: ['can_view_tree'] }).doFetch)).status).toBe(200);
+    const ok = await handleDownload(request(), env, 'driveFileId123', fakeServer({ allow: ['can_view_tree'] }).doFetch);
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get('x-content-type-options')).toBe('nosniff');
     const foreign = fakeServer({ allow: ['can_view_tree'], fileTree: '33333333-3333-3333-3333-333333333333' });
     expect((await handleDownload(request(), env, 'driveFileId123', foreign.doFetch)).status).toBe(404);
   });
@@ -107,5 +118,23 @@ describe('/api/photos', () => {
     const request = () => new Request(`https://app.test/api/photos/driveFileId123?treeId=${TREE}`, { method: 'DELETE', headers: { authorization: 'Bearer user' } });
     expect((await handleDelete(request(), env, 'driveFileId123', fakeServer({ allow: ['can_view_tree'] }).doFetch)).status).toBe(403);
     expect((await handleDelete(request(), env, 'driveFileId123', fakeServer({ allow: ['can_edit_tree'] }).doFetch)).status).toBe(204);
+  });
+
+  it('xoá ảnh gọi Drive xoá file thật (DELETE files/{id})', async () => {
+    const server = fakeServer({ allow: ['can_edit_tree'] });
+    const request = new Request(`https://app.test/api/photos/driveFileId123?treeId=${TREE}`, { method: 'DELETE', headers: { authorization: 'Bearer user' } });
+    expect((await handleDelete(request, env, 'driveFileId123', server.doFetch)).status).toBe(204);
+    expect(server.calls).toContainEqual({ url: 'https://www.googleapis.com/drive/v3/files/driveFileId123', method: 'DELETE' });
+  });
+
+  it('xoá gia phả: chỉ Chủ sở hữu, xoá cả thư mục gia phả trên Drive', async () => {
+    const request = () => new Request(`https://app.test/api/photos?treeId=${TREE}`, { method: 'DELETE', headers: { authorization: 'Bearer user' } });
+    expect((await handleDeleteTree(request(), env, fakeServer({ allow: ['can_edit_tree'] }).doFetch)).status).toBe(403);
+
+    const server = fakeServer({ allow: ['is_tree_owner', 'can_edit_tree'] });
+    await handleUpload(upload(MEMBER_QUERY_FOR_TREE), env, server.doFetch); // tạo thư mục
+    const response = await handleDeleteTree(request(), env, server.doFetch);
+    expect(response.status).toBe(204);
+    expect(server.calls.filter((call) => call.method === 'DELETE' && call.url.includes('/files/folder-'))).toHaveLength(1);
   });
 });

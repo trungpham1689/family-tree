@@ -18,6 +18,21 @@ describe('thẻ xem trước khi dán link', () => {
     expect(out).not.toContain('<script>');
   });
 
+  it('tên gia phả chứa mẫu thay thế "$&" / "$\'" thì giữ nguyên chữ, không phá trang', () => {
+    const out = injectOpenGraph(html, { name: "A $& B $' C", description: null, persons: 1 }, 'https://a.vn', 'https://a.vn');
+    expect(out).toContain("Gia phả A $&amp; B $' C");
+    expect(out.match(/<\/head>/g)).toHaveLength(1);
+  });
+
+  it('thay thẻ mặc định của index.html thay vì thêm trùng, và không cho lập chỉ mục', () => {
+    const base = '<head><meta name="robots" content="noindex" />\n<meta property="og:title" content="Gia Phả" />\n<meta name="description" content="x" />\n<title>Gia Phả</title></head>';
+    const out = injectOpenGraph(base, { name: 'Họ Phạm', description: null, persons: 3 }, 'https://a.vn/p/x', 'https://a.vn');
+    expect(out.match(/og:title/g)).toHaveLength(1);
+    expect(out.match(/name="description"/g)).toHaveLength(1);
+    expect(out.match(/name="robots"/g)).toHaveLength(1);
+    expect(out).toContain('name="robots" content="noindex');
+  });
+
   it('link hết hiệu lực vẫn có thẻ, không lộ gì', () => {
     expect(injectOpenGraph(html, null, 'https://a.vn/p/x', 'https://a.vn')).toContain('không còn hiệu lực');
   });

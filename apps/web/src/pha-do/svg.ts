@@ -2,6 +2,7 @@ import type { Drawing } from './drawing';
 import { PT_PER_MM } from './drawing';
 
 const escape = (text: string) => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+const escapeAttr = (text: string) => escape(text).replaceAll('"', '&quot;');
 const n = (value: number) => Number(value.toFixed(3));
 
 /** Font nhúng thẳng vào SVG (base64 TTF), cần khi vẽ SVG lên canvas để xuất PNG. */
@@ -19,7 +20,7 @@ export const drawingToSvg = (drawing: Drawing, fonts?: EmbeddedFonts, previewFon
         return `<text x="${n(item.x)}" y="${n(item.y)}" font-size="${n(item.sizePt / PT_PER_MM)}" font-weight="${item.bold ? 700 : 400}" fill="${item.color}" text-anchor="${item.align === 'start' ? 'start' : 'middle'}" dominant-baseline="central">${escape(item.text)}</text>`;
       case 'image': {
         // href là data URL (ảnh đã tải sẵn thành base64) nên không cần CORS khi vẽ SVG lên canvas để xuất PNG.
-        const img = `<image x="${n(item.x)}" y="${n(item.y)}" width="${n(item.width)}" height="${n(item.height)}" href="${item.href}" preserveAspectRatio="xMidYMid slice"${item.round ? ` clip-path="url(#avatar-${index})"` : ''}/>`;
+        const img = `<image x="${n(item.x)}" y="${n(item.y)}" width="${n(item.width)}" height="${n(item.height)}" href="${escapeAttr(item.href)}" preserveAspectRatio="xMidYMid slice"${item.round ? ` clip-path="url(#avatar-${index})"` : ''}/>`;
         if (!item.round) return img;
         const cx = n(item.x + item.width / 2);
         const cy = n(item.y + item.height / 2);

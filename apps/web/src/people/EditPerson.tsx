@@ -31,13 +31,15 @@ export const EditPerson = ({
   const [initial] = useState(() => personToFormValues(person));
   const [conflict, setConflict] = useState<Conflict | null>(null);
 
-  const save = (fields: PersonFields, version: number) =>
+  const save = (fields: PersonFields, version: number, retried = false) =>
     update.mutate(
       { personId: person.id, fields, version },
       {
         onSuccess: (result) => {
-          if (result.status === 'saved') onDone();
-          else setConflict({ fields, current: result.current });
+          if (result.status === 'saved') return onDone();
+          // Bản mới nhất y hệt bản của mình (không ai đổi gì có ý nghĩa): lưu lại ngay trên bản mới nhất, khỏi bắt người dùng chọn.
+          if (!retried && diffPersonFields(fields, result.current).length === 0) return save(fields, result.current.version, true);
+          setConflict({ fields, current: result.current });
         },
       },
     );

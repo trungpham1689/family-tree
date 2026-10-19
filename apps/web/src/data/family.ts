@@ -1,3 +1,4 @@
+import { fetchAll } from '../lib/fetch-all';
 import { supabase } from '../lib/supabase';
 import type { ParentLinkKind, UnionStatus } from '../family/family-graph';
 import type { PersonFields } from '../people/person-form';
@@ -16,13 +17,15 @@ const check = <T>({ data, error }: { data: T | null; error: { code?: string; mes
   return data as T;
 };
 
-/** Tải cả Gia phả một lần (vài trăm dòng), rồi dựng đồ thị trong bộ nhớ. */
+/** Tải cả Gia phả (đọc từng trang 1000 dòng), rồi dựng đồ thị trong bộ nhớ. */
 export const loadFamily = async (treeId: string): Promise<FamilyData> => {
   const [persons, parentLinks, unions, positions] = await Promise.all([
-    supabase.from('persons').select('*').eq('tree_id', treeId),
-    supabase.from('parent_links').select('*').eq('tree_id', treeId),
-    supabase.from('unions').select('*').eq('tree_id', treeId),
-    supabase.rpc('tree_positions', { target_tree: treeId }),
+    fetchAll((from, to) => supabase.from('persons').select('*').eq('tree_id', treeId).order('id').range(from, to)),
+    fetchAll((from, to) =>
+      supabase.from('parent_links').select('*').eq('tree_id', treeId).order('child_id').order('parent_id').range(from, to),
+    ),
+    fetchAll((from, to) => supabase.from('unions').select('*').eq('tree_id', treeId).order('id').range(from, to)),
+    fetchAll((from, to) => supabase.rpc('tree_positions', { target_tree: treeId }).order('person_id').range(from, to)),
   ]);
   return {
     persons: check(persons) ?? [],

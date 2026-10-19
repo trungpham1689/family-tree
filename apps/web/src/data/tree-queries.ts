@@ -62,6 +62,8 @@ import {
 import {
   fetchAvatarDataUrl,
   listPersonPhotos,
+  purgePersonPhotos,
+  purgeTreePhotos,
   removePersonPhoto,
   removeTreePhoto,
   setAvatarPhoto,
@@ -129,7 +131,10 @@ export const useSetOutsideGenerations = (treeId: string) => {
 export const useDeleteTree = (treeId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => deleteTree(treeId),
+    mutationFn: async () => {
+      await purgeTreePhotos(treeId);
+      return deleteTree(treeId);
+    },
     onSuccess: () => {
       queryClient.removeQueries({ queryKey: treeKeys.detail(treeId) });
       return queryClient.invalidateQueries({ queryKey: ['trees', 'mine'] });
@@ -158,7 +163,11 @@ export const useUpdatePerson = (treeId: string) => {
 export const useDeletePerson = (treeId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: deletePerson,
+    // Ảnh trên Drive không tự mất khi xoá Người (dòng ảnh trong database mới tự xoá theo), nên xoá file trước.
+    mutationFn: async (personId: string) => {
+      await purgePersonPhotos(personId);
+      return deletePerson(personId);
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) }),
   });
 };
@@ -175,7 +184,10 @@ export const useRequestDeletePerson = (treeId: string) => {
 export const useApproveDeletePerson = (treeId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: approveDeletePerson,
+    mutationFn: async (personId: string) => {
+      await purgePersonPhotos(personId);
+      return approveDeletePerson(personId);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: treeKeys.family(treeId) });
       queryClient.invalidateQueries({ queryKey: treeKeys.pendingDeletions(treeId) });

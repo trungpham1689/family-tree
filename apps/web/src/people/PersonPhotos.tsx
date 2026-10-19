@@ -1,5 +1,5 @@
 import { useRef, useState, type ChangeEvent } from 'react';
-import { checkImageFile, IMAGE_MIME_TYPES, PHOTO_SPECS, type PersonPhoto, type PhotoKind } from '../data/photos';
+import { checkImageFile, IMAGE_MIME_TYPES, MAX_PHOTOS_PER_PERSON, PHOTO_SPECS, type PersonPhoto, type PhotoKind } from '../data/photos';
 import {
   useAvatarDataUrl,
   usePersonPhotos,
@@ -62,11 +62,14 @@ export const PhotoGallery = ({ treeId, personId, canEdit }: { treeId: string; pe
   return (
     <section className={canEdit ? '' : 'mt-8'}>
       <h2 className="font-serif text-xl font-bold">Ảnh tư liệu</h2>
-      {canEdit && (
+      {canEdit && (photos.data?.length ?? 0) >= MAX_PHOTOS_PER_PERSON && (
+        <p className="mt-2 text-sm text-ink-muted">Đã đủ {MAX_PHOTOS_PER_PERSON} ảnh. Xoá bớt một ảnh nếu muốn thêm ảnh khác.</p>
+      )}
+      {canEdit && (photos.data?.length ?? 0) < MAX_PHOTOS_PER_PERSON && (
         <div className="mt-2">
           <ImagePicker
             kind="member"
-            label="+ Thêm ảnh"
+            label={`+ Thêm ảnh (${photos.data?.length ?? 0}/${MAX_PHOTOS_PER_PERSON})`}
             pending={upload.isPending}
             error={upload.error?.message}
             onPick={(file) => upload.mutate({ treeId, personId, file, caption: null, setAsAvatar: (photos.data?.length ?? 0) === 0 })}

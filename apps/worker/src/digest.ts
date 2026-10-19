@@ -1,46 +1,30 @@
 import { fromJulianDay, julianDay, type SolarDate } from '@gia-pha/lunar';
-import { dueReminders, occurrencesBetween, type CalendarSource, type Occurrence } from '@gia-pha/reminders';
+import { occurrencesBetween, type CalendarSource, type Occurrence } from '@gia-pha/reminders';
 
-/** Nhắc nhở của một tài khoản để gộp vào một email/ngày (Bản tin nhắc — SPEC story 65). */
-export type AccountDigest = { accountId: string; email: string; occurrences: Occurrence[] };
+/** Chu kỳ gửi: cứ 5 ngày một lần, mỗi lần gom 5 ngày tới — không ngày nào bị bỏ sót hay gửi hai lần. */
+export const DIGEST_PERIOD_DAYS = 5;
 
-export type AccountPref = { offsetDays: number; emailEnabled: boolean };
+/** Một email cho cả Gia phả, gửi chung tới Chủ sở hữu và Biên tập viên. */
+export type TreeDigest = { treeId: string; treeName: string; emails: string[]; occurrences: Occurrence[] };
 
-const MAX_OFFSET_DAYS = 7;
+/** Hôm nay có phải ngày gửi không (theo số ngày Julian, chia hết cho chu kỳ). */
+export const isDigestDay = (today: SolarDate): boolean => julianDay(today) % DIGEST_PERIOD_DAYS === 0;
 
 /**
- * Gộp dữ liệu toàn hệ thống thành một bản tin cho mỗi tài khoản có sự kiện trong 7 ngày tới, chưa
- * đọc, chưa tắt email ở gia phả đó. Chạy hằng tuần (wrangler.toml) nên luôn lấy đủ 7 ngày tới, không
- * theo "Độ sớm nhắc" của từng gia phả (chỉ dùng cho chuông nhắc nhở trong app).
+ * Với mỗi Gia phả có người nhận và có giỗ/Sự kiện trong `DIGEST_PERIOD_DAYS` ngày tới, dựng một bản tin.
+ * Gồm giỗ, sinh nhật (người còn sống) và Sự kiện. Không có gì thì không có bản tin.
  */
 export const buildDigests = (input: {
   today: SolarDate;
   source: CalendarSource;
-  emailByAccount: ReadonlyMap<string, string>;
-  treesByAccount: ReadonlyMap<string, readonly string[]>;
-  /** Người mỗi tài khoản đã tắt nhắc giỗ (mặc định ai cũng được nhắc). */
-  mutedByAccount: ReadonlyMap<string, ReadonlySet<string>>;
-  prefsByAccount: ReadonlyMap<string, ReadonlyMap<string, AccountPref>>;
-  readByAccount: ReadonlyMap<string, ReadonlySet<string>>;
-}): AccountDigest[] => {
-  const windowEnd = fromJulianDay(julianDay(input.today) + MAX_OFFSET_DAYS);
-  const allOccurrences = occurrencesBetween(input.source, input.today, windowEnd);
-  const digests: AccountDigest[] = [];
-
-  for (const [accountId, email] of input.emailByAccount) {
-    const treeIds = input.treesByAccount.get(accountId) ?? [];
-    const prefs = input.prefsByAccount.get(accountId) ?? new Map<string, AccountPref>();
-    const emailTrees = new Set(treeIds.filter((treeId) => prefs.get(treeId)?.emailEnabled ?? true));
-    if (emailTrees.size === 0) continue;
-
-    const offsetsByTree = new Map(treeIds.map((treeId) => [treeId, MAX_OFFSET_DAYS]));
-    const relevant = allOccurrences.filter((occurrence) => emailTrees.has(occurrence.treeId));
-    const muted = input.mutedByAccount.get(accountId) ?? new Set<string>();
-    const read = input.readByAccount.get(accountId) ?? new Set<string>();
-
-    const due = dueReminders(relevant, input.today, muted, offsetsByTree).filter((item) => !read.has(item.key));
-    if (due.length > 0) digests.push({ accountId, email, occurrences: due.map((item) => item.occurrence) });
-  }
-
-  return digests;
+  /** Email người nhận theo Gia phả: Chủ sở hữu + Biên tập viên đã duyệt, chưa tắt email. */
+  recipientsByTree: ReadonlyMap<string, readonly string[]>;
+}): TreeDigest[] => {
+  const windowEnd = fromJulianDay(julianDay(input.today) + DIGEST_PERIOD_DAYS - 1);
+  const occurrences = occurrencesBetween(input.source, input.today, windowEnd);
+  return input.source.trees.flatMap((tree) => {
+    const emails = input.recipientsByTree.get(tree.id) ?? [];
+    const own = occurrences.filter((occurrence) => occurrence.treeId === tree.id);
+    return emails.length > 0 && own.length > 0 ? [{ treeId: tree.id, treeName: tree.name, emails: [...emails], occurrences: own }] : [];
+  });
 };

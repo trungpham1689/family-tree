@@ -47,7 +47,7 @@ pnpm dev                                 # mở http://localhost:5173
 - **Supabase** project `family-tree` (`gihidxqjfcezsrcibrla`, vùng Singapore): database, đăng nhập. Ảnh cũ còn trong Storage cho tới khi chạy script chuyển (mục 4).
 - **Cloudflare Pages**: hosting web, tự deploy khi có commit lên `main`; Pages Function `/api/photos` đứng giữa trình duyệt và Google Drive.
 - **Google Drive** (15 GB miễn phí): ảnh Người và ảnh gia phả, thư mục `Family-tree/<tên gia phả>/Ảnh Gia Phả` và `Ảnh Thành Viên`.
-- **Cloudflare Worker Cron** (`apps/worker`): chạy mỗi thứ Hai, có sự kiện tuần tới mới gửi Bản tin nhắc qua **Resend** — chưa deploy, xem mục 3 dưới.
+- **Cloudflare Worker Cron** (`apps/worker`): chạy mỗi 5 ngày, có giỗ/sự kiện 5 ngày tới mới gửi một Bản tin nhắc chung cho Chủ sở hữu và Biên tập viên của mỗi gia phả qua **Resend** — chưa deploy, xem mục 3 dưới.
 
 ## Việc chủ dự án cần tự làm
 
@@ -86,7 +86,7 @@ Vào [Supabase Dashboard](https://supabase.com/dashboard/project/gihidxqjfcezsrc
 
 ### 3. Deploy Worker Cron (Bản tin nhắc qua email)
 
-Chưa làm bước này thì nhắc nhở vẫn chạy trong app (chuông "Nhắc nhở", trang `/nhac-gio`) như thường, chỉ chưa có email mỗi thứ Hai.
+Chưa làm bước này thì nhắc nhở vẫn chạy trong app (chuông "Nhắc nhở", trang `/nhac-gio`) như thường, chỉ chưa có email nhắc.
 
 1. **Tạo tài khoản [Resend](https://resend.com)** (miễn phí 100 email/ngày) → **API Keys** → tạo key mới.
    - Chưa có domain riêng: gửi được ngay bằng `onboarding@resend.dev`, nhưng Resend chỉ cho gửi về đúng email bạn dùng để đăng ký tài khoản Resend — đủ để tự thử, không gửi được cho người khác.
@@ -107,7 +107,7 @@ Chưa làm bước này thì nhắc nhở vẫn chạy trong app (chuông "Nhắ
    pnpm --filter worker typecheck
    npx wrangler deploy
    ```
-   Worker chạy theo lịch đã đặt sẵn trong `wrangler.toml` (`0 0 * * 1`, tức thứ Hai 7:00 sáng giờ Việt Nam), chỉ gửi nếu tuần tới có sự kiện, không cần làm gì thêm. Xem log: `npx wrangler tail`. Đổi `APP_URL`/`RESEND_FROM` thì sửa `[vars]` trong `wrangler.toml` rồi deploy lại.
+   Worker chạy theo lịch đã đặt sẵn trong `wrangler.toml` (`0 0 * * *`, 7:00 sáng giờ Việt Nam hằng ngày; code chỉ gửi mỗi 5 ngày một lần và chỉ khi 5 ngày tới có giỗ/sự kiện), không cần làm gì thêm. Xem log: `npx wrangler tail`. Đổi `APP_URL`/`RESEND_FROM` thì sửa `[vars]` trong `wrangler.toml` rồi deploy lại.
 
 ### 4. Ảnh trên Google Drive
 
@@ -127,7 +127,7 @@ Chưa làm bước này thì nhắc nhở vẫn chạy trong app (chuông "Nhắ
      node --experimental-strip-types scripts/migrate-photos-to-drive.mjs
    ```
 
-Quy cách ảnh cho người dùng: Người — ảnh vuông/dọc, mặt ở giữa, tối thiểu 300×300px (nên ≥800px); ảnh gia phả — ảnh ngang, tối thiểu 1200×800px; cả hai tối đa 15MB, JPEG/PNG/WEBP, tối đa 5 ảnh/Người. Trình duyệt tự thu nhỏ (Người 1000px, gia phả 1600px) và nén JPEG nên mỗi ảnh còn khoảng 100–300KB trên Drive; Function chặn cứng ở 4MB.
+Quy cách ảnh cho người dùng: Người — ảnh vuông/dọc, mặt ở giữa, tối thiểu 300×300px (nên ≥800px); ảnh gia phả — ảnh ngang, tối thiểu 1200×800px; cả hai tối đa 5MB, JPEG/PNG/WEBP, tối đa 3 ảnh/Người. Trình duyệt tự thu nhỏ (Người 1000px, gia phả 1600px) và nén JPEG nên mỗi ảnh còn khoảng 100–300KB trên Drive; Function chặn cứng ở 4MB.
 
 Chạy cục bộ: `pnpm dev` không có `/api/photos`. Muốn thử tải ảnh, build rồi chạy `npx wrangler pages dev dist` trong `apps/web` với file `.dev.vars` chứa ba biến Google và hai biến `VITE_SUPABASE_*`.
 

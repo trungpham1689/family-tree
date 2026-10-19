@@ -41,7 +41,8 @@ describe('seam B: Nhắc nhở (liên kết tài khoản, Danh sách nhắc gi�
     }
   });
 
-  it('liên kết Người là chính mình, mồi Danh sách nhắc giỗ bằng tổ tiên 4 đời', async () => {
+  it('liên kết Người là chính mình, không tắt nhắc giỗ của tổ tiên nào (nhắc giỗ mặc định bật)', async () => {
+    await me.rpc('link_account_to_person', { target_tree: treeId, person_id: chatId });
     await me.rpc('link_account_to_person', { target_tree: treeId, person_id: chatId });
 
     const [role] = await me.query<{ linked_person_id: string }>(
@@ -49,22 +50,8 @@ describe('seam B: Nhắc nhở (liên kết tài khoản, Danh sách nhắc gi�
       [treeId],
     );
     expect(role!.linked_person_id).toBe(chatId);
-
-    const watched = (await me.query<{ person_id: string }>('select person_id from reminder_watch where account_id = auth.uid()')).map(
-      (row) => row.person_id,
-    );
-    expect(watched.sort()).toEqual([chauId, conId, toId].sort());
-  });
-
-  it('liên kết lần sau không ghi đè Danh sách đã tự chỉnh', async () => {
-    await me.rpc('link_account_to_person', { target_tree: treeId, person_id: chatId });
-    await me.query('delete from reminder_watch where person_id = $1', [toId]);
-    await me.query("insert into persons (tree_id, full_name) values ($1, 'Người khác') returning id", [treeId]);
-
-    await me.rpc('link_account_to_person', { target_tree: treeId, person_id: chatId });
-
-    const watched = await me.query('select person_id from reminder_watch where account_id = auth.uid()');
-    expect(watched).toHaveLength(2); // con, chau — không mồi lại 'to' đã xoá
+    // reminder_watch là danh sách đã TẮT: liên kết không được ghi gì vào đó.
+    expect(await me.query('select person_id from reminder_watch where account_id = auth.uid()')).toEqual([]);
   });
 
   it('không liên kết được Người ở gia phả khác', async () => {

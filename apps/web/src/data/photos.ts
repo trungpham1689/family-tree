@@ -10,7 +10,9 @@ import { DataError } from './trees';
 export const AVATAR_BUCKET = 'avatars';
 export const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 /** Giới hạn trên file gốc, trước khi nén — chặn sớm ảnh quá khổ trước khi trình duyệt phải giải mã. */
-export const MAX_AVATAR_BYTES = 15 * 1024 * 1024;
+export const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+/** Phải khớp app_settings.max_photos_per_person trong database (nơi chặn thật); dùng để báo sớm và ẩn nút thêm. */
+export const MAX_PHOTOS_PER_PERSON = 3;
 
 export type PhotoKind = 'member' | 'tree';
 
@@ -22,12 +24,12 @@ export const PHOTO_SPECS: Record<PhotoKind, { maxEdge: number; minEdge: number; 
   member: {
     maxEdge: 1000,
     minEdge: 300,
-    hint: 'Ảnh chân dung vuông hoặc dọc, mặt ở giữa khung (ảnh đại diện được cắt tròn). Tối thiểu 300×300px, nên từ 800px trở lên; tối đa 15MB, JPEG/PNG/WEBP. Hệ thống tự thu nhỏ về 1000px.',
+    hint: 'Ảnh chân dung vuông hoặc dọc, mặt ở giữa khung (ảnh đại diện được cắt tròn). Tối thiểu 300×300px, nên từ 800px trở lên; tối đa 5MB, JPEG/PNG/WEBP. Hệ thống tự thu nhỏ về 1000px.',
   },
   tree: {
     maxEdge: 1600,
     minEdge: 600,
-    hint: 'Ảnh ngang (tỉ lệ 3:2 hoặc 16:9) như ảnh nhà thờ họ, ảnh cả họ. Tối thiểu 1200×800px; tối đa 15MB, JPEG/PNG/WEBP. Hệ thống tự thu nhỏ về 1600px.',
+    hint: 'Ảnh ngang (tỉ lệ 3:2 hoặc 16:9) như ảnh nhà thờ họ, ảnh cả họ. Tối thiểu 1200×800px; tối đa 5MB, JPEG/PNG/WEBP. Hệ thống tự thu nhỏ về 1600px.',
   },
 };
 
@@ -73,6 +75,14 @@ const optimizeImage = async (file: File, kind: PhotoKind): Promise<Blob> => {
   }
 };
 
+class PhotoRequestError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
 /** Gọi Pages Function kèm phiên đăng nhập Supabase hiện tại. */
 const photoRequest = async (path: string, init: RequestInit = {}): Promise<Response> => {
   const { data } = await supabase.auth.getSession();
@@ -82,7 +92,7 @@ const photoRequest = async (path: string, init: RequestInit = {}): Promise<Respo
   });
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(body?.error ?? 'Không kết nối được kho ảnh. Hãy thử lại.');
+    throw new PhotoRequestError(response.status, body?.error ?? 'Không kết nối được kho ảnh. Hãy thử lại.');
   }
   return response;
 };
@@ -101,10 +111,15 @@ const uploadToDrive = async (input: { treeId: string; kind: PhotoKind; personId?
   return `${input.treeId}/${((await response.json()) as { fileId: string }).fileId}`;
 };
 
+/** Xoá file ảnh khỏi kho (Drive, hoặc Supabase Storage với ảnh cũ). Ảnh đã không còn trên kho (404) thì coi như đã xoá; lỗi khác thì ném ra. */
 const removeStored = async (path: string): Promise<void> => {
   const drive = drivePathOf(path);
   if (drive) {
-    await photoRequest(`/${drive.fileId}?treeId=${drive.treeId}`, { method: 'DELETE' });
+    try {
+      await photoRequest(`/${drive.fileId}?treeId=${drive.treeId}`, { method: 'DELETE' });
+    } catch (error) {
+      if (!(error instanceof PhotoRequestError && error.status === 404)) throw error;
+    }
     return;
   }
   const { error } = await supabase.storage.from(AVATAR_BUCKET).remove([path]);
@@ -152,10 +167,24 @@ export const updatePhotoCaption = async (input: { photoId: string; caption: stri
   if (error) throw new DataError(error);
 };
 
+/** Xoá file trên Drive trước, thành công rồi mới xoá dòng dữ liệu — lỗi Drive thì ảnh còn nguyên, báo cho người dùng thử lại. */
 export const removePersonPhoto = async (input: { photoId: string; path: string }): Promise<void> => {
+  await removeStored(input.path);
   const { error } = await supabase.from('person_photos').delete().eq('id', input.photoId);
   if (error) throw new DataError(error);
-  await removeStored(input.path).catch(() => undefined); // dòng dữ liệu đã xoá; file lỡ còn lại trên Drive không ảnh hưởng người dùng
+};
+
+/** Xoá mọi file ảnh của một Người khỏi Drive (gọi trước khi xoá Người, vì xoá Người kéo theo xoá dòng ảnh). */
+export const purgePersonPhotos = async (personId: string): Promise<void> => {
+  const photos = await listPersonPhotos(personId);
+  const results = await Promise.allSettled(photos.map((photo) => removeStored(photo.storage_path)));
+  const failed = results.filter((result) => result.status === 'rejected').length;
+  if (failed > 0) throw new Error(`Không xoá được ${failed} ảnh của Người này trên Google Drive. Hãy thử lại.`);
+};
+
+/** Xoá cả thư mục ảnh của gia phả trên Drive (gọi trước khi xoá gia phả). */
+export const purgeTreePhotos = async (treeId: string): Promise<void> => {
+  await photoRequest(`?${new URLSearchParams({ treeId })}`, { method: 'DELETE' });
 };
 
 /** Đặt (hoặc thay) ảnh đại diện của cả gia phả; ảnh cũ trên Drive được xoá sau khi ảnh mới đã lưu. */
@@ -166,20 +195,23 @@ export const setTreePhoto = async (input: { treeId: string; file: File; previous
     await removeStored(path).catch(() => undefined);
     throw new DataError(error);
   }
-  if (input.previousPath) await removeStored(input.previousPath).catch(() => undefined);
+  if (input.previousPath) await removeStored(input.previousPath);
 };
 
 export const removeTreePhoto = async (input: { treeId: string; path: string }): Promise<void> => {
+  await removeStored(input.path);
   const { error } = await supabase.from('family_trees').update({ photo_path: null }).eq('id', input.treeId);
   if (error) throw new DataError(error);
-  await removeStored(input.path).catch(() => undefined);
+};
+
+/** Tải file ảnh gốc về dưới dạng Blob (Drive qua /api/photos, hoặc Supabase Storage với ảnh cũ). */
+export const fetchPhotoBlob = async (path: string): Promise<Blob> => {
+  const drive = drivePathOf(path);
+  if (drive) return (await photoRequest(`/${drive.fileId}?treeId=${drive.treeId}`)).blob();
+  const { data, error } = await supabase.storage.from(AVATAR_BUCKET).download(path);
+  if (error) throw new DataError(error);
+  return data;
 };
 
 /** Tải ảnh về và đổi thành data URL (hiện trực tiếp, và nhúng được vào Phả đồ/PDF không cần CORS). */
-export const fetchAvatarDataUrl = async (path: string): Promise<string> => {
-  const drive = drivePathOf(path);
-  if (drive) return blobToDataUrl(await (await photoRequest(`/${drive.fileId}?treeId=${drive.treeId}`)).blob());
-  const { data, error } = await supabase.storage.from(AVATAR_BUCKET).download(path);
-  if (error) throw new DataError(error);
-  return blobToDataUrl(data);
-};
+export const fetchAvatarDataUrl = async (path: string): Promise<string> => blobToDataUrl(await fetchPhotoBlob(path));

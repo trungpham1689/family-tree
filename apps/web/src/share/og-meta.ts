@@ -34,11 +34,16 @@ export const openGraphTags = (card: PublicCard | null, pageUrl: string, origin: 
     `<meta property="og:locale" content="vi_VN" />`,
     `<meta name="twitter:card" content="summary_large_image" />`,
     `<meta name="description" content="${description}" />`,
+    // Link chia sẻ chỉ dành cho người nhận link: bot xem trước (Zalo/Facebook) vẫn đọc được thẻ og, nhưng không lập chỉ mục.
+    `<meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />`,
   ].join('\n    ');
 };
 
 /** Thay <title> và chèn thẻ meta vào HTML của ứng dụng. */
 export const injectOpenGraph = (html: string, card: PublicCard | null, pageUrl: string, origin: string): string =>
   html
-    .replace(/<title>[^<]*<\/title>/, `<title>${escapeHtml(cardTitle(card))}</title>`)
-    .replace('</head>', `    ${openGraphTags(card, pageUrl, origin)}\n  </head>`);
+    // Bỏ thẻ mô tả/og/robots mặc định của index.html để không bị trùng (bot xem trước lấy thẻ đầu tiên).
+    .replace(/[ \t]*<meta (?:name|property)="(?:description|robots|googlebot|og:[^"]*|twitter:[^"]*)"[^>]*\/>\r?\n?/g, '')
+    // Chuỗi thay thế dạng hàm: tên gia phả chứa "$&", "$'"… sẽ không bị hiểu là mẫu thay thế của replace.
+    .replace(/<title>[^<]*<\/title>/, () => `<title>${escapeHtml(cardTitle(card))}</title>`)
+    .replace('</head>', () => `    ${openGraphTags(card, pageUrl, origin)}\n  </head>`);
