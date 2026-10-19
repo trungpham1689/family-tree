@@ -15,11 +15,8 @@ export const AppHeader = () => {
           Gia Phả
         </Link>
         <div className="flex items-center gap-2 sm:gap-3">
-          <Link to="/lich" className="font-semibold text-ink hover:text-son">
+          <Link to="/lich" className="relative font-semibold text-ink hover:text-son" aria-label="Lịch">
             Lịch
-          </Link>
-          <Link to="/su-kien" className="relative font-semibold text-ink hover:text-son" aria-label="Sự kiện">
-            Sự kiện
             {reminders.unread.length > 0 && (
               <span className="absolute -right-3 -top-2 grid size-5 place-items-center rounded-full bg-son text-xs font-bold text-white">
                 {reminders.unread.length > 9 ? '9+' : reminders.unread.length}

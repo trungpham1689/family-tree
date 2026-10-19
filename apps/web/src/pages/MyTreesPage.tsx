@@ -1,6 +1,9 @@
-import { useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { useCreateTree, useMyTrees } from '../data/tree-queries';
+import type { Occurrence } from '@gia-pha/reminders';
+import { occurrencesInMonth, todayInVietnam } from '../calendar/month-grid';
+import { OccurrenceSection } from '../calendar/OccurrenceSection';
+import { useCreateTree, useMyCalendar, useMyTrees } from '../data/tree-queries';
 import { ROLE_LABELS } from '../data/role-labels';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
@@ -10,6 +13,15 @@ import { ErrorBanner, TextAreaField, TextField } from '../ui/fields';
 export const MyTreesPage = () => {
   const trees = useMyTrees();
   const [creating, setCreating] = useState(false);
+  const today = todayInVietnam();
+  const calendar = useMyCalendar(true);
+  const monthByTree = useMemo(() => {
+    const map = new Map<string, Occurrence[]>();
+    for (const occurrence of calendar.data ? occurrencesInMonth(calendar.data, today.year, today.month) : []) {
+      map.set(occurrence.treeId, [...(map.get(occurrence.treeId) ?? []), occurrence]);
+    }
+    return map;
+  }, [calendar.data, today.year, today.month]);
 
   return (
     <>
@@ -57,6 +69,23 @@ export const MyTreesPage = () => {
             </ul>
           )}
         </div>
+
+        {trees.isSuccess && trees.data.length > 0 && (
+          <div className="mt-10">
+            <h2 className="font-serif text-2xl font-bold">Sự kiện trong tháng {today.month}/{today.year}</h2>
+            <div className="mt-4 space-y-6">
+              {trees.data.map((tree) => (
+                <OccurrenceSection
+                  key={tree.id}
+                  title={tree.name}
+                  occurrences={monthByTree.get(tree.id) ?? []}
+                  today={today}
+                  emptyText="Tháng này chưa có giỗ, sinh nhật hay sự kiện nào."
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </main>
 
       <Dialog open={creating} title="Tạo gia phả" onClose={() => setCreating(false)}>

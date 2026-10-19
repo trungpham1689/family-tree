@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { DayDetails } from '../calendar/DayDetails';
 import { MonthCalendar } from '../calendar/MonthCalendar';
-import { parseIsoDate, shiftMonth, todayInVietnam, toIsoDate } from '../calendar/month-grid';
+import { occurrencesInMonth, parseIsoDate, shiftMonth, todayInVietnam, toIsoDate } from '../calendar/month-grid';
 import { dateKey, groupByDay, occurrencesBetween, type CalendarSource, type Occurrence, type OccurrenceKind } from '@gia-pha/reminders';
 import { OccurrenceList } from '../calendar/OccurrenceList';
 import { useMyCalendar } from '../data/tree-queries';
@@ -104,12 +104,7 @@ const useOccurrencesAroundMonth = (source: CalendarSource | undefined, year: num
 
 /** Giỗ, sinh nhật, Sự kiện đúng trong một tháng (để hiện cả danh sách, không chỉ ngày đang chọn). */
 const useOccurrencesInMonth = (source: CalendarSource | undefined, year: number, month: number) =>
-  useMemo(() => {
-    if (!source) return [];
-    const first = julianDay({ year, month, day: 1 });
-    const nextFirst = julianDay(month === 12 ? { year: year + 1, month: 1, day: 1 } : { year, month: month + 1, day: 1 });
-    return occurrencesBetween(source, fromJulianDay(first), fromJulianDay(nextFirst - 1));
-  }, [source, year, month]);
+  useMemo(() => (source ? occurrencesInMonth(source, year, month) : []), [source, year, month]);
 
 const Legend = () => (
   <p className="mt-3 flex flex-wrap gap-4 text-sm text-ink-muted">

@@ -4,30 +4,13 @@ import { occurrencesToIcs } from '../calendar/ics';
 import { todayInVietnam } from '../calendar/month-grid';
 import { occurrencesBetween, upcoming } from '@gia-pha/reminders';
 import { OccurrenceList } from '../calendar/OccurrenceList';
-import {
-  useDueReminders,
-  useMarkNotificationsRead,
-  useMyCalendar,
-  useMyTrees,
-  useReminderPrefs,
-  useReminderWatch,
-  useSetEmailEnabled,
-  useSetReminderOffset,
-  useToggleWatch,
-} from '../data/tree-queries';
+import { useDueReminders, useMarkNotificationsRead, useMyCalendar, useMyTrees, useReminderWatch, useToggleWatch } from '../data/tree-queries';
 import { downloadBlob } from '../lib/download';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
-import { ErrorBanner, Select } from '../ui/fields';
+import { ErrorBanner } from '../ui/fields';
 
-const OFFSET_OPTIONS: { value: 0 | 1 | 3 | 7; label: string }[] = [
-  { value: 0, label: 'Đúng ngày' },
-  { value: 1, label: 'Trước 1 ngày' },
-  { value: 3, label: 'Trước 3 ngày' },
-  { value: 7, label: 'Trước 7 ngày' },
-];
-
-/** Sự kiện: giỗ/sinh nhật/sự kiện 30 ngày tới, Danh sách nhắc giỗ, độ sớm nhắc mỗi gia phả (gộp từ "Sắp tới" + "Nhắc nhở"). */
+/** Sự kiện: giỗ/sinh nhật/sự kiện 30 ngày tới (mọi gia phả) và Danh sách nhắc giỗ. Mỗi gia phả có trang Sự kiện riêng (xem độ sớm nhắc, sự kiện cũ…). */
 export const SuKienPage = () => {
   const today = todayInVietnam();
   const calendar = useMyCalendar(true);
@@ -36,9 +19,6 @@ export const SuKienPage = () => {
   const watch = useReminderWatch();
   const toggleWatch = useToggleWatch();
   const trees = useMyTrees();
-  const prefs = useReminderPrefs();
-  const setOffset = useSetReminderOffset();
-  const setEmailEnabled = useSetEmailEnabled();
   const markRead = useMarkNotificationsRead();
   const [exporting, setExporting] = useState(false);
 
@@ -124,51 +104,6 @@ export const SuKienPage = () => {
           )}
         </section>
 
-        {trees.data && trees.data.length > 0 && (
-          <section className="mt-8">
-            <h2 className="font-serif text-xl font-bold">Độ sớm nhắc</h2>
-            <p className="mt-1 text-ink-muted">Nhắc trước mấy ngày, và có gửi bản tin email mỗi sáng hay không — riêng cho từng Gia phả.</p>
-            <ul className="mt-3 space-y-2">
-              {trees.data.map((tree) => {
-                const pref = prefs.data?.get(tree.id);
-                return (
-                  <li key={tree.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-2">
-                    <span className="font-medium">{tree.name}</span>
-                    <div className="flex items-center gap-4">
-                      <label className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          className="size-5 accent-son"
-                          checked={pref?.emailEnabled ?? true}
-                          disabled={setEmailEnabled.isPending}
-                          onChange={(event) => setEmailEnabled.mutate({ treeId: tree.id, emailEnabled: event.target.checked })}
-                        />
-                        Email
-                      </label>
-                      <Select
-                        aria-label={`Độ sớm nhắc cho ${tree.name}`}
-                        value={pref?.offsetDays ?? 0}
-                        disabled={setOffset.isPending}
-                        onChange={(event) =>
-                          setOffset.mutate({ treeId: tree.id, offsetDays: Number(event.target.value) as 0 | 1 | 3 | 7 })
-                        }
-                      >
-                        {OFFSET_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-            {(setOffset.isError || setEmailEnabled.isError) && (
-              <ErrorBanner>{setOffset.error?.message ?? setEmailEnabled.error?.message}</ErrorBanner>
-            )}
-          </section>
-        )}
       </main>
     </>
   );

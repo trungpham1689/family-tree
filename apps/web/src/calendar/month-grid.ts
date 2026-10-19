@@ -1,4 +1,5 @@
 import { fromJulianDay, holidaysOn, julianDay, solarToLunar, type Holiday, type LunarDate, type SolarDate } from '@gia-pha/lunar';
+import { occurrencesBetween, type CalendarSource, type Occurrence } from '@gia-pha/reminders';
 
 export type DayCell = {
   date: SolarDate;
@@ -70,6 +71,13 @@ export const parseIsoDate = (text: string | null): SolarDate | null => {
   if (date.month < 1 || date.month > 12 || date.day < 1) return null;
   // Loại ngày không tồn tại (ví dụ 31/02) bằng cách đổi qua số Julius rồi so lại.
   return sameDay(fromJulianDay(julianDay(date)), date) ? date : null;
+};
+
+/** Giỗ, sinh nhật, Sự kiện đúng trong một tháng (nhiều Gia phả, mỗi occurrence tự mang treeId/treeName). */
+export const occurrencesInMonth = (source: CalendarSource, year: number, month: number): Occurrence[] => {
+  const first = julianDay({ year, month, day: 1 });
+  const nextFirst = julianDay(month === 12 ? { year: year + 1, month: 1, day: 1 } : { year, month: month + 1, day: 1 });
+  return occurrencesBetween(source, fromJulianDay(first), fromJulianDay(nextFirst - 1));
 };
 
 export const WEEKDAY_NAMES = ['', '', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ nhật'] as const;

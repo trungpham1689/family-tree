@@ -1,9 +1,20 @@
-import { nextAnniversary } from '@gia-pha/lunar';
-import { useState, type FormEvent } from 'react';
+import { fromJulianDay, julianDay, nextAnniversary } from '@gia-pha/lunar';
+import { occurrencesBetween, upcoming, type CalendarSource } from '@gia-pha/reminders';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router';
+import { OccurrenceSection } from '../calendar/OccurrenceSection';
 import { todayInVietnam } from '../calendar/month-grid';
 import type { TreeEvent } from '../data/calendar';
-import { useRemoveTreeEvent, useSaveTreeEvent, useTree, useTreeEvents } from '../data/tree-queries';
+import {
+  useMyCalendar,
+  useRemoveTreeEvent,
+  useReminderPrefs,
+  useSaveTreeEvent,
+  useSetEmailEnabled,
+  useSetReminderOffset,
+  useTree,
+  useTreeEvents,
+} from '../data/tree-queries';
 import {
   describeEvent,
   EMPTY_EVENT_FORM,
@@ -16,8 +27,30 @@ import { TreeTabs } from '../tree/TreeTabs';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
-import { ErrorBanner, TextAreaField, TextField } from '../ui/fields';
+import { ErrorBanner, Select, TextAreaField, TextField } from '../ui/fields';
 import { FullPageMessage } from '../ui/FullPageMessage';
+
+const OFFSET_OPTIONS: { value: 0 | 1 | 3 | 7; label: string }[] = [
+  { value: 0, label: 'Đúng ngày' },
+  { value: 1, label: 'Trước 1 ngày' },
+  { value: 3, label: 'Trước 3 ngày' },
+  { value: 7, label: 'Trước 7 ngày' },
+];
+
+/** Giỗ, sinh nhật, Sự kiện chỉ của một Gia phả — lọc ra từ "Lịch của tôi" đã tải sẵn. */
+const useTreeCalendarSource = (treeId: string): CalendarSource | undefined => {
+  const calendar = useMyCalendar(true);
+  return useMemo(() => {
+    const data = calendar.data;
+    const tree = data?.trees.find((item) => item.id === treeId);
+    if (!data || !tree) return undefined;
+    return {
+      trees: [tree],
+      persons: data.persons.filter((person) => person.tree_id === treeId),
+      events: data.events.filter((event) => event.tree_id === treeId),
+    };
+  }, [calendar.data, treeId]);
+};
 
 /** Sự kiện của một Gia phả: họp họ, ngày tự đặt. Ai có vai trò cũng xem; Biên tập viên tạo, sửa, xoá. */
 export const EventsPage = () => {
@@ -25,6 +58,21 @@ export const EventsPage = () => {
   const tree = useTree(treeId);
   const events = useTreeEvents(treeId);
   const [editing, setEditing] = useState<TreeEvent | 'new' | null>(null);
+
+  const today = todayInVietnam();
+  const source = useTreeCalendarSource(treeId);
+  const upcomingList = useMemo(() => (source ? upcoming(source, today, 30) : []), [source, today]);
+  const pastList = useMemo(() => {
+    if (!source) return [];
+    const yearAgo = fromJulianDay(julianDay(today) - 365);
+    return occurrencesBetween(source, yearAgo, today)
+      .filter((occurrence) => julianDay(occurrence.date) < julianDay(today))
+      .reverse();
+  }, [source, today]);
+  const prefs = useReminderPrefs();
+  const pref = prefs.data?.get(treeId);
+  const setOffset = useSetReminderOffset();
+  const setEmailEnabled = useSetEmailEnabled();
 
   if (tree.isPending) return <FullPageMessage>Đang tải…</FullPageMessage>;
   const canEdit = tree.data?.role === 'owner' || tree.data?.role === 'editor';
@@ -34,8 +82,50 @@ export const EventsPage = () => {
       <AppHeader />
       <TreeTabs treeId={treeId} />
       <main className="mx-auto max-w-3xl px-4 py-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="font-serif text-3xl font-bold text-son">Sự kiện</h1>
+        <h1 className="font-serif text-3xl font-bold text-son">Sự kiện</h1>
+
+        <div className="mt-6">
+          <OccurrenceSection title="Sắp tới (30 ngày)" occurrences={upcomingList} today={today} emptyText="30 ngày tới chưa có giỗ, sinh nhật hay sự kiện nào." />
+        </div>
+
+        <div className="mt-8">
+          <OccurrenceSection title="Đã qua (365 ngày)" occurrences={pastList} today={today} emptyText="365 ngày qua chưa có giỗ, sinh nhật hay sự kiện nào." />
+        </div>
+
+        <section className="mt-8 rounded-xl border border-line bg-surface px-4 py-3">
+          <h2 className="font-serif text-xl font-bold">Độ sớm nhắc</h2>
+          <p className="mt-1 text-ink-muted">Nhắc trước mấy ngày, và có gửi bản tin email mỗi sáng hay không.</p>
+          <div className="mt-3 flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="size-5 accent-son"
+                checked={pref?.emailEnabled ?? true}
+                disabled={setEmailEnabled.isPending}
+                onChange={(event) => setEmailEnabled.mutate({ treeId, emailEnabled: event.target.checked })}
+              />
+              Email
+            </label>
+            <Select
+              aria-label="Độ sớm nhắc"
+              value={pref?.offsetDays ?? 0}
+              disabled={setOffset.isPending}
+              onChange={(event) => setOffset.mutate({ treeId, offsetDays: Number(event.target.value) as 0 | 1 | 3 | 7 })}
+            >
+              {OFFSET_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          {(setOffset.isError || setEmailEnabled.isError) && (
+            <ErrorBanner>{setOffset.error?.message ?? setEmailEnabled.error?.message}</ErrorBanner>
+          )}
+        </section>
+
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-serif text-xl font-bold">Quản lý sự kiện</h2>
           {canEdit && <Button onClick={() => setEditing('new')}>+ Thêm sự kiện</Button>}
         </div>
         <p className="mt-1 text-ink-muted">
