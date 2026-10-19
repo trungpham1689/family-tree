@@ -18,11 +18,8 @@ export const AppHeader = ({ email }: { email?: string | undefined }) => {
           <Link to="/lich" className="font-semibold text-ink hover:text-son">
             Lịch
           </Link>
-          <Link to="/sap-toi" className="font-semibold text-ink hover:text-son">
-            Sắp tới
-          </Link>
-          <Link to="/nhac-gio" className="relative font-semibold text-ink hover:text-son" aria-label="Nhắc nhở">
-            Nhắc nhở
+          <Link to="/su-kien" className="relative font-semibold text-ink hover:text-son" aria-label="Sự kiện">
+            Sự kiện
             {reminders.unread.length > 0 && (
               <span className="absolute -right-3 -top-2 grid size-5 place-items-center rounded-full bg-son text-xs font-bold text-white">
                 {reminders.unread.length > 9 ? '9+' : reminders.unread.length}

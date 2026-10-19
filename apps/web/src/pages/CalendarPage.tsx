@@ -50,8 +50,8 @@ export const CalendarPage = () => {
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
             <h1 className="font-serif text-3xl font-bold">{signedIn ? 'Lịch của tôi' : 'Lịch âm dương'}</h1>
             {signedIn && (
-              <Link to="/sap-toi" className="font-semibold text-son hover:underline">
-                Sắp tới (30 ngày) →
+              <Link to="/su-kien" className="font-semibold text-son hover:underline">
+                Xem Sự kiện →
               </Link>
             )}
           </div>

@@ -1,10 +1,14 @@
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../auth/auth-context';
+import { occurrencesToIcs } from '../calendar/ics';
 import { todayInVietnam } from '../calendar/month-grid';
+import { occurrencesBetween, upcoming } from '@gia-pha/reminders';
 import { OccurrenceList } from '../calendar/OccurrenceList';
 import {
   useDueReminders,
   useMarkNotificationsRead,
+  useMyCalendar,
   useMyTrees,
   useReminderPrefs,
   useReminderWatch,
@@ -12,6 +16,7 @@ import {
   useSetReminderOffset,
   useToggleWatch,
 } from '../data/tree-queries';
+import { downloadBlob } from '../lib/download';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { ErrorBanner, Select } from '../ui/fields';
@@ -23,11 +28,13 @@ const OFFSET_OPTIONS: { value: 0 | 1 | 3 | 7; label: string }[] = [
   { value: 7, label: 'Trước 7 ngày' },
 ];
 
-/** Nhắc nhở của tài khoản: giỗ/sinh nhật/sự kiện đến hạn, Danh sách nhắc giỗ, độ sớm nhắc mỗi gia phả. */
-export const RemindersPage = () => {
+/** Sự kiện: giỗ/sinh nhật/sự kiện 30 ngày tới, Danh sách nhắc giỗ, độ sớm nhắc mỗi gia phả (gộp từ "Sắp tới" + "Nhắc nhở"). */
+export const SuKienPage = () => {
   const { state } = useAuth();
   const email = state.status === 'signed-in' ? state.session.user.email : undefined;
   const today = todayInVietnam();
+  const calendar = useMyCalendar(true);
+  const upcomingList = useMemo(() => (calendar.data ? upcoming(calendar.data, today, 30) : []), [calendar.data, today]);
   const reminders = useDueReminders();
   const watch = useReminderWatch();
   const toggleWatch = useToggleWatch();
@@ -36,37 +43,57 @@ export const RemindersPage = () => {
   const setOffset = useSetReminderOffset();
   const setEmailEnabled = useSetEmailEnabled();
   const markRead = useMarkNotificationsRead();
+  const [exporting, setExporting] = useState(false);
 
-  const manyTrees = trees.data && trees.data.length > 1;
+  const manyTrees = (trees.data?.length ?? 0) > 1;
+
+  const exportIcs = () => {
+    if (!calendar.data) return;
+    setExporting(true);
+    try {
+      const threeYears = occurrencesBetween(calendar.data, today, { ...today, year: today.year + 3 });
+      downloadBlob(new Blob([occurrencesToIcs(threeYears)], { type: 'text/calendar;charset=utf-8' }), 'lich-gia-pha.ics');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <>
       <AppHeader email={email} />
       <main className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="font-serif text-3xl font-bold text-son">Nhắc nhở</h1>
+        <h1 className="font-serif text-3xl font-bold text-son">Sự kiện</h1>
 
         <section className="mt-6">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="font-serif text-xl font-bold">Đến hạn</h2>
-            {reminders.unread.length > 0 && (
-              <Button
-                variant="ghost"
-                disabled={markRead.isPending}
-                onClick={() => markRead.mutate(reminders.unread.map((item) => item.key))}
-              >
-                Đánh dấu đã xem
-              </Button>
-            )}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-serif text-xl font-bold">Sắp tới (30 ngày)</h2>
+            <div className="flex items-center gap-2">
+              {reminders.unread.length > 0 && (
+                <Button
+                  variant="ghost"
+                  disabled={markRead.isPending}
+                  onClick={() => markRead.mutate(reminders.unread.map((item) => item.key))}
+                >
+                  Đánh dấu đã xem
+                </Button>
+              )}
+              {calendar.isSuccess && (
+                <Button variant="secondary" disabled={exporting} onClick={exportIcs}>
+                  Xuất lịch 3 năm tới (.ics)
+                </Button>
+              )}
+            </div>
           </div>
-          {reminders.isPending && <p className="mt-2 text-ink-muted">Đang tải…</p>}
-          {!reminders.isPending && reminders.due.length === 0 && (
-            <p className="mt-2 rounded-2xl border border-dashed border-line bg-surface px-6 py-8 text-center text-ink-muted">
-              Chưa có giỗ, sinh nhật hay sự kiện nào đến hạn.
+          {calendar.isPending && <p className="mt-2 text-ink-muted">Đang tải…</p>}
+          {calendar.isError && <ErrorBanner>{calendar.error.message}</ErrorBanner>}
+          {calendar.isSuccess && upcomingList.length === 0 && (
+            <p className="mt-2 rounded-2xl border border-dashed border-line bg-surface px-6 py-10 text-center text-ink-muted">
+              30 ngày tới chưa có giỗ, sinh nhật hay sự kiện nào.
             </p>
           )}
-          {reminders.due.length > 0 && (
+          {upcomingList.length > 0 && (
             <div className="mt-3">
-              <OccurrenceList occurrences={reminders.due.map((item) => item.occurrence)} showDate today={today} showTree={manyTrees} />
+              <OccurrenceList occurrences={upcomingList} showDate today={today} showTree={manyTrees} />
             </div>
           )}
         </section>

@@ -15,10 +15,9 @@ import { IncompletePage } from './pages/IncompletePage';
 import { KinshipPage } from './pages/KinshipPage';
 import { PhaDoPage } from './pages/PhaDoPage';
 import { PhaKyPage } from './pages/PhaKyPage';
-import { UpcomingPage } from './pages/UpcomingPage';
 import { PublicPersonPage, PublicTreePage } from './pages/PublicTreePage';
-import { RemindersPage } from './pages/RemindersPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { SuKienPage } from './pages/SuKienPage';
 import { TreePage } from './pages/TreePage';
 import { TreeViewPage } from './pages/TreeViewPage';
 import { FullPageMessage } from './ui/FullPageMessage';
@@ -99,18 +98,10 @@ const router = createBrowserRouter([
     ),
   },
   {
-    path: '/sap-toi',
+    path: '/su-kien',
     element: (
       <RequireAuth>
-        <UpcomingPage />
-      </RequireAuth>
-    ),
-  },
-  {
-    path: '/nhac-gio',
-    element: (
-      <RequireAuth>
-        <RemindersPage />
+        <SuKienPage />
       </RequireAuth>
     ),
   },
