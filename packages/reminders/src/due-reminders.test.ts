@@ -14,21 +14,28 @@ const occurrence = (extra: Partial<Occurrence>): Occurrence => ({
 });
 
 const today = { year: 2026, month: 3, day: 10 };
+const noneMuted = new Set<string>();
 
 describe('dueReminders', () => {
-  it('giỗ chỉ nhắc khi Người có trong Danh sách nhắc giỗ', () => {
+  it('giỗ mặc định nhắc cho mọi Người (không ai bị tắt)', () => {
+    const occurrences = [occurrence({ personId: 'p1' }), occurrence({ personId: 'p2' })];
+    const result = dueReminders(occurrences, today, noneMuted, new Map([['t1', 7]]));
+    expect(result).toHaveLength(2);
+  });
+
+  it('giỗ không nhắc Người đã có trong Danh sách tắt nhắc', () => {
     const occurrences = [occurrence({ personId: 'p1' }), occurrence({ personId: 'p2' })];
     const result = dueReminders(occurrences, today, new Set(['p1']), new Map([['t1', 7]]));
     expect(result).toHaveLength(1);
-    expect(result[0]!.occurrence.personId).toBe('p1');
+    expect(result[0]!.occurrence.personId).toBe('p2');
   });
 
-  it('sinh nhật và Sự kiện không lọc theo Danh sách', () => {
+  it('sinh nhật và Sự kiện không lọc theo Danh sách tắt nhắc', () => {
     const occurrences = [
-      occurrence({ kind: 'sinh_nhat', personId: 'ai-cũng-được' }),
+      occurrence({ kind: 'sinh_nhat', personId: 'p1' }),
       occurrence({ kind: 'su_kien', personId: undefined, eventId: 'e1' }),
     ];
-    const result = dueReminders(occurrences, today, new Set(), new Map([['t1', 7]]));
+    const result = dueReminders(occurrences, today, new Set(['p1']), new Map([['t1', 7]]));
     expect(result).toHaveLength(2);
   });
 
@@ -36,26 +43,23 @@ describe('dueReminders', () => {
     const past = occurrence({ date: { year: 2026, month: 3, day: 1 } }); // đã qua
     const today3 = occurrence({ date: { year: 2026, month: 3, day: 13 } }); // 3 ngày tới
     const today8 = occurrence({ date: { year: 2026, month: 3, day: 18 } }); // 8 ngày tới
-    const watch = new Set(['p1']);
 
-    expect(dueReminders([past], today, watch, new Map([['t1', 7]]))).toHaveLength(0);
-    expect(dueReminders([today3], today, watch, new Map([['t1', 3]]))).toHaveLength(1);
-    expect(dueReminders([today8], today, watch, new Map([['t1', 7]]))).toHaveLength(0);
+    expect(dueReminders([past], today, noneMuted, new Map([['t1', 7]]))).toHaveLength(0);
+    expect(dueReminders([today3], today, noneMuted, new Map([['t1', 3]]))).toHaveLength(1);
+    expect(dueReminders([today8], today, noneMuted, new Map([['t1', 7]]))).toHaveLength(0);
   });
 
   it('không có cài đặt riêng cho gia phả thì mặc định đúng ngày (offset 0)', () => {
-    const watch = new Set(['p1']);
     const dueToday = occurrence({ date: today });
     const dueTomorrow = occurrence({ date: { year: 2026, month: 3, day: 11 } });
-    expect(dueReminders([dueToday], today, watch, new Map())).toHaveLength(1);
-    expect(dueReminders([dueTomorrow], today, watch, new Map())).toHaveLength(0);
+    expect(dueReminders([dueToday], today, noneMuted, new Map())).toHaveLength(1);
+    expect(dueReminders([dueTomorrow], today, noneMuted, new Map())).toHaveLength(0);
   });
 
   it('sắp xếp theo gần đến hạn nhất trước', () => {
-    const watch = new Set(['p1']);
     const far = occurrence({ date: { year: 2026, month: 3, day: 17 } });
     const near = occurrence({ date: { year: 2026, month: 3, day: 11 } });
-    const result = dueReminders([far, near], today, watch, new Map([['t1', 7]]));
+    const result = dueReminders([far, near], today, noneMuted, new Map([['t1', 7]]));
     expect(result.map((r) => r.dueInDays)).toEqual([1, 7]);
   });
 

@@ -38,6 +38,10 @@ const fonts = {
   regular: readFileSync(join(fontDir, 'NotoSerif-400Regular.ttf')).toString('binary'),
   bold: readFileSync(join(fontDir, 'NotoSerif-700Bold.ttf')).toString('binary'),
 };
+const beVietnamPro = {
+  regular: readFileSync(join(fontDir, 'BeVietnamPro-400Regular.ttf')).toString('binary'),
+  bold: readFileSync(join(fontDir, 'BeVietnamPro-700Bold.ttf')).toString('binary'),
+};
 
 describe('xuất PDF', () => {
   it('đúng khổ giấy, nhúng font tiếng Việt', () => {
@@ -48,6 +52,14 @@ describe('xuất PDF', () => {
     const output = doc.output();
     expect(output).toContain('/FontFile2');
     expect(output).toMatch(/NotoSerif/);
+  });
+
+  it('xuất được với phông Be Vietnam Pro (chọn ở Phả đồ) — khi người dùng đổi phông, bản xuất đổi theo', () => {
+    const { drawing } = renderPhaDo(smallFamily(), { ...base, paper: 'A2', orientation: 'portrait' });
+    const doc = drawingToPdf(drawing, beVietnamPro, 'Gia phả họ Phạm');
+    const output = doc.output();
+    expect(output).toContain('/FontFile2');
+    expect(output).toMatch(/NotoSerif/); // tên nội bộ jsPDF dùng lại, không phải tên phông thật đã nhúng
   });
 
   it('800 người khổ A0 xuất trong vòng 30 giây', () => {

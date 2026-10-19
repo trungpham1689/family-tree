@@ -7,9 +7,10 @@ export const linkAccountToPerson = async (input: { treeId: string; personId: str
   if (error) throw new DataError(error);
 };
 
-export type WatchedPerson = { personId: string; personName: string; treeId: string; treeName: string };
+/** Người trong bảng `reminder_watch` của tài khoản — từ bản này nghĩa là ĐÃ TẮT nhắc giỗ (mặc định ai cũng được nhắc). */
+export type MutedGioPerson = { personId: string; personName: string; treeId: string; treeName: string };
 
-export const listReminderWatch = async (): Promise<WatchedPerson[]> => {
+export const listMutedGioPersons = async (): Promise<MutedGioPerson[]> => {
   const { data, error } = await supabase
     .from('reminder_watch')
     .select('person_id, tree_id, persons (full_name), family_trees (name)');
@@ -22,12 +23,14 @@ export const listReminderWatch = async (): Promise<WatchedPerson[]> => {
   }));
 };
 
-export const addToWatch = async (personId: string): Promise<void> => {
+/** Tắt nhắc giỗ cho một Người (mặc định ai cũng được nhắc, đây là ngoại lệ). */
+export const muteGioReminder = async (personId: string): Promise<void> => {
   const { error } = await supabase.from('reminder_watch').insert({ person_id: personId });
   if (error) throw new DataError(error);
 };
 
-export const removeFromWatch = async (personId: string): Promise<void> => {
+/** Bật lại nhắc giỗ cho một Người đã tắt. */
+export const unmuteGioReminder = async (personId: string): Promise<void> => {
   const { error } = await supabase.from('reminder_watch').delete().eq('person_id', personId);
   if (error) throw new DataError(error);
 };

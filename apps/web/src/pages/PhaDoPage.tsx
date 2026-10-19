@@ -10,6 +10,7 @@ import { PersonPicker } from '../people/PersonPicker';
 import {
   EXTRA_LINE_LABELS,
   FONT_FAMILY_CSS,
+  FONT_FAMILY_EXPORT_FILES,
   FONT_FAMILY_LABELS,
   FONT_SCALE_OPTIONS,
   PAPER_SIZES,
@@ -86,10 +87,8 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
 
   const exportDate = toIsoDate(todayInVietnam());
   const loadFonts = async () => {
-    const [regular, bold] = await Promise.all([
-      loadFontBinary('/fonts/NotoSerif-400Regular.ttf'),
-      loadFontBinary('/fonts/NotoSerif-700Bold.ttf'),
-    ]);
+    const files = FONT_FAMILY_EXPORT_FILES[config.fontFamily];
+    const [regular, bold] = await Promise.all([loadFontBinary(files.regular), loadFontBinary(files.bold)]);
     return { regular, bold };
   };
 
@@ -475,7 +474,9 @@ const FontSettings = ({ config, onChange }: { config: PhaDoConfig; onChange: (pa
           </option>
         ))}
       </Select>
-      <span className="mt-1 block text-sm text-ink-muted">Chỉ đổi khi xem trước; bản xuất PDF/PNG luôn dùng phông có đủ dấu tiếng Việt.</span>
+      <span className="mt-1 block text-sm text-ink-muted">
+        Bản xuất PDF/PNG dùng đúng phông đã chọn ở đây (riêng "Chữ hệ thống" không có file để nhúng, xuất tạm bằng Noto Serif).
+      </span>
     </label>
   </fieldset>
 );

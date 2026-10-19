@@ -7,6 +7,7 @@ import { buildDigests } from './digest.ts';
 // đến hạn, không đoán ngày dương bừa (âm 12/3 không rơi đúng vào dương 12/3).
 const anniversarySolar = lunarToSolar({ year: 2026, month: 3, day: 12, leap: false })!;
 const today: SolarDate = fromJulianDay(julianDay(anniversarySolar) - 2);
+const noneMuted = new Map<string, Set<string>>();
 
 const person = (extra: Partial<CalendarPerson>): CalendarPerson => ({
   id: 'p1',
@@ -27,13 +28,13 @@ const source = (extra: Partial<CalendarSource> = {}): CalendarSource => ({
 });
 
 describe('buildDigests', () => {
-  it('gộp nhắc nhở đến hạn, chưa đọc, chưa tắt email', () => {
+  it('gộp nhắc nhở đến hạn, chưa đọc, chưa tắt email (giỗ mặc định nhắc cho mọi người)', () => {
     const digests = buildDigests({
       today,
       source: source(),
       emailByAccount: new Map([['acc1', 'a@example.com']]),
       treesByAccount: new Map([['acc1', ['t1']]]),
-      watchByAccount: new Map([['acc1', new Set(['p1'])]]),
+      mutedByAccount: noneMuted,
       prefsByAccount: new Map([['acc1', new Map([['t1', { offsetDays: 3, emailEnabled: true }]])]]),
       readByAccount: new Map(),
     });
@@ -48,7 +49,7 @@ describe('buildDigests', () => {
       source: source(),
       emailByAccount: new Map([['acc1', 'a@example.com']]),
       treesByAccount: new Map([['acc1', ['t1']]]),
-      watchByAccount: new Map([['acc1', new Set(['p1'])]]),
+      mutedByAccount: noneMuted,
       prefsByAccount: new Map([['acc1', new Map([['t1', { offsetDays: 3, emailEnabled: false }]])]]),
       readByAccount: new Map(),
     });
@@ -61,20 +62,20 @@ describe('buildDigests', () => {
       source: source(),
       emailByAccount: new Map([['acc1', 'a@example.com']]),
       treesByAccount: new Map([['acc1', ['t1']]]),
-      watchByAccount: new Map([['acc1', new Set(['p1'])]]),
+      mutedByAccount: noneMuted,
       prefsByAccount: new Map([['acc1', new Map([['t1', { offsetDays: 3, emailEnabled: true }]])]]),
       readByAccount: new Map([['acc1', new Set([`gio:p1:${anniversarySolar.year}-${anniversarySolar.month}-${anniversarySolar.day}`])]]),
     });
     expect(digests).toHaveLength(0);
   });
 
-  it('không theo dõi Người thì giỗ của người đó không vào bản tin', () => {
+  it('đã tắt nhắc giỗ của Người thì giỗ của người đó không vào bản tin', () => {
     const digests = buildDigests({
       today,
       source: source(),
       emailByAccount: new Map([['acc1', 'a@example.com']]),
       treesByAccount: new Map([['acc1', ['t1']]]),
-      watchByAccount: new Map(),
+      mutedByAccount: new Map([['acc1', new Set(['p1'])]]),
       prefsByAccount: new Map([['acc1', new Map([['t1', { offsetDays: 7, emailEnabled: true }]])]]),
       readByAccount: new Map(),
     });
@@ -88,7 +89,7 @@ describe('buildDigests', () => {
       source: source({ persons: [], events: noEvent }),
       emailByAccount: new Map([['acc1', 'a@example.com']]),
       treesByAccount: new Map([['acc1', ['t1']]]),
-      watchByAccount: new Map(),
+      mutedByAccount: noneMuted,
       prefsByAccount: new Map(),
       readByAccount: new Map(),
     });

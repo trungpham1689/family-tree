@@ -26,7 +26,7 @@ export const PersonPicker = ({ graph, label, onPick, exclude }: Props) => {
     <div>
       <TextField
         label={label}
-        placeholder="Gõ tên, có dấu hay không đều được"
+        placeholder="Gõ tên…"
         autoComplete="off"
         value={query}
         onChange={(event) => setQuery(event.target.value)}

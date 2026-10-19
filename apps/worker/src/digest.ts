@@ -18,7 +18,8 @@ export const buildDigests = (input: {
   source: CalendarSource;
   emailByAccount: ReadonlyMap<string, string>;
   treesByAccount: ReadonlyMap<string, readonly string[]>;
-  watchByAccount: ReadonlyMap<string, ReadonlySet<string>>;
+  /** Người mỗi tài khoản đã tắt nhắc giỗ (mặc định ai cũng được nhắc). */
+  mutedByAccount: ReadonlyMap<string, ReadonlySet<string>>;
   prefsByAccount: ReadonlyMap<string, ReadonlyMap<string, AccountPref>>;
   readByAccount: ReadonlyMap<string, ReadonlySet<string>>;
 }): AccountDigest[] => {
@@ -34,10 +35,10 @@ export const buildDigests = (input: {
 
     const offsetsByTree = new Map(treeIds.map((treeId) => [treeId, MAX_OFFSET_DAYS]));
     const relevant = allOccurrences.filter((occurrence) => emailTrees.has(occurrence.treeId));
-    const watched = input.watchByAccount.get(accountId) ?? new Set<string>();
+    const muted = input.mutedByAccount.get(accountId) ?? new Set<string>();
     const read = input.readByAccount.get(accountId) ?? new Set<string>();
 
-    const due = dueReminders(relevant, input.today, watched, offsetsByTree).filter((item) => !read.has(item.key));
+    const due = dueReminders(relevant, input.today, muted, offsetsByTree).filter((item) => !read.has(item.key));
     if (due.length > 0) digests.push({ accountId, email, occurrences: due.map((item) => item.occurrence) });
   }
 

@@ -13,14 +13,14 @@ import {
   usePersonPhotos,
   useRejectDeletePerson,
   useRemovePhoto,
-  useReminderWatch,
+  useMutedGioPersons,
   useReorderChildren,
   useReorderUnions,
   useSetAvatarPhoto,
   useSetFoundsBranch,
   useSetHiddenFromPublic,
   useSetProgenitor,
-  useToggleWatch,
+  useToggleGioMute,
   useTree,
   useUpdateParentLinkKind,
   useUpdatePhotoCaption,
@@ -718,12 +718,12 @@ const ReorderableSpouses = ({
   );
 };
 
-/** "Đây là tôi" (liên kết tài khoản, mồi Danh sách nhắc giỗ) và theo dõi giỗ của riêng Người này. */
+/** "Đây là tôi" (liên kết tài khoản, mồi Danh sách nhắc giỗ) và bật/tắt nhắc giỗ của riêng Người này. */
 const ReminderControls = ({ treeId, person, isMe }: { treeId: string; person: Person; isMe: boolean }) => {
   const link = useLinkAccountToPerson(treeId);
-  const watch = useReminderWatch();
-  const toggle = useToggleWatch();
-  const watched = watch.data?.some((row) => row.personId === person.id) ?? false;
+  const mutedList = useMutedGioPersons();
+  const toggle = useToggleGioMute();
+  const muted = mutedList.data?.some((row) => row.personId === person.id) ?? false;
 
   return (
     <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
@@ -739,18 +739,18 @@ const ReminderControls = ({ treeId, person, isMe }: { treeId: string; person: Pe
           Đánh dấu đây là tôi
         </button>
       )}
-      {watch.isSuccess && (
+      {mutedList.isSuccess && (
         <button
           type="button"
           className="font-semibold text-son hover:underline disabled:text-ink-muted"
-          disabled={toggle.add.isPending || toggle.remove.isPending}
-          onClick={() => (watched ? toggle.remove.mutate(person.id) : toggle.add.mutate(person.id))}
+          disabled={toggle.mute.isPending || toggle.unmute.isPending}
+          onClick={() => (muted ? toggle.unmute.mutate(person.id) : toggle.mute.mutate(person.id))}
         >
-          {watched ? 'Bỏ khỏi Danh sách nhắc giỗ' : 'Thêm vào Danh sách nhắc giỗ'}
+          {muted ? 'Thêm lại vào Danh sách nhắc giỗ' : 'Bỏ khỏi Danh sách nhắc giỗ'}
         </button>
       )}
-      {(link.isError || toggle.add.isError || toggle.remove.isError) && (
-        <span className="text-danger">{link.error?.message ?? toggle.add.error?.message ?? toggle.remove.error?.message}</span>
+      {(link.isError || toggle.mute.isError || toggle.unmute.isError) && (
+        <span className="text-danger">{link.error?.message ?? toggle.mute.error?.message ?? toggle.unmute.error?.message}</span>
       )}
     </div>
   );

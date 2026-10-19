@@ -19,15 +19,15 @@ import {
   setPublicLinkPassword,
 } from './public-tree';
 import {
-  addToWatch,
   linkAccountToPerson,
+  listMutedGioPersons,
   listNotificationReads,
   listReminderPrefs,
-  listReminderWatch,
   markNotificationsRead,
-  removeFromWatch,
+  muteGioReminder,
   setEmailEnabled,
   setReminderOffset,
+  unmuteGioReminder,
 } from './reminders';
 import { inviteToTree, listTreeMembers, removeTreeRole, updateTreeRole, type InvitableRole } from './roles';
 import {
@@ -384,14 +384,15 @@ export const useLinkAccountToPerson = (treeId: string) => {
   });
 };
 
-export const useReminderWatch = () => useQuery({ queryKey: ['reminder-watch'], queryFn: listReminderWatch });
+/** Những Người tài khoản đang xem đã tắt nhắc giỗ (mặc định ai cũng được nhắc, trừ Người trong danh sách này). */
+export const useMutedGioPersons = () => useQuery({ queryKey: ['reminder-watch'], queryFn: listMutedGioPersons });
 
-export const useToggleWatch = () => {
+export const useToggleGioMute = () => {
   const queryClient = useQueryClient();
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['reminder-watch'] });
-  const add = useMutation({ mutationFn: addToWatch, onSuccess: invalidate });
-  const remove = useMutation({ mutationFn: removeFromWatch, onSuccess: invalidate });
-  return { add, remove };
+  const mute = useMutation({ mutationFn: muteGioReminder, onSuccess: invalidate });
+  const unmute = useMutation({ mutationFn: unmuteGioReminder, onSuccess: invalidate });
+  return { mute, unmute };
 };
 
 export const useReminderPrefs = () => useQuery({ queryKey: ['reminder-prefs'], queryFn: listReminderPrefs });
@@ -420,10 +421,10 @@ export const useMarkNotificationsRead = () => {
   });
 };
 
-/** Nhắc nhở đến hạn của tài khoản đang đăng nhập: giỗ theo Danh sách, sinh nhật và Sự kiện không lọc. */
+/** Nhắc nhở đến hạn của tài khoản đang đăng nhập: giỗ nhắc mặc định (trừ Người đã tắt), sinh nhật và Sự kiện không lọc. */
 export const useDueReminders = () => {
   const calendar = useMyCalendar(true);
-  const watch = useReminderWatch();
+  const muted = useMutedGioPersons();
   const prefs = useReminderPrefs();
   const reads = useQuery({ queryKey: ['notification-reads'], queryFn: listNotificationReads });
 
@@ -431,16 +432,16 @@ export const useDueReminders = () => {
     if (!calendar.data) return [];
     const today = todayInVietnam();
     const occurrences = occurrencesBetween(calendar.data, today, fromJulianDay(julianDay(today) + MAX_OFFSET_DAYS));
-    const watchedIds = new Set((watch.data ?? []).map((row) => row.personId));
+    const mutedIds = new Set((muted.data ?? []).map((row) => row.personId));
     const offsetsByTree = new Map([...(prefs.data ?? new Map())].map(([treeId, pref]) => [treeId, pref.offsetDays]));
-    return dueReminders(occurrences, today, watchedIds, offsetsByTree);
-  }, [calendar.data, watch.data, prefs.data]);
+    return dueReminders(occurrences, today, mutedIds, offsetsByTree);
+  }, [calendar.data, muted.data, prefs.data]);
 
   const readKeys = reads.data ?? new Set<string>();
   const unread = due.filter((reminder) => !readKeys.has(reminder.key));
 
   return {
-    isPending: calendar.isPending || watch.isPending || prefs.isPending || reads.isPending,
+    isPending: calendar.isPending || muted.isPending || prefs.isPending || reads.isPending,
     due,
     unread,
     readKeys,

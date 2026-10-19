@@ -34,11 +34,21 @@ export const FONT_FAMILY_LABELS: Record<PhaDoFontFamily, string> = {
   system: 'Chữ hệ thống',
 };
 
-/** CSS font-family thật dùng khi xem trước; bản xuất PDF/PNG luôn nhúng NotoSerif để chắc chắn đủ dấu. */
+/** CSS font-family thật dùng khi xem trước trên trang. */
 export const FONT_FAMILY_CSS: Record<PhaDoFontFamily, string> = {
   'noto-serif': "'Noto Serif', ui-serif, Georgia, serif",
   'be-vietnam-pro': "'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif",
   system: 'ui-serif, Georgia, serif',
+};
+
+/**
+ * File TTF nhúng khi xuất PDF/PNG, cùng phông đã chọn xem trước. "Chữ hệ thống" là phông của từng
+ * máy nên không có file để nhúng — xuất tạm bằng Noto Serif (vẫn đủ dấu tiếng Việt).
+ */
+export const FONT_FAMILY_EXPORT_FILES: Record<PhaDoFontFamily, { regular: string; bold: string }> = {
+  'noto-serif': { regular: '/fonts/NotoSerif-400Regular.ttf', bold: '/fonts/NotoSerif-700Bold.ttf' },
+  'be-vietnam-pro': { regular: '/fonts/BeVietnamPro-400Regular.ttf', bold: '/fonts/BeVietnamPro-700Bold.ttf' },
+  system: { regular: '/fonts/NotoSerif-400Regular.ttf', bold: '/fonts/NotoSerif-700Bold.ttf' },
 };
 
 export type PhaDoConfig = {

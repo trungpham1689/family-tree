@@ -6,7 +6,7 @@ export type ReminderData = {
   source: { trees: { id: string; name: string }[]; persons: CalendarPerson[]; events: CalendarEvent[] };
   emailByAccount: Map<string, string>;
   treesByAccount: Map<string, string[]>;
-  watchByAccount: Map<string, Set<string>>;
+  mutedByAccount: Map<string, Set<string>>;
   prefsByAccount: Map<string, Map<string, AccountPref>>;
   readByAccount: Map<string, Set<string>>;
 };
@@ -15,27 +15,28 @@ export type ReminderData = {
 export const loadReminderData = async (supabaseUrl: string, serviceRoleKey: string): Promise<ReminderData> => {
   const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
 
-  const [trees, persons, events, roles, watch, prefs, reads] = await Promise.all([
+  const [trees, persons, events, roles, muted, prefs, reads] = await Promise.all([
     supabase.from('family_trees').select('id, name'),
     supabase.from('persons').select('id, tree_id, full_name, is_deceased, anniversary_day, anniversary_month, birth_solar_date'),
     supabase.from('tree_events').select('id, tree_id, title, calendar, repeats_yearly, year, month, day, leap, start_time, location'),
     supabase.from('tree_roles').select('account_id, tree_id'),
+    // Bảng reminder_watch: từ khi có ai đó là đã TẮT nhắc giỗ (mặc định ai cũng được nhắc).
     supabase.from('reminder_watch').select('account_id, person_id'),
     supabase.from('reminder_prefs').select('account_id, tree_id, offset_days, email_enabled'),
     supabase.from('notification_reads').select('account_id, notification_key'),
   ]);
-  for (const result of [trees, persons, events, roles, watch, prefs, reads]) {
+  for (const result of [trees, persons, events, roles, muted, prefs, reads]) {
     if (result.error) throw new Error(result.error.message);
   }
 
   const treesByAccount = new Map<string, string[]>();
   for (const row of roles.data ?? []) treesByAccount.set(row.account_id, [...(treesByAccount.get(row.account_id) ?? []), row.tree_id]);
 
-  const watchByAccount = new Map<string, Set<string>>();
-  for (const row of watch.data ?? []) {
-    const set = watchByAccount.get(row.account_id) ?? new Set<string>();
+  const mutedByAccount = new Map<string, Set<string>>();
+  for (const row of muted.data ?? []) {
+    const set = mutedByAccount.get(row.account_id) ?? new Set<string>();
     set.add(row.person_id);
-    watchByAccount.set(row.account_id, set);
+    mutedByAccount.set(row.account_id, set);
   }
 
   const readByAccount = new Map<string, Set<string>>();
@@ -70,7 +71,7 @@ export const loadReminderData = async (supabaseUrl: string, serviceRoleKey: stri
     },
     emailByAccount,
     treesByAccount,
-    watchByAccount,
+    mutedByAccount,
     prefsByAccount,
     readByAccount,
   };

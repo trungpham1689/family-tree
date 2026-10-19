@@ -4,7 +4,7 @@ import { occurrencesToIcs } from '../calendar/ics';
 import { todayInVietnam } from '../calendar/month-grid';
 import { occurrencesBetween, upcoming } from '@gia-pha/reminders';
 import { OccurrenceList } from '../calendar/OccurrenceList';
-import { useDueReminders, useMarkNotificationsRead, useMyCalendar, useMyTrees, useReminderWatch, useToggleWatch } from '../data/tree-queries';
+import { useDueReminders, useMarkNotificationsRead, useMutedGioPersons, useMyCalendar, useMyTrees, useToggleGioMute } from '../data/tree-queries';
 import { downloadBlob } from '../lib/download';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
@@ -17,8 +17,8 @@ export const SuKienPage = () => {
   const calendar = useMyCalendar(true);
   const upcomingList = useMemo(() => (calendar.data ? upcoming(calendar.data, today, 30) : []), [calendar.data, today]);
   const reminders = useDueReminders();
-  const watch = useReminderWatch();
-  const toggleWatch = useToggleWatch();
+  const muted = useMutedGioPersons();
+  const toggleMute = useToggleGioMute();
   const trees = useMyTrees();
   const markRead = useMarkNotificationsRead();
   const [exporting, setExporting] = useState(false);
@@ -77,15 +77,15 @@ export const SuKienPage = () => {
         </section>
 
         <section className="mt-8">
-          <h2 className="font-serif text-xl font-bold">Danh sách nhắc giỗ</h2>
+          <h2 className="font-serif text-xl font-bold">Đã tắt nhắc giỗ</h2>
           <p className="mt-1 text-ink-muted">
-            Chỉ Người trong danh sách này được nhắc giỗ (sinh nhật và sự kiện luôn nhắc). Thêm/bỏ từ trang của mỗi Người.
+            Mặc định ai cũng được nhắc giỗ. Người trong danh sách này đã bị tắt riêng. Bật/tắt từ trang của mỗi Người.
           </p>
-          {watch.isError && <ErrorBanner>{watch.error.message}</ErrorBanner>}
-          {watch.isSuccess && watch.data.length === 0 && <p className="mt-2 text-ink-muted">Chưa theo dõi ai.</p>}
-          {watch.isSuccess && watch.data.length > 0 && (
+          {muted.isError && <ErrorBanner>{muted.error.message}</ErrorBanner>}
+          {muted.isSuccess && muted.data.length === 0 && <p className="mt-2 text-ink-muted">Chưa tắt nhắc giỗ của ai.</p>}
+          {muted.isSuccess && muted.data.length > 0 && (
             <ul className="mt-3 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
-              {watch.data.map((item) => (
+              {muted.data.map((item) => (
                 <li key={item.personId} className="flex items-center justify-between gap-3 px-4 py-3">
                   <Link to={`/gia-pha/${item.treeId}/nguoi/${item.personId}`} className="font-semibold hover:text-son hover:underline">
                     {item.personName}
@@ -93,11 +93,11 @@ export const SuKienPage = () => {
                   </Link>
                   <button
                     type="button"
-                    className="text-sm text-danger hover:underline"
-                    disabled={toggleWatch.remove.isPending}
-                    onClick={() => toggleWatch.remove.mutate(item.personId)}
+                    className="text-sm text-son hover:underline"
+                    disabled={toggleMute.unmute.isPending}
+                    onClick={() => toggleMute.unmute.mutate(item.personId)}
                   >
-                    Bỏ khỏi danh sách
+                    Bật lại nhắc giỗ
                   </button>
                 </li>
               ))}

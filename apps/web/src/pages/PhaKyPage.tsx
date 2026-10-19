@@ -10,6 +10,7 @@ import { branchSummaries, buildNarrative, closingNote, notablePersons, originSum
 import { TreeTabs } from '../tree/TreeTabs';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
+import { Collapsible } from '../ui/Collapsible';
 import { ErrorBanner } from '../ui/fields';
 import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
@@ -178,17 +179,28 @@ export const PhaKyPage = () => {
               </section>
             )}
             {generations.length > 0 && (
-              <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-muted">
-                <span className="flex items-center gap-1.5">
-                  <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-kim bg-paper" /> Nam
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-son bg-paper" /> Nữ
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-dashed border-kim bg-paper" /> Dâu/Rể (viền đứt)
-                </span>
-              </p>
+              <Collapsible title="Cách đọc Phả ký này" defaultOpen>
+                <p className="leading-relaxed text-ink-muted">
+                  Mỗi Đời là một đoạn thời gian; đường kẻ dọc nối các Người theo thứ tự xuất hiện. Tên in đậm là tên chính,
+                  năm sinh–mất (nếu có) trong ngoặc ngay sau tên; nhãn màu như <span className="rounded-full bg-son/10 px-1.5 py-0.5 text-xs font-semibold text-son">Thuỷ tổ</span>{' '}
+                  chỉ vai trò đặc biệt. Phần tô nền ở đầu trang (Lời mở đầu, Nguồn gốc, Các chi, Người tiêu biểu) là tổng
+                  hợp; bấm vào tên ở đó để nhảy thẳng tới người trong danh sách theo Đời bên dưới.
+                </p>
+                <p className="mt-3 text-sm text-ink-muted">
+                  Chấm tròn trước mỗi tên dùng chung quy ước với Phả đồ:
+                </p>
+                <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-muted">
+                  <span className="flex items-center gap-1.5">
+                    <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-kim bg-paper" /> Nam
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-son bg-paper" /> Nữ
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-dashed border-kim bg-paper" /> Dâu/Rể (viền đứt — vào họ, không cùng huyết thống)
+                  </span>
+                </p>
+              </Collapsible>
             )}
             {generations.map((group) => (
               <section key={group.generation}>

@@ -58,29 +58,37 @@ const extraText = (line: ExtraLine, person: Person, generation: number | null): 
   }
 };
 
-/** Chú giải màu viền (giới tính) và nền (đã mất): một hàng trong dải LEGEND_HEIGHT dưới vùng cây. */
+/**
+ * Chú giải màu viền (giới tính) và nền (đã mất): một hàng trong dải LEGEND_HEIGHT dưới vùng cây.
+ * Mỗi mục chiếm đúng một ô rộng bằng nhau (LEGEND_COL_WIDTH) nên khoảng cách luôn đều, không phụ
+ * thuộc độ dài chữ của từng mục (ước lượng độ rộng theo ký tự vốn không đều giữa các nhãn).
+ */
+const LEGEND_COL_WIDTH = 32;
 const legend = (area: { x: number; y: number; width: number; height: number }): DrawItem[] => {
   const y = area.y + area.height - LEGEND_HEIGHT / 2;
   const swatch = 3.5;
-  const rows: [string, string][] = [
+  let col = 0;
+  const nextX = () => area.x + col++ * LEGEND_COL_WIDTH;
+  const items: DrawItem[] = [];
+
+  for (const [color, label] of [
     [COLORS.kim, 'Nam'],
     [COLORS.son, 'Nữ'],
-  ];
-  let x = area.x;
-  const items: DrawItem[] = [];
-  for (const [color, label] of rows) {
+  ] as const) {
+    const x = nextX();
     items.push(
       { type: 'rect', x, y: y - swatch / 2, width: swatch, height: swatch, radius: 1, fill: color, stroke: color, strokeWidth: 0 },
       { type: 'text', x: x + swatch + 2, y, text: label, sizePt: 9, bold: false, color: COLORS.muted, align: 'start' },
     );
-    x += swatch + 2 + label.length * 3.6 + 10;
   }
-  items.push({ type: 'text', x, y, text: '† Đã mất', sizePt: 9, bold: false, color: COLORS.muted, align: 'start' });
-  x += '† Đã mất'.length * 3.6 + 10;
+
+  items.push({ type: 'text', x: nextX(), y, text: '† Đã mất', sizePt: 9, bold: false, color: COLORS.muted, align: 'start' });
+
+  const dauReX = nextX();
   items.push(
     {
       type: 'rect',
-      x,
+      x: dauReX,
       y: y - swatch / 2,
       width: swatch,
       height: swatch,
@@ -90,12 +98,13 @@ const legend = (area: { x: number; y: number; width: number; height: number }): 
       strokeWidth: 0.6,
       dash: [1.2, 0.8],
     },
-    { type: 'text', x: x + swatch + 2, y, text: 'Dâu/Rể (viền đứt)', sizePt: 9, bold: false, color: COLORS.muted, align: 'start' },
+    { type: 'text', x: dauReX + swatch + 2, y, text: 'Dâu/Rể (viền đứt)', sizePt: 9, bold: false, color: COLORS.muted, align: 'start' },
   );
-  x += swatch + 2 + 'Dâu/Rể (viền đứt)'.length * 3.6 + 10;
+
+  const adoptedX = nextX() + LEGEND_COL_WIDTH * 0.8;
   items.push(
-    { type: 'rect', x, y: y - swatch / 2, width: swatch, height: swatch, radius: swatch / 2, fill: COLORS.genderUnknown, stroke: COLORS.genderUnknown, strokeWidth: 0 },
-    { type: 'text', x: x + swatch + 2, y, text: 'Con nuôi', sizePt: 9, bold: false, color: COLORS.muted, align: 'start' },
+    { type: 'rect', x: adoptedX, y: y - swatch / 2, width: swatch, height: swatch, radius: swatch / 2, fill: COLORS.genderUnknown, stroke: COLORS.genderUnknown, strokeWidth: 0 },
+    { type: 'text', x: adoptedX + swatch + 2, y, text: 'Con nuôi', sizePt: 9, bold: false, color: COLORS.muted, align: 'start' },
   );
   return items;
 };
