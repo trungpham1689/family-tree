@@ -5,6 +5,7 @@ import { useAuth } from '../auth/auth-context';
 import { safeRedirectPath } from '../auth/safe-redirect';
 import { supabase } from '../lib/supabase';
 import { Button } from '../ui/Button';
+import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
 
 type Mode = 'sign-in' | 'sign-up';
@@ -43,15 +44,6 @@ export const LoginPage = () => {
     }
   };
 
-  const signInWithGoogle = async () => {
-    setError(null);
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}${next}` },
-    });
-    if (oauthError) setError(authErrorMessage(oauthError));
-  };
-
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -83,6 +75,7 @@ export const LoginPage = () => {
   };
 
   return (
+    <>
     <main className="grid min-h-dvh place-items-center px-4 py-10">
       <div className="w-full max-w-md">
         <header className="mb-8 text-center">
@@ -112,17 +105,6 @@ export const LoginPage = () => {
                 {label}
               </button>
             ))}
-          </div>
-
-          <Button variant="secondary" className="w-full" onClick={signInWithGoogle}>
-            <GoogleMark />
-            Tiếp tục với Google
-          </Button>
-
-          <div className="my-5 flex items-center gap-3 text-sm text-ink-muted">
-            <span className="h-px flex-1 bg-line" />
-            hoặc dùng email
-            <span className="h-px flex-1 bg-line" />
           </div>
 
           {forgotPassword ? (
@@ -253,14 +235,7 @@ export const LoginPage = () => {
         </p>
       </div>
     </main>
+    <Footer />
+    </>
   );
 };
-
-const GoogleMark = () => (
-  <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5">
-    <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.4h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.7z" />
-    <path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-2.9l-3.9-3a7.2 7.2 0 0 1-10.8-3.8h-4v3.1A12 12 0 0 0 12 24z" />
-    <path fill="#FBBC05" d="M5.3 14.3a7.2 7.2 0 0 1 0-4.6V6.6h-4a12 12 0 0 0 0 10.8z" />
-    <path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1A7.2 7.2 0 0 1 12 4.8z" />
-  </svg>
-);

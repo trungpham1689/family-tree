@@ -6,6 +6,7 @@ import { downloadTemplate, readGiaPhaSheet } from '../excel/xlsx-io';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { ErrorBanner, TextField } from '../ui/fields';
+import { Footer } from '../ui/Footer';
 
 const PAGE = 200;
 
@@ -20,6 +21,7 @@ export const ImportPage = () => {
       <main className="mx-auto max-w-5xl px-4 py-8">
         {targetTreeId ? <ImportIntoExisting treeId={targetTreeId} /> : <ImportFlow treeId={null} treeName={null} />}
       </main>
+      <Footer />
     </>
   );
 };

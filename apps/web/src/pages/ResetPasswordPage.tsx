@@ -4,6 +4,7 @@ import { authErrorMessage } from '../auth/auth-error-message';
 import { useAuth } from '../auth/auth-context';
 import { supabase } from '../lib/supabase';
 import { Button } from '../ui/Button';
+import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -57,6 +58,7 @@ export const ResetPasswordPage = () => {
   };
 
   return (
+    <>
     <main className="grid min-h-dvh place-items-center px-4 py-10">
       <div className="w-full max-w-md">
         <header className="mb-8 text-center">
@@ -114,5 +116,7 @@ export const ResetPasswordPage = () => {
         </section>
       </div>
     </main>
+    <Footer />
+    </>
   );
 };

@@ -39,6 +39,7 @@ import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
 import { ErrorBanner, Select } from '../ui/fields';
+import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
 
 type Action = 'none' | 'edit' | 'add-child' | 'add-parent' | 'add-spouse' | 'delete';
@@ -75,6 +76,7 @@ export const PersonPage = () => {
           />
         )}
       </main>
+      <Footer />
     </>
   );
 };

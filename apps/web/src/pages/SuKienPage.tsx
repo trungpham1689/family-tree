@@ -9,6 +9,7 @@ import { downloadBlob } from '../lib/download';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { ErrorBanner } from '../ui/fields';
+import { Footer } from '../ui/Footer';
 
 /** Sự kiện: giỗ/sinh nhật/sự kiện 30 ngày tới (mọi gia phả) và Danh sách nhắc giỗ. Mỗi gia phả có trang Sự kiện riêng (xem độ sớm nhắc, sự kiện cũ…). */
 export const SuKienPage = () => {
@@ -105,6 +106,7 @@ export const SuKienPage = () => {
         </section>
 
       </main>
+      <Footer />
     </>
   );
 };

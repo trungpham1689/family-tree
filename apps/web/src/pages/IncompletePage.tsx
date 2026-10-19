@@ -5,6 +5,7 @@ import { lifespanText } from '../people/person-display';
 import { TreeTabs } from '../tree/TreeTabs';
 import { AppHeader } from '../ui/AppHeader';
 import { ErrorBanner } from '../ui/fields';
+import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
 
 /** Người còn thiếu giới tính, năm sinh, hoặc năm mất — để bổ sung dần. */
@@ -54,6 +55,7 @@ export const IncompletePage = () => {
           </div>
         )}
       </main>
+      <Footer />
     </>
   );
 };

@@ -8,6 +8,7 @@ import { ProfileInfo } from '../people/ProfileInfo';
 import { TreeExplorer } from '../tree/TreeExplorer';
 import { Button } from '../ui/Button';
 import { ErrorBanner, TextField } from '../ui/fields';
+import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
 import { PublicHeader } from '../ui/PublicHeader';
 
@@ -68,6 +69,7 @@ const PublicShell = ({ children }: { children: (data: PublicTree, token: string)
       )}
       {!missing && password !== null && result.isPending && <FullPageMessage>Đang tải gia phả…</FullPageMessage>}
       {result.isSuccess && result.data.status === 'ok' && children(result.data.data, token)}
+      <Footer />
     </div>
   );
 };

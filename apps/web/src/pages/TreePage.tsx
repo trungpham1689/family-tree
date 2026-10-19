@@ -19,6 +19,7 @@ import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
 import { ErrorBanner, TextAreaField, TextField } from '../ui/fields';
+import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
 
 export const TreePage = () => {
@@ -66,6 +67,7 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
   const isEmpty = family.isSuccess && family.data.persons.length === 0;
 
   return (
+    <>
     <main className="mx-auto max-w-4xl px-4 py-8">
       <Link to="/gia-pha" className="text-ink-muted hover:text-son">
         ← Gia phả của tôi
@@ -173,6 +175,8 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
         {deleting && <DeleteForm tree={tree} onCancel={() => setDeleting(false)} />}
       </Dialog>
     </main>
+    <Footer />
+    </>
   );
 };
 

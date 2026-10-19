@@ -34,7 +34,7 @@ Webapp cho **nhiều dòng họ**: ai cũng tạo được gia phả riêng (t�
 | Q11 | Hạ tầng | Supabase + Cloudflare Pages/R2/Worker Cron + Resend, toàn bộ free (ADR 0004). Chạy `*.pages.dev` trước, mua tên miền khi cần email |
 | Q12 | Trường thông tin | Danh sách đầy đủ ở mục 4, có mộ phần |
 | Q13 | Ngày tháng | Ngày không đầy đủ (năm / tháng-năm / đủ, kèm "khoảng"), nhập âm hoặc dương |
-| Q14 | Đăng nhập | Google + email/mật khẩu |
+| Q14 | Đăng nhập | Email/mật khẩu |
 | Q16 | Cây | Mặc định từ trên xuống, có nút chuyển sang trái→phải. Mở sẵn 4 đời. Vợ chồng 2 ô cạnh nhau. Tìm người và "đưa tôi tới" |
 | Q17 | Nhập liệu | Excel mẫu nối bằng mã số, có màn xem trước; xuất Excel cùng định dạng |
 | Q18 | Giới hạn | 3 gia phả/tài khoản, 2.000 Người/gia phả, 5 ảnh/Người, ảnh nén ≤ 1.600 px, < 400 KB. Đều là cấu hình |

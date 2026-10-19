@@ -9,6 +9,7 @@ import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
 import { ErrorBanner, TextAreaField, TextField } from '../ui/fields';
+import { Footer } from '../ui/Footer';
 
 export const MyTreesPage = () => {
   const trees = useMyTrees();
@@ -87,6 +88,7 @@ export const MyTreesPage = () => {
           </div>
         )}
       </main>
+      <Footer />
 
       <Dialog open={creating} title="Tạo gia phả" onClose={() => setCreating(false)}>
         <CreateTreeForm onDone={() => setCreating(false)} />

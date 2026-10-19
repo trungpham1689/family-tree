@@ -15,9 +15,9 @@ export interface Env {
 }
 
 /**
- * Chạy mỗi ngày (wrangler.toml): tính nhắc nhở đến hạn, chưa đọc, chưa tắt email của mỗi tài khoản
- * — đúng logic @gia-pha/reminders mà web dùng — gộp thành một email, gửi qua Resend. Gửi xong mới
- * đánh dấu đã đọc, nên gửi lỗi thì mai thử lại đúng những nhắc nhở đó.
+ * Chạy mỗi thứ Hai (wrangler.toml): tính sự kiện 7 ngày tới, chưa đọc, chưa tắt email của mỗi tài
+ * khoản — đúng logic @gia-pha/reminders mà web dùng — gộp thành một email, gửi qua Resend. Không
+ * có gì sắp tới thì không gửi. Gửi xong mới đánh dấu đã đọc, nên gửi lỗi thì tuần sau thử lại.
  */
 export default {
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {

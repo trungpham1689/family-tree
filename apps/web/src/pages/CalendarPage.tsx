@@ -10,6 +10,7 @@ import { OccurrenceList } from '../calendar/OccurrenceList';
 import { useMyCalendar } from '../data/tree-queries';
 import { ErrorBanner } from '../ui/fields';
 import { AppHeader } from '../ui/AppHeader';
+import { Footer } from '../ui/Footer';
 import { PublicHeader } from '../ui/PublicHeader';
 
 /**
@@ -90,6 +91,7 @@ export const CalendarPage = () => {
           )}
         </div>
       </main>
+      <Footer />
     </>
   );
 };

@@ -16,7 +16,7 @@ Thuật ngữ theo `CONTEXT.md`. Quyết định nền tảng theo ADR 0001–00
 ## User Stories
 
 **Tài khoản & Gia phả**
-1. As a visitor, I want to sign up with Google or email/password, so that I can start a Gia phả without SMS fees.
+1. As a visitor, I want to sign up with email/password, so that I can start a Gia phả without SMS fees.
 2. As an account, I want to create a Gia phả with a name and description, so that my dòng họ has its own space.
 3. As an account, I want to see all Gia phả I own or was invited to, so that I can switch between them.
 4. As an account, I want a clear message when I reach the limit of 3 Gia phả, so that I understand why I can't create more.
@@ -117,7 +117,7 @@ Thuật ngữ theo `CONTEXT.md`. Quyết định nền tảng theo ADR 0001–00
 
 ## Implementation Decisions
 
-**Stack (ADR 0004):** React + TypeScript SPA (Vite) on Cloudflare Pages; Supabase Postgres + Auth (Google, email/password); Cloudflare R2 for photos via signed upload URLs; Cloudflare Worker Cron daily at 00:00 UTC; Resend for email. Everything on free tiers. Starts on `*.pages.dev`; email enabled once a domain exists.
+**Stack (ADR 0004):** React + TypeScript SPA (Vite) on Cloudflare Pages; Supabase Postgres + Auth (email/password); Cloudflare R2 for photos via signed upload URLs; Cloudflare Worker Cron weekly, Monday 00:00 UTC; Resend for email. Everything on free tiers. Starts on `*.pages.dev`; email enabled once a domain exists.
 
 **Deep modules (each with a small interface, hiding complexity):**
 - **Lịch âm module** (pure TS, shared by web and Worker): convert dương ↔ âm (timezone +7), can chi, tiết khí, giờ hoàng đạo, holiday list, and `giỗ occurrence in year X` for a lunar day/month with the Tháng nhuận and day-30 rules. Ngày không đầy đủ is a value type here (precision: year / month-year / full; calendar: âm / dương; approximate flag).

@@ -22,6 +22,7 @@ import { TreeTabs } from '../tree/TreeTabs';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { ErrorBanner, Select, TextField } from '../ui/fields';
+import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
 
 /** Thiết kế bản in Phả đồ: phạm vi, khổ giấy, nội dung ô; xem trước đúng như bản in và xuất PDF vector. */
@@ -49,6 +50,7 @@ export const PhaDoPage = () => {
           />
         )}
       </main>
+      <Footer />
     </>
   );
 };

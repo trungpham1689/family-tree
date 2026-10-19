@@ -56,11 +56,11 @@ export const DayDetails = ({ date }: { date: SolarDate }) => {
       </dl>
 
       <h3 className="mt-5 font-semibold">Giờ hoàng đạo</h3>
-      <ul className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <ul className="mt-2 flex flex-wrap gap-2">
         {zodiacHours(date).map((hour) => (
-          <li key={hour.chi} className="rounded-xl bg-paper px-3 py-2">
-            <span className="font-semibold">{hour.chi}</span>{' '}
-            <span className="text-ink-muted tabular-nums">
+          <li key={hour.chi} className="flex items-baseline gap-1.5 whitespace-nowrap rounded-xl bg-paper px-3 py-2">
+            <span className="font-semibold">{hour.chi}</span>
+            <span className="text-sm text-ink-muted tabular-nums">
               {pad(hour.from)}–{pad(hour.to)}h
             </span>
           </li>

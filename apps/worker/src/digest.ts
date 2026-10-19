@@ -9,9 +9,9 @@ export type AccountPref = { offsetDays: number; emailEnabled: boolean };
 const MAX_OFFSET_DAYS = 7;
 
 /**
- * Gộp dữ liệu toàn hệ thống thành một bản tin cho mỗi tài khoản còn nhắc nhở chưa đọc, chưa tắt
- * email ở gia phả đó. Dùng đúng occurrencesBetween + dueReminders mà web đang dùng (@gia-pha/reminders),
- * nên "đến hạn" tính y hệt giữa app và email.
+ * Gộp dữ liệu toàn hệ thống thành một bản tin cho mỗi tài khoản có sự kiện trong 7 ngày tới, chưa
+ * đọc, chưa tắt email ở gia phả đó. Chạy hằng tuần (wrangler.toml) nên luôn lấy đủ 7 ngày tới, không
+ * theo "Độ sớm nhắc" của từng gia phả (chỉ dùng cho chuông nhắc nhở trong app).
  */
 export const buildDigests = (input: {
   today: SolarDate;
@@ -32,7 +32,7 @@ export const buildDigests = (input: {
     const emailTrees = new Set(treeIds.filter((treeId) => prefs.get(treeId)?.emailEnabled ?? true));
     if (emailTrees.size === 0) continue;
 
-    const offsetsByTree = new Map(treeIds.map((treeId) => [treeId, prefs.get(treeId)?.offsetDays ?? 0]));
+    const offsetsByTree = new Map(treeIds.map((treeId) => [treeId, MAX_OFFSET_DAYS]));
     const relevant = allOccurrences.filter((occurrence) => emailTrees.has(occurrence.treeId));
     const watched = input.watchByAccount.get(accountId) ?? new Set<string>();
     const read = input.readByAccount.get(accountId) ?? new Set<string>();

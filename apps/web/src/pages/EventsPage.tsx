@@ -28,6 +28,7 @@ import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
 import { ErrorBanner, Select, TextAreaField, TextField } from '../ui/fields';
+import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
 
 const OFFSET_OPTIONS: { value: 0 | 1 | 3 | 7; label: string }[] = [
@@ -94,7 +95,9 @@ export const EventsPage = () => {
 
         <section className="mt-8 rounded-xl border border-line bg-surface px-4 py-3">
           <h2 className="font-serif text-xl font-bold">Độ sớm nhắc</h2>
-          <p className="mt-1 text-ink-muted">Nhắc trước mấy ngày, và có gửi bản tin email mỗi sáng hay không.</p>
+          <p className="mt-1 text-ink-muted">
+            Nhắc trước mấy ngày trên chuông nhắc nhở. Email tổng hợp gửi mỗi thứ Hai nếu tuần tới có sự kiện; bật/tắt email ở đây.
+          </p>
           <div className="mt-3 flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -161,6 +164,7 @@ export const EventsPage = () => {
           )}
         </Dialog>
       </main>
+      <Footer />
     </>
   );
 };

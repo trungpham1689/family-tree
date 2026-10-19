@@ -176,7 +176,7 @@ const handleAuth = async (req, res, url) => {
   const claims = verifyJwt(bearer);
   if (path === '/user') return claims ? json(res, 200, userObject(claims.email)) : authError(res, 401, 'invalid JWT');
   if (path === '/logout') return json(res, 204);
-  if (path === '/settings') return json(res, 200, { external: { email: true, google: true }, disable_signup: false, mailer_autoconfirm: true });
+  if (path === '/settings') return json(res, 200, { external: { email: true }, disable_signup: false, mailer_autoconfirm: true });
   return authError(res, 404, `Not implemented: ${path}`);
 };
 

@@ -5,7 +5,7 @@ import { PT_PER_MM, type DrawItem } from './drawing';
  * Trả về các phần tử vẽ (mm) và vùng còn trống ở giữa để đặt cây.
  */
 
-export type FrameStyle = 'son-kim' | 'moc' | 'thanh-nha' | 'lam-ngoc' | 'hoang-gia' | 'none';
+export type FrameStyle = 'son-kim' | 'moc' | 'thanh-nha' | 'lam-ngoc' | 'hoang-gia' | 'trieu-nguyen' | 'tram-huong' | 'none';
 
 export const FRAME_LABELS: Record<FrameStyle, string> = {
   'son-kim': 'Đỏ son – vàng kim',
@@ -13,6 +13,8 @@ export const FRAME_LABELS: Record<FrameStyle, string> = {
   'thanh-nha': 'Thanh nhã (mực đen)',
   'lam-ngoc': 'Lam ngọc (xanh ngọc)',
   'hoang-gia': 'Hoàng gia (tím – vàng)',
+  'trieu-nguyen': 'Triều Nguyễn (huyết dụ – vàng)',
+  'tram-huong': 'Trầm hương (nâu bronze)',
   none: 'Không khung',
 };
 
@@ -35,7 +37,46 @@ const PALETTES: Record<FrameStyle, Palette> = {
   'thanh-nha': { background: '#ffffff', outer: '#1f1a17', inner: '#1f1a17', ornament: '#1f1a17', title: '#1f1a17', text: '#1f1a17' },
   'lam-ngoc': { background: '#eef6f3', outer: '#2b5c54', inner: '#3f8f7a', ornament: '#3f8f7a', title: '#1f4a42', text: '#1f4a42' },
   'hoang-gia': { background: '#f7f0fa', outer: '#5b2a86', inner: '#b8892b', ornament: '#b8892b', title: '#4a1f6e', text: '#3a1a57' },
+  'trieu-nguyen': { background: '#f6ece4', outer: '#5c1414', inner: '#c99a3e', ornament: '#c99a3e', title: '#5c1414', text: '#4a2a12' },
+  'tram-huong': { background: '#f1e8da', outer: '#4a3018', inner: '#8a6a3f', ornament: '#8a6a3f', title: '#4a3018', text: '#4a3018' },
   none: { background: '#ffffff', outer: '#ffffff', inner: '#ffffff', ornament: '#ffffff', title: '#8a1c1c', text: '#1f1a17' },
+};
+
+/** Khung có dải hồi văn chữ công chạy quanh 4 cạnh (ngoài hoạ tiết góc) — kiểu trang trọng, cổ điển hơn. */
+const RUNNING_BORDER_STYLES = new Set<FrameStyle>(['son-kim', 'moc', 'lam-ngoc', 'hoang-gia', 'trieu-nguyen', 'tram-huong']);
+
+/** Một đơn vị hồi văn (bậc thang vuông góc) lặp lại, dạng điểm cục bộ (dọc theo cạnh, lệch vào trong). */
+const meanderPoints = (length: number, idealUnit: number, h: number): [number, number][] => {
+  const count = Math.max(2, Math.round(length / idealUnit));
+  const u = length / count;
+  const points: [number, number][] = [[0, 0]];
+  for (let i = 0; i < count; i += 1) {
+    const x0 = i * u;
+    points.push([x0, h], [x0 + u * 0.55, h], [x0 + u * 0.55, 0], [x0 + u, 0]);
+  }
+  return points;
+};
+
+/** Đặt một dải điểm cục bộ (dọc trục, lệch theo pháp tuyến) lên trang, theo một cạnh bất kỳ. */
+const placeStrip = (origin: [number, number], axis: [number, number], normal: [number, number], local: [number, number][]): [number, number][] =>
+  local.map(([along, offset]): [number, number] => [
+    origin[0] + along * axis[0] + offset * normal[0],
+    origin[1] + along * axis[1] + offset * normal[1],
+  ]);
+
+/** Dải hồi văn chữ công chạy quanh 4 cạnh của trang, giữa các hoạ tiết góc. */
+const runningBorder = (page: { width: number; height: number }, unit: number, runStart: number, band: number, color: string, width: number): DrawItem[] => {
+  const topLen = page.width - 2 * runStart;
+  const sideLen = page.height - 2 * runStart;
+  const h = unit * 2.2;
+  const idealUnit = unit * 6;
+  const strips: [number, number][][] = [
+    placeStrip([runStart, band], [1, 0], [0, 1], meanderPoints(topLen, idealUnit, h)),
+    placeStrip([runStart, page.height - band], [1, 0], [0, -1], meanderPoints(topLen, idealUnit, h)),
+    placeStrip([band, runStart], [0, 1], [1, 0], meanderPoints(sideLen, idealUnit, h)),
+    placeStrip([page.width - band, runStart], [0, 1], [-1, 0], meanderPoints(sideLen, idealUnit, h)),
+  ];
+  return strips.map((points) => ({ type: 'line', stroke: color, strokeWidth: width, points }));
 };
 
 export type Region = { x: number; y: number; width: number; height: number };
@@ -94,18 +135,33 @@ const frameItems = (page: { width: number; height: number }, style: FrameStyle, 
 
   const outerInset = unit * 1.2;
   const items: DrawItem[] = [background];
+  let innerRectInset = outerInset;
   if (style === 'son-kim') {
-    items.push(rect(outerInset, palette.outer, unit * 0.9), rect(outerInset + unit * 1.4, palette.inner, unit * 0.25));
+    innerRectInset = outerInset + unit * 1.4;
+    items.push(rect(outerInset, palette.outer, unit * 0.9), rect(innerRectInset, palette.inner, unit * 0.25));
   } else if (style === 'moc') {
-    items.push(rect(outerInset, palette.outer, unit * 0.5), rect(outerInset + unit * 0.9, palette.inner, unit * 0.5));
+    innerRectInset = outerInset + unit * 0.9;
+    items.push(rect(outerInset, palette.outer, unit * 0.5), rect(innerRectInset, palette.inner, unit * 0.5));
   } else if (style === 'lam-ngoc') {
-    items.push(rect(outerInset, palette.outer, unit * 0.6), rect(outerInset + unit * 1.1, palette.inner, unit * 0.6));
+    innerRectInset = outerInset + unit * 1.1;
+    items.push(rect(outerInset, palette.outer, unit * 0.6), rect(innerRectInset, palette.inner, unit * 0.6));
   } else if (style === 'hoang-gia') {
+    innerRectInset = outerInset + unit * 2.3;
     items.push(
       rect(outerInset, palette.outer, unit * 1.2),
       rect(outerInset + unit * 1.8, palette.inner, unit * 0.4),
-      rect(outerInset + unit * 2.3, palette.ornament, unit * 0.15),
+      rect(innerRectInset, palette.ornament, unit * 0.15),
     );
+  } else if (style === 'trieu-nguyen') {
+    innerRectInset = outerInset + unit * 2.0;
+    items.push(
+      rect(outerInset, palette.outer, unit * 1.3),
+      rect(outerInset + unit * 1.4, palette.inner, unit * 0.2),
+      rect(innerRectInset, palette.inner, unit * 0.2),
+    );
+  } else if (style === 'tram-huong') {
+    innerRectInset = outerInset + unit * 1.0;
+    items.push(rect(outerInset, palette.outer, unit * 0.7), rect(innerRectInset, palette.inner, unit * 0.3));
   } else {
     items.push(rect(outerInset, palette.outer, unit * 0.2), rect(outerInset + unit * 0.6, palette.inner, unit * 0.1));
   }
@@ -113,6 +169,9 @@ const frameItems = (page: { width: number; height: number }, style: FrameStyle, 
   const cornerInset = outerInset + unit * 2.2;
   const size = unit * 5;
   const width = style === 'thanh-nha' ? unit * 0.12 : unit * 0.3;
+  if (RUNNING_BORDER_STYLES.has(style)) {
+    items.push(...runningBorder(page, unit, cornerInset + size + unit, innerRectInset + unit * 1.6, palette.ornament, width * 1.15));
+  }
   items.push(
     ...cornerKey(cornerInset, cornerInset, size, 1, 1, palette.ornament, width),
     ...cornerKey(page.width - cornerInset, cornerInset, size, -1, 1, palette.ornament, width),

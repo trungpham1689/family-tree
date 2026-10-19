@@ -46,7 +46,7 @@ pnpm dev                                 # mở http://localhost:5173
 
 - **Supabase** project `family-tree` (`gihidxqjfcezsrcibrla`, vùng Singapore): database, đăng nhập, Storage (ảnh).
 - **Cloudflare Pages**: hosting web, tự deploy khi có commit lên `main`.
-- **Cloudflare Worker Cron** (`apps/worker`): chạy mỗi ngày, tính nhắc nhở đến hạn, gửi Bản tin nhắc qua **Resend** — chưa deploy, xem mục 3 dưới.
+- **Cloudflare Worker Cron** (`apps/worker`): chạy mỗi thứ Hai, có sự kiện tuần tới mới gửi Bản tin nhắc qua **Resend** — chưa deploy, xem mục 3 dưới.
 
 ## Việc chủ dự án cần tự làm
 
@@ -58,10 +58,6 @@ Vào [Supabase Dashboard](https://supabase.com/dashboard/project/gihidxqjfcezsrc
    - *Site URL*: địa chỉ bản deploy (ví dụ `https://gia-pha.pages.dev`).
    - *Redirect URLs*: thêm `http://localhost:5173/**` và `https://<tên-project>.pages.dev/**`.
 2. **Sign In / Providers → Email**: đang bật sẵn. Email xác nhận dùng máy gửi mặc định của Supabase, giới hạn vài thư mỗi giờ; tạm tắt *Confirm email* nếu thử nghiệm nhiều tài khoản.
-3. **Sign In / Providers → Google**:
-   1. Vào [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → *Create credentials* → *OAuth client ID* → loại *Web application*.
-   2. *Authorized redirect URIs*: `https://gihidxqjfcezsrcibrla.supabase.co/auth/v1/callback`.
-   3. Dán *Client ID* và *Client secret* vào trang Google provider trên Supabase, bật lên.
 
 ### 2. Deploy lên Cloudflare Pages
 
@@ -75,16 +71,21 @@ Vào [Supabase Dashboard](https://supabase.com/dashboard/project/gihidxqjfcezsrc
    | Root directory | `apps/web` (để Cloudflare thấy thư mục `functions/`) |
    | Build command | `pnpm install --frozen-lockfile && pnpm build` |
    | Build output directory | `dist` |
-   | Biến môi trường | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` (giá trị như `.env.example`), `NODE_VERSION=22` |
+   | Biến môi trường | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` (giá trị như `.env.example`), `NODE_VERSION=22`, `SKIP_DEPENDENCY_INSTALL=1`, `PNPM_VERSION=10.28.0` |
 
    Hai biến `VITE_SUPABASE_*` dùng cho cả lúc build lẫn Pages Function `functions/p/[[path]].ts`
    (chèn tiêu đề và ảnh xem trước khi dán link công khai vào Zalo/Facebook).
+
+   `SKIP_DEPENDENCY_INSTALL=1` và `PNPM_VERSION` bắt buộc phải có: Root directory là `apps/web`,
+   không có `pnpm-lock.yaml` ở đó, nên Cloudflare tự chạy `npm install` trước khi tới Build command
+   và báo lỗi `Unsupported URL Type "workspace:"`. Hai biến này tắt bước npm tự động đó, để Build
+   command tự `pnpm install` (pnpm tự tìm workspace root từ thư mục con).
 
 4. Lấy địa chỉ `*.pages.dev` vừa có, quay lại bước 1.1 để thêm vào Site URL và Redirect URLs.
 
 ### 3. Deploy Worker Cron (Bản tin nhắc qua email)
 
-Chưa làm bước này thì nhắc nhở vẫn chạy trong app (chuông "Nhắc nhở", trang `/nhac-gio`) như thường, chỉ chưa có email mỗi sáng.
+Chưa làm bước này thì nhắc nhở vẫn chạy trong app (chuông "Nhắc nhở", trang `/nhac-gio`) như thường, chỉ chưa có email mỗi thứ Hai.
 
 1. **Tạo tài khoản [Resend](https://resend.com)** (miễn phí 100 email/ngày) → **API Keys** → tạo key mới.
    - Chưa có domain riêng: gửi được ngay bằng `onboarding@resend.dev`, nhưng Resend chỉ cho gửi về đúng email bạn dùng để đăng ký tài khoản Resend — đủ để tự thử, không gửi được cho người khác.
@@ -105,4 +106,4 @@ Chưa làm bước này thì nhắc nhở vẫn chạy trong app (chuông "Nhắ
    pnpm --filter worker typecheck
    npx wrangler deploy
    ```
-   Worker chạy theo lịch đã đặt sẵn trong `wrangler.toml` (`0 0 * * *`, tức 7:00 sáng giờ Việt Nam), không cần làm gì thêm. Xem log: `npx wrangler tail`. Đổi `APP_URL`/`RESEND_FROM` thì sửa `[vars]` trong `wrangler.toml` rồi deploy lại.
+   Worker chạy theo lịch đã đặt sẵn trong `wrangler.toml` (`0 0 * * 1`, tức thứ Hai 7:00 sáng giờ Việt Nam), chỉ gửi nếu tuần tới có sự kiện, không cần làm gì thêm. Xem log: `npx wrangler tail`. Đổi `APP_URL`/`RESEND_FROM` thì sửa `[vars]` trong `wrangler.toml` rồi deploy lại.

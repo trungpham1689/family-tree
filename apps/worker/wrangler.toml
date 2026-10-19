@@ -2,9 +2,9 @@ name = "gia-pha-nhac-nho"
 main = "src/index.ts"
 compatibility_date = "2026-01-01"
 
-# 00:00 UTC = 07:00 giờ Việt Nam (PLAN.md mục 3).
+# Thứ Hai 00:00 UTC = thứ Hai 07:00 giờ Việt Nam (PLAN.md mục 3). Chỉ gửi nếu có sự kiện sắp tới.
 [triggers]
-crons = ["0 0 * * *"]
+crons = ["0 0 * * 1"]
 
 [vars]
 # URL Supabase, giống VITE_SUPABASE_URL ở apps/web/.env — không phải bí mật.

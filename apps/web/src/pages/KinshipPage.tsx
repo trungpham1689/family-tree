@@ -8,6 +8,7 @@ import { TreeTabs } from '../tree/TreeTabs';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { ErrorBanner } from '../ui/fields';
+import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
 
 /** Tra cứu xưng hô: chọn hai Người, xem người kia gọi người này là gì. */
@@ -50,6 +51,7 @@ export const KinshipPage = () => {
           </div>
         )}
       </main>
+      <Footer />
     </>
   );
 };
