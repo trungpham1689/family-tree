@@ -2,10 +2,10 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { ROLE_LABELS } from '../data/role-labels';
-import { useCreatePerson, useDeleteTree, useFamily, useRenameTree, useTree } from '../data/tree-queries';
+import { useAddChild, useCreatePerson, useDeleteTree, useFamily, usePersonAvatars, useRenameTree, useTree } from '../data/tree-queries';
 import type { Person, TreeWithRole } from '../data/trees';
 import { lifespanText } from '../people/person-display';
-import type { FamilyGraph } from '../family/family-graph';
+import type { FamilyGraph, GenerationGroup } from '../family/family-graph';
 import { kindLabel } from '../family/labels';
 import { EMPTY_PERSON_FORM } from '../people/person-form';
 import { toIsoDate, todayInVietnam } from '../calendar/month-grid';
@@ -184,20 +184,38 @@ const GenerationList = ({ treeId, graph, canEdit }: { treeId: string; graph: Fam
   const unconnected = graph.unconnected();
   const [linkingId, setLinkingId] = useState<string | null>(null);
   const linking = linkingId ? graph.person(linkingId) : undefined;
+  // Mặc định Đời 1; nếu chọn một đời rồi mất đi (gia phả đổi) thì quay lại Đời 1.
+  const [selectedGeneration, setSelectedGeneration] = useState<number | null>(null);
+  const activeGeneration =
+    selectedGeneration !== null && generations.some((group) => group.generation === selectedGeneration)
+      ? selectedGeneration
+      : (generations[0]?.generation ?? null);
+  const activeGroup = generations.find((group) => group.generation === activeGeneration);
 
   return (
     <div className="space-y-8">
-      {generations.map((group) => (
-        <section key={group.generation} aria-labelledby={`doi-${group.generation}`}>
-          <h2 id={`doi-${group.generation}`} className="flex flex-wrap items-baseline gap-x-3 font-serif text-2xl font-bold">
-            Đời {group.generation}
-            <span className="font-sans text-base font-normal text-ink-muted">
-              {group.male} nam · {group.female} nữ · tổng {group.total}
-            </span>
+      {generations.length > 0 && (
+        <section aria-labelledby="cac-doi">
+          <h2 id="cac-doi" className="font-serif text-2xl font-bold">
+            Các đời
           </h2>
-          <PersonList treeId={treeId} graph={graph} persons={group.persons} />
+          <div className="mt-3 flex items-start gap-4">
+            <nav aria-label="Chọn đời" className="flex w-20 shrink-0 flex-col gap-2 sm:w-28">
+              {generations.map((group) => (
+                <GenerationTab
+                  key={group.generation}
+                  group={group}
+                  active={group.generation === activeGeneration}
+                  onSelect={() => setSelectedGeneration(group.generation)}
+                />
+              ))}
+            </nav>
+            <div className="min-w-0 flex-1">
+              {activeGroup && <GenerationCards treeId={treeId} graph={graph} group={activeGroup} canEdit={canEdit} />}
+            </div>
+          </div>
         </section>
-      ))}
+      )}
       {unconnected.length > 0 && (
         <section aria-labelledby="chua-noi">
           <h2 id="chua-noi" className="font-serif text-2xl font-bold">
@@ -259,6 +277,134 @@ const PersonList = ({ treeId, graph, persons, action }: PersonListProps) => (
     })}
   </ul>
 );
+
+const GenerationTab = ({ group, active, onSelect }: { group: GenerationGroup<Person>; active: boolean; onSelect: () => void }) => (
+  <button
+    type="button"
+    aria-current={active || undefined}
+    onClick={onSelect}
+    className={`rounded-xl px-2 py-2 text-center transition-colors ${
+      active ? 'bg-son text-white' : 'bg-surface text-ink-muted hover:bg-paper'
+    }`}
+  >
+    <p className={`text-xs font-semibold uppercase tracking-wide ${active ? 'text-white/80' : 'text-ink-muted'}`}>Đời thứ</p>
+    <p className="font-serif text-2xl font-bold">{group.generation}</p>
+    <p className={`text-xs ${active ? 'text-white/85' : 'text-ink-muted'}`}>
+      ♂{group.male} ♀{group.female}
+    </p>
+    <p className={`text-xs ${active ? 'text-white/70' : 'text-ink-muted'}`}>Tổng {group.total}</p>
+  </button>
+);
+
+const GenerationCards = ({
+  treeId,
+  graph,
+  group,
+  canEdit,
+}: {
+  treeId: string;
+  graph: FamilyGraph<Person>;
+  group: GenerationGroup<Person>;
+  canEdit: boolean;
+}) => {
+  const avatars = usePersonAvatars(group.persons, true);
+  return (
+    <ul className="space-y-3">
+      {group.persons.map((person) => (
+        <GenerationCard
+          key={person.id}
+          treeId={treeId}
+          graph={graph}
+          person={person}
+          canEdit={canEdit}
+          avatarUrl={avatars.data?.get(person.id)}
+        />
+      ))}
+    </ul>
+  );
+};
+
+const GenerationCard = ({
+  treeId,
+  graph,
+  person,
+  canEdit,
+  avatarUrl,
+}: {
+  treeId: string;
+  graph: FamilyGraph<Person>;
+  person: Person;
+  canEdit: boolean;
+  avatarUrl: string | undefined;
+}) => {
+  const { kind } = graph.placement(person.id);
+  const parents = graph.parentsOf(person.id);
+  const primaryParent = parents[0];
+  const spouseCount = graph.spousesOf(person.id).length;
+  const childCount = graph.childrenOf(person.id).length;
+  const [adding, setAdding] = useState(false);
+  const addChild = useAddChild(treeId);
+  const initial = person.full_name.trim().charAt(0).toUpperCase() || '?';
+
+  return (
+    <li>
+      {primaryParent && (
+        <p className="mb-1 pl-1 text-sm text-ink-muted">
+          {primaryParent.person.gender === 'nu' ? 'Mẹ' : 'Cha'} {primaryParent.person.full_name}
+        </p>
+      )}
+      <div className="flex items-stretch overflow-hidden rounded-2xl bg-son text-white">
+        <Link to={`/gia-pha/${treeId}/nguoi/${person.id}`} className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 hover:bg-son-strong">
+          <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-paper text-lg font-bold text-son">
+            {avatarUrl ? <img src={avatarUrl} alt="" className="size-full object-cover" /> : initial}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-lg font-bold">{person.full_name}</span>
+            <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-white/80">
+              <span>{person.gender === 'nam' ? 'Nam' : person.gender === 'nu' ? 'Nữ' : 'Chưa rõ'}</span>
+              {kind !== 'dinh' && <span>{kindLabel(kind, person.gender)}</span>}
+            </span>
+            {(spouseCount > 0 || childCount > 0) && (
+              <span className="mt-1 flex flex-wrap gap-x-3 text-sm font-semibold text-kim-soft">
+                {spouseCount > 0 && <span>{spouseCount} vợ/chồng</span>}
+                {childCount > 0 && <span>{childCount} con</span>}
+              </span>
+            )}
+          </span>
+        </Link>
+        {canEdit && (
+          <button
+            type="button"
+            aria-label={`Thêm con cho ${person.full_name}`}
+            onClick={() => setAdding(true)}
+            className="grid w-12 shrink-0 place-items-center border-l border-white/15 text-xl font-bold hover:bg-son-strong"
+          >
+            +
+          </button>
+        )}
+      </div>
+      <Dialog open={adding} title={`Thêm con cho ${person.full_name}`} onClose={() => setAdding(false)}>
+        {adding && (
+          <PersonForm
+            initial={EMPTY_PERSON_FORM}
+            graph={graph}
+            currentPersonId={person.id}
+            submitLabel="Thêm"
+            busy={addChild.isPending}
+            serverError={addChild.isError ? addChild.error.message : null}
+            onCancel={() => setAdding(false)}
+            onSubmit={(fields) =>
+              addChild.mutate(
+                { parentId: person.id, otherParentId: null, kind: 'ruot', fields },
+                { onSuccess: () => setAdding(false) },
+              )
+            }
+          />
+        )}
+      </Dialog>
+    </li>
+  );
+};
 
 const ExportButton = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Person> }) => {
   const [busy, setBusy] = useState(false);

@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { AVATAR_MIME_TYPES, MAX_AVATAR_BYTES, type PersonPhoto } from '../data/photos';
@@ -546,7 +546,52 @@ const ReorderableChildren = ({
   const order = dragState.key === sourceKey ? dragState.order : sourceOrder;
   const rowRefs = useRef(new Map<string, HTMLLIElement>());
   const draggingId = useRef<string | null>(null);
+  // Tính lại vị trí tối đa một lần mỗi khung hình thay vì mỗi sự kiện pointermove (có thể bắn rất nhanh),
+  // để tránh đọc layout (getBoundingClientRect) liên tục làm giật khi kéo.
+  const pendingClientY = useRef<number | null>(null);
+  const rafId = useRef<number | null>(null);
   const canDrag = canEdit && items.length > 1;
+
+  // FLIP: trượt mượt từ vị trí cũ sang vị trí mới mỗi khi thứ tự đổi, thay vì nhảy khựng.
+  const orderKey = order.join(',');
+  const prevRects = useRef(new Map<string, DOMRect>());
+  useLayoutEffect(() => {
+    const next = new Map<string, DOMRect>();
+    for (const [id, element] of rowRefs.current) {
+      const rect = element.getBoundingClientRect();
+      const prev = prevRects.current.get(id);
+      const deltaY = prev ? prev.top - rect.top : 0;
+      if (deltaY) {
+        element.style.transition = 'none';
+        element.style.transform = `translateY(${deltaY}px)`;
+        element.getBoundingClientRect(); // ép reflow để trình duyệt ghi nhận vị trí bắt đầu trước khi chuyển
+        element.style.transition = 'transform 160ms ease-out';
+        element.style.transform = '';
+      }
+      next.set(id, rect);
+    }
+    prevRects.current = next;
+  }, [orderKey]);
+
+  const reorderedBy = (clientY: number): string[] | null => {
+    const id = draggingId.current;
+    if (!id) return null;
+    const rows = order.flatMap((childId) => rowRefs.current.get(childId) ?? []);
+    let targetIndex = rows.length - 1;
+    for (let index = 0; index < rows.length; index++) {
+      const rect = rows[index]?.getBoundingClientRect();
+      if (rect && clientY < rect.top + rect.height / 2) {
+        targetIndex = index;
+        break;
+      }
+    }
+    const fromIndex = order.indexOf(id);
+    if (fromIndex === -1 || fromIndex === targetIndex) return null;
+    const next = order.slice();
+    next.splice(fromIndex, 1);
+    next.splice(targetIndex, 0, id);
+    return next;
+  };
 
   const onPointerDown = (id: string) => (event: ReactPointerEvent<HTMLButtonElement>) => {
     draggingId.current = id;
@@ -554,29 +599,28 @@ const ReorderableChildren = ({
   };
 
   const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    const id = draggingId.current;
-    if (!id) return;
-    const rows = order.flatMap((childId) => rowRefs.current.get(childId) ?? []);
-    let targetIndex = rows.length - 1;
-    for (let index = 0; index < rows.length; index++) {
-      const rect = rows[index]?.getBoundingClientRect();
-      if (rect && event.clientY < rect.top + rect.height / 2) {
-        targetIndex = index;
-        break;
-      }
-    }
-    const fromIndex = order.indexOf(id);
-    if (fromIndex === -1 || fromIndex === targetIndex) return;
-    const next = order.slice();
-    next.splice(fromIndex, 1);
-    next.splice(targetIndex, 0, id);
-    setDragState({ key: sourceKey, order: next });
+    if (!draggingId.current) return;
+    pendingClientY.current = event.clientY;
+    if (rafId.current !== null) return;
+    rafId.current = requestAnimationFrame(() => {
+      rafId.current = null;
+      const clientY = pendingClientY.current;
+      const next = clientY === null ? null : reorderedBy(clientY);
+      if (next) setDragState({ key: sourceKey, order: next });
+    });
   };
 
   const onPointerUp = () => {
     if (!draggingId.current) return;
+    if (rafId.current !== null) {
+      cancelAnimationFrame(rafId.current);
+      rafId.current = null;
+    }
+    const clientY = pendingClientY.current;
+    const finalOrder = (clientY === null ? null : reorderedBy(clientY)) ?? order;
     draggingId.current = null;
-    if (order.some((id, index) => id !== sourceOrder[index])) reorder.mutate(order);
+    pendingClientY.current = null;
+    if (finalOrder.some((id, index) => id !== sourceOrder[index])) reorder.mutate(finalOrder);
   };
 
   return (
