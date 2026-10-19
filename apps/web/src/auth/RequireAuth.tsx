@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router';
+import { queryKeys } from '../data/query-keys';
 import { supabase } from '../lib/supabase';
 import { Button } from '../ui/Button';
 import { FullPageMessage } from '../ui/FullPageMessage';
@@ -9,7 +10,7 @@ import { useAuth } from './auth-context';
 /** Tài khoản mới chưa dùng được cho tới khi chủ hệ thống duyệt (bảng account_approvals, xem migration duyệt tài khoản). */
 const useApproved = (accountId: string | null) =>
   useQuery({
-    queryKey: ['approval', accountId],
+    queryKey: queryKeys.approval(accountId ?? ''),
     enabled: accountId !== null,
     // Chưa duyệt thì kiểm tra lại mỗi 30 giây để tự vào được ngay khi vừa được duyệt.
     refetchInterval: (query) => (query.state.data === false ? 30_000 : false),

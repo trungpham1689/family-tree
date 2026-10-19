@@ -23,7 +23,7 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { MyEventsPage } from './pages/MyEventsPage';
 import { TreePage } from './pages/TreePage';
 import { TreeViewPage } from './pages/TreeViewPage';
-import { OFFLINE_MAX_AGE_MS, queryPersister, shouldPersistQuery } from './lib/offline-cache';
+import { OFFLINE_CACHE_VERSION, OFFLINE_MAX_AGE_MS, queryPersister, shouldPersistQuery } from './lib/offline-cache';
 import { FullPageMessage } from './ui/FullPageMessage';
 
 const queryClient = new QueryClient({
@@ -155,8 +155,7 @@ createRoot(rootElement).render(
       persistOptions={{
         persister: queryPersister,
         maxAge: OFFLINE_MAX_AGE_MS,
-        // Đổi số này khi cấu trúc dữ liệu đã lưu thay đổi để bỏ bộ nhớ đệm cũ.
-        buster: 'v1',
+        buster: OFFLINE_CACHE_VERSION,
         dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
       }}
     >

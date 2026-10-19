@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient, type MutationFunction } from '@tanstack/react-query';
 import { useAuth } from '../auth/auth-context';
+import type { QueryRoot } from './query-roots';
 
 /**
  * Sổ đăng ký truy vấn: khoá của mọi truy vấn dữ liệu, và "thao tác nào làm đổi truy vấn nào" (`effects`).
@@ -22,7 +23,12 @@ export const queryKeys = {
   reminderPrefs: ['reminder-prefs'] as const,
   notificationReads: ['notification-reads'] as const,
   calendarFeed: ['calendar-feed'] as const,
-};
+  approval: (accountId: string) => ['approval', accountId] as const,
+  avatar: (path: string | null) => ['avatar', path] as const,
+  avatars: (entries: readonly string[]) => ['avatars', entries] as const,
+  publicCard: (token: string) => ['public-card', token] as const,
+  publicTree: (token: string, password: string | null) => ['public', token, password] as const,
+} satisfies Record<string, readonly unknown[] | ((...args: never[]) => readonly [QueryRoot, ...unknown[]])>;
 
 /** Tên cũ của `queryKeys` cho phần các khoá của gia phả. */
 export const treeKeys = queryKeys;

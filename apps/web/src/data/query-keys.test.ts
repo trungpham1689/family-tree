@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { isPersistedRoot, QUERY_ROOTS } from './query-roots';
 import { effects, queryKeys } from './query-keys';
 
 const isPrefix = (prefix: readonly unknown[], key: readonly unknown[]) => prefix.every((part, index) => key[index] === part);
@@ -23,5 +24,20 @@ describe('effects', () => {
     expect(touches(effects.events('t1'), queryKeys.calendar('acc-1'))).toBe(true);
     expect(touches(effects.deletion('t1'), queryKeys.pendingDeletions('t1'))).toBe(true);
     expect(touches(effects.family('t1'), queryKeys.family('t2'))).toBe(false);
+  });
+});
+
+describe('gốc khoá truy vấn (query-roots.ts)', () => {
+  const rootsOf = () =>
+    Object.values(queryKeys).map((key) => (typeof key === 'function' ? (key as (...args: unknown[]) => readonly unknown[])('x', 'x') : key)[0]);
+
+  it('mọi khoá trong sổ đăng ký có gốc đã khai trong QUERY_ROOTS (thêm khoá mới mà quên khai gốc thì hỏng)', () => {
+    for (const root of rootsOf()) expect(Object.keys(QUERY_ROOTS), String(root)).toContain(root);
+  });
+
+  it('chỉ dữ liệu gia phả/nhắc nhở và trạng thái duyệt được giữ để xem offline; link lịch, ảnh, trang công khai thì không', () => {
+    const persisted = Object.keys(QUERY_ROOTS).filter((root) => isPersistedRoot(root)).sort();
+    expect(persisted).toEqual(['approval', 'notification-reads', 'reminder-prefs', 'reminder-watch', 'trees']);
+    expect(isPersistedRoot('chua-khai')).toBe(false);
   });
 });

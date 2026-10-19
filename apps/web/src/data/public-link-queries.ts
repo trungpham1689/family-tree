@@ -14,12 +14,12 @@ import { queryKeys, useFamilyMutation } from './query-keys';
 // ---------------------------------------------------------------------------
 /** Thẻ xem trước nhẹ, không cần mật khẩu — hiện tên gia phả trên màn hình nhập mật khẩu. */
 export const usePublicTreeCard = (token: string) =>
-  useQuery({ queryKey: ['public-card', token], queryFn: () => fetchPublicTreeCard(token), retry: false });
+  useQuery({ queryKey: queryKeys.publicCard(token), queryFn: () => fetchPublicTreeCard(token), retry: false });
 
 /** `password` null khi chưa nhập (ví dụ vừa mở trang) — chỉ gọi khi có để tránh dò mật khẩu không cần thiết. */
 export const usePublicTree = (token: string, password: string | null) =>
   useQuery({
-    queryKey: ['public', token, password],
+    queryKey: queryKeys.publicTree(token, password),
     queryFn: () => fetchPublicTree(token, password),
     enabled: password !== null,
     retry: false,

@@ -1,14 +1,12 @@
 import { useMemo } from 'react';
 import { useParams } from 'react-router';
-import { toIsoDate, todayInVietnam } from '../calendar/month-grid';
-import { loadFontBinary } from '../data/pha-do';
+import { todayInVietnam } from '../calendar/month-grid';
 import { useAvatarDataUrl, usePersonAvatars } from '../data/tree-queries';
 import type { Person, TreeWithRole } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
 import { TreePageShell } from '../tree/TreePageShell';
 import { kindLabel } from '../family/labels';
-import { exportFileName } from '../lib/download';
-import { useExport } from '../lib/use-export';
+import { useTreeExport } from '../export/use-tree-export';
 import { branchSummaries, buildNarrative, closingNote, notablePersons, originSummary } from '../pha-ky/narrative';
 import { buildFrontSections, toPdfSections, type PhaKySection } from '../pha-ky/sections';
 import { Button } from '../ui/Button';
@@ -25,7 +23,7 @@ export const PhaKyPage = () => {
 };
 
 const PhaKyBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Person> }) => {
-  const { running, error: exportError, run: runExport } = useExport();
+  const { running, error: exportError, run: runExport } = useTreeExport(tree.name);
   const exporting = running !== null;
 
   const today = useMemo(() => todayInVietnam(), []);
@@ -43,25 +41,13 @@ const PhaKyBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Per
   const avatars = usePersonAvatars(graph.persons, true);
 
 
-  const exportPdf = () => {
-    const data = tree;
-    return runExport(
-      'export',
-      async () => {
-        const [{ narrativeToPdf }, regular, bold] = await Promise.all([
-          import('../pha-ky/pdf'),
-          loadFontBinary('/fonts/NotoSerif-400Regular.ttf'),
-          loadFontBinary('/fonts/NotoSerif-700Bold.ttf'),
-        ]);
-        const after = generations.length > 0 ? [{ heading: 'Lời kết', paragraphs: [closingNote(today)] }] : [];
-        narrativeToPdf(generations, { regular, bold }, `Phả ký ${data.name}`, toPdfSections(frontSections), after, {
-          cover: cover.data,
-          people: avatars.data,
-        }).save(exportFileName('Pha-ky', data.name, toIsoDate(today), 'pdf'));
-      },
-      'Không tạo được file PDF. Hãy thử lại.',
-    );
-  };
+  const exportPdf = () =>
+    runExport('pha-ky-pdf', {
+      generations,
+      front: toPdfSections(frontSections),
+      back: generations.length > 0 ? [{ heading: 'Lời kết', paragraphs: [closingNote(today)] }] : [],
+      photos: { cover: cover.data, people: avatars.data },
+    });
 
   return (
     <>

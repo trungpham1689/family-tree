@@ -151,7 +151,7 @@ export const useRemoveTreePhoto = () => useMutationWithEffects(removeTreePhoto, 
 /** Ảnh đại diện của một Người, tải về và chuyển sẵn thành data URL; null khi chưa có ảnh. */
 export const useAvatarDataUrl = (avatarPath: string | null) =>
   useQuery({
-    queryKey: ['avatar', avatarPath],
+    queryKey: queryKeys.avatar(avatarPath),
     queryFn: () => fetchAvatarDataUrl(avatarPath!),
     enabled: avatarPath !== null,
     staleTime: Infinity,
@@ -162,7 +162,7 @@ export const useAvatarDataUrl = (avatarPath: string | null) =>
 export const usePersonAvatars = (persons: readonly { id: string; avatar_path: string | null }[], enabled: boolean) => {
   const withAvatar = persons.filter((person) => person.avatar_path !== null);
   return useQuery({
-    queryKey: ['avatars', withAvatar.map((person) => `${person.id}:${person.avatar_path}`)],
+    queryKey: queryKeys.avatars(withAvatar.map((person) => `${person.id}:${person.avatar_path}`)),
     queryFn: async () => {
       const entries = await Promise.all(
         withAvatar.map(async (person) => [person.id, await fetchAvatarDataUrl(person.avatar_path!)] as const),

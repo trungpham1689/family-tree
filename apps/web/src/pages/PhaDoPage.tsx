@@ -1,8 +1,6 @@
 import { canEditTree } from '../data/permissions';
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router';
-import { toIsoDate, todayInVietnam } from '../calendar/month-grid';
-import { loadFontBinary } from '../data/pha-do';
 import {
   useFamily,
   usePersonAvatars,
@@ -15,7 +13,6 @@ import type { FamilyGraph } from '../family/family-graph';
 import {
   EXTRA_LINE_LABELS,
   FONT_FAMILY_CSS,
-  FONT_FAMILY_EXPORT_FILES,
   readPhaDoConfig,
   type ExtraLine,
   type PhaDoConfig,
@@ -29,8 +26,7 @@ import { Button } from '../ui/Button';
 import { Collapsible } from '../ui/Collapsible';
 import { ErrorBanner, Select } from '../ui/fields';
 import { Footer } from '../ui/Footer';
-import { useExport } from '../lib/use-export';
-import { exportFileName } from '../lib/download';
+import { useTreeExport } from '../export/use-tree-export';
 import { FullPageMessage } from '../ui/FullPageMessage';
 import { DecorationSettings, ScopeSettings, PaperSettings, FontSettings } from '../pha-do/PhaDoSettings';
 
@@ -69,7 +65,7 @@ type Zoom = 'fit' | 1 | 2 | 4;
 const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: FamilyGraph<Person>; initial: PhaDoConfig }) => {
   const [config, setConfig] = useState(initial);
   const [zoom, setZoom] = useState<Zoom>('fit');
-  const { running: exporting, error: exportError, run: runExport } = useExport<'pdf' | 'png'>();
+  const { running: exporting, error: exportError, run: runExport } = useTreeExport(tree.name);
   const save = useSavePhaDoConfig(tree.id);
   const canEdit = canEditTree(tree.role);
 
@@ -85,35 +81,8 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
   const svg = useMemo(() => drawingToSvg(result.drawing, undefined, FONT_FAMILY_CSS[config.fontFamily]), [result, config.fontFamily]);
   const update = (patch: Partial<PhaDoConfig>) => setConfig((current) => ({ ...current, ...patch }));
 
-  const exportDate = toIsoDate(todayInVietnam());
-  const loadFonts = async () => {
-    const files = FONT_FAMILY_EXPORT_FILES[config.fontFamily];
-    const [regular, bold] = await Promise.all([loadFontBinary(files.regular), loadFontBinary(files.bold)]);
-    return { regular, bold };
-  };
-
-  const exportPdf = () =>
-    runExport(
-      'pdf',
-      async () => {
-        const [{ drawingToPdf }, fonts] = await Promise.all([import('../pha-do/pdf'), loadFonts()]);
-        drawingToPdf(result.drawing, fonts, `Gia phả ${tree.name}`).save(exportFileName('Pha-do', tree.name, exportDate, 'pdf'));
-      },
-      'Không tạo được file PDF. Hãy thử lại.',
-    );
-
-  const exportPng = () =>
-    runExport(
-      'png',
-      async () => {
-        const [{ renderPng }, { downloadBlob }, fonts] = await Promise.all([import('../pha-do/png-export'), import('../lib/download'), loadFonts()]);
-        downloadBlob(
-          await renderPng(result.drawing, fonts, pngPlan),
-          exportFileName('Pha-do', tree.name, `${exportDate}-${pngPlan.dpi}dpi`, 'png'),
-        );
-      },
-      'Không tạo được ảnh PNG (trình duyệt có thể thiếu bộ nhớ). Hãy thử khổ nhỏ hơn hoặc dùng PDF.',
-    );
+  const exportPdf = () => runExport('pha-do-pdf', { drawing: result.drawing, fontFamily: config.fontFamily });
+  const exportPng = () => runExport('pha-do-png', { drawing: result.drawing, fontFamily: config.fontFamily, plan: pngPlan });
 
   return (
     <div className="mt-4 grid gap-6 lg:grid-cols-[22rem_1fr]">
@@ -176,10 +145,10 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
 
         <div className="space-y-3 rounded-xl border border-line bg-surface p-4">
           <Button className="w-full" disabled={exporting !== null || result.personCount === 0} onClick={exportPdf}>
-            {exporting === 'pdf' ? 'Đang tạo PDF…' : 'Xuất PDF (in ấn)'}
+            {exporting === 'pha-do-pdf' ? 'Đang tạo PDF…' : 'Xuất PDF (in ấn)'}
           </Button>
           <Button variant="secondary" className="w-full" disabled={exporting !== null || result.personCount === 0} onClick={exportPng}>
-            {exporting === 'png' ? 'Đang vẽ ảnh PNG…' : `Xuất ảnh PNG (${pngPlan.dpi} dpi)`}
+            {exporting === 'pha-do-png' ? 'Đang vẽ ảnh PNG…' : `Xuất ảnh PNG (${pngPlan.dpi} dpi)`}
           </Button>
           <p className="text-sm text-ink-muted">
             Ảnh PNG {pngPlan.width} × {pngPlan.height} điểm ảnh.

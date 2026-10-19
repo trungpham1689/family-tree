@@ -12,8 +12,7 @@ import type { BackupProgress } from '../backup/download-backup';
 import { ImagePicker } from '../people/PersonPhotos';
 import type { Person, TreeWithRole } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
-import { toIsoDate, todayInVietnam } from '../calendar/month-grid';
-import { downloadFamily } from '../excel/xlsx-io';
+import { useTreeExport } from '../export/use-tree-export';
 import { Button } from '../ui/Button';
 import { ErrorBanner, TextAreaField, TextField } from '../ui/fields';
 
@@ -37,66 +36,46 @@ export const SweepPhotosButton = ({ tree }: { tree: TreeWithRole }) => {
 
 /** Tải một file .zip chứa toàn bộ dữ liệu và ảnh của gia phả để lưu trên máy. */
 export const BackupButton = ({ tree }: { tree: TreeWithRole }) => {
+  const { running, error, run } = useTreeExport(tree.name);
   const [progress, setProgress] = useState<BackupProgress | null>(null);
-  const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+  const [failedImages, setFailedImages] = useState<number | null>(null);
 
-  const label = !progress
+  const label = !running
     ? `Tải tất cả dữ liệu của ${tree.name}`
-    : progress.stage === 'images' && progress.total
+    : progress?.stage === 'images' && progress.total
       ? `Đang tải ảnh ${progress.done}/${progress.total}…`
-      : progress.stage === 'zip'
+      : progress?.stage === 'zip'
         ? 'Đang đóng gói…'
         : 'Đang tải dữ liệu…';
 
-  const run = async () => {
-    setMessage(null);
+  const start = async () => {
+    setFailedImages(null);
     setProgress({ stage: 'data' });
-    try {
-      const { downloadFullBackup } = await import('../backup/download-backup');
-      const failed = await downloadFullBackup(tree, toIsoDate(todayInVietnam()), setProgress);
-      setMessage(
-        failed === 0
-          ? { tone: 'ok', text: 'Đã tải file sao lưu (.zip) về máy.' }
-          : { tone: 'error', text: `Đã tải file sao lưu, nhưng ${failed} ảnh không tải được (xem HUONG-DAN.txt trong file).` },
-      );
-    } catch (error) {
-      setMessage({ tone: 'error', text: error instanceof Error ? error.message : 'Không tạo được file sao lưu. Hãy thử lại.' });
-    } finally {
-      setProgress(null);
-    }
+    const result = await run('backup-zip', { tree, onProgress: setProgress });
+    setProgress(null);
+    if (result) setFailedImages(result.failedImages);
   };
 
   return (
     <>
-      <Button variant="secondary" disabled={progress !== null} onClick={run}>
+      <Button variant="secondary" disabled={running !== null} onClick={start}>
         {label}
       </Button>
-      {message?.tone === 'error' && <ErrorBanner>{message.text}</ErrorBanner>}
-      {message?.tone === 'ok' && <p role="status" className="basis-full text-sm text-ink-muted">{message.text}</p>}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
+      {failedImages === 0 && <p role="status" className="basis-full text-sm text-ink-muted">Đã tải file sao lưu (.zip) về máy.</p>}
+      {failedImages !== null && failedImages > 0 && (
+        <ErrorBanner>{`Đã tải file sao lưu, nhưng ${failedImages} ảnh không tải được (xem HUONG-DAN.txt trong file).`}</ErrorBanner>
+      )}
     </>
   );
 };
 
 export const ExportButton = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Person> }) => {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const exportNow = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await downloadFamily(tree.name, graph, toIsoDate(todayInVietnam()));
-    } catch {
-      setError('Không tạo được file Excel. Hãy thử lại.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
+  const { running, error, run } = useTreeExport(tree.name);
   return (
     <>
-      <Button variant="secondary" disabled={busy} onClick={exportNow}>
-        {busy ? 'Đang tạo file…' : 'Xuất Excel'}
+      <Button variant="secondary" disabled={running !== null} onClick={() => run('xlsx', { graph })}>
+        {running ? 'Đang tạo file…' : 'Xuất Excel'}
       </Button>
       {error && <ErrorBanner>{error}</ErrorBanner>}
     </>

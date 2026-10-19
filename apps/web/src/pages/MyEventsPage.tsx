@@ -1,12 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { CalendarFeedPanel } from '../calendar/CalendarFeedPanel';
-import { occurrencesToIcs } from '../calendar/ics';
+import { useTreeExport } from '../export/use-tree-export';
 import { todayInVietnam } from '../calendar/month-grid';
 import { occurrencesBetween, onThisDay, upcoming } from '@gia-pha/reminders';
 import { OccurrenceList } from '../calendar/OccurrenceList';
 import { useDueReminders, useMarkNotificationsRead, useMutedGioPersons, useMyCalendar, useMyTrees, useToggleGioMute } from '../data/tree-queries';
-import { downloadBlob } from '../lib/download';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { ErrorBanner } from '../ui/fields';
@@ -23,19 +22,13 @@ export const MyEventsPage = () => {
   const toggleMute = useToggleGioMute();
   const trees = useMyTrees();
   const markRead = useMarkNotificationsRead();
-  const [exporting, setExporting] = useState(false);
+  const { running: exporting, run: runExport } = useTreeExport('');
 
   const manyTrees = (trees.data?.length ?? 0) > 1;
 
   const exportIcs = () => {
     if (!calendar.data) return;
-    setExporting(true);
-    try {
-      const threeYears = occurrencesBetween(calendar.data, today, { ...today, year: today.year + 3 });
-      downloadBlob(new Blob([occurrencesToIcs(threeYears)], { type: 'text/calendar;charset=utf-8' }), 'lich-gia-pha.ics');
-    } finally {
-      setExporting(false);
-    }
+    void runExport('ics', { occurrences: occurrencesBetween(calendar.data, today, { ...today, year: today.year + 3 }) });
   };
 
   return (
@@ -58,7 +51,7 @@ export const MyEventsPage = () => {
                 </Button>
               )}
               {calendar.isSuccess && (
-                <Button variant="secondary" disabled={exporting} onClick={exportIcs}>
+                <Button variant="secondary" disabled={exporting !== null} onClick={exportIcs}>
                   Xuất lịch 3 năm tới (.ics)
                 </Button>
               )}

@@ -6,7 +6,8 @@ import type { Tree } from '../data/trees';
 import { fetchAll } from '../lib/fetch-all';
 import { supabase } from '../lib/supabase';
 import { exportFileName, downloadBlob } from '../lib/download';
-import { buildBackupZip, safeFileName, type BackupImage } from './backup';
+import { buildBackupZip, type BackupImage } from './backup';
+import { buildBackupData, planImageJobs } from './snapshot';
 
 const IMAGE_CONCURRENCY = 4;
 
@@ -36,14 +37,7 @@ export const downloadFullBackup = async (tree: Tree, today: string, onProgress: 
   const photos = photoRows.data ?? [];
   const personName = new Map(family.persons.map((person) => [person.id, person.full_name]));
 
-  const jobs = [
-    ...(tree.photo_path ? [{ path: tree.photo_path, zipBase: 'anh/gia-pha', photoId: null as string | null }] : []),
-    ...photos.map((photo, index) => ({
-      path: photo.storage_path,
-      zipBase: `anh/${safeFileName(personName.get(photo.person_id) ?? 'khong-ten')}-${String(index + 1).padStart(3, '0')}`,
-      photoId: photo.id as string | null,
-    })),
-  ];
+  const jobs = planImageJobs(tree, photos, personName);
 
   const images: BackupImage[] = [];
   const zipPathByPhoto = new Map<string, string>();
@@ -78,24 +72,17 @@ export const downloadFullBackup = async (tree: Tree, today: string, onProgress: 
     xlsx: new Uint8Array(await xlsx.arrayBuffer()),
     images,
     failedImages: failed.sort(),
-    data: {
-      dinhDang: 'gia-pha-sao-luu',
-      phienBan: 1,
-      giaPha: {
-        id: tree.id,
-        name: tree.name,
-        description: tree.description,
-        outside_generations: tree.outside_generations,
-        created_at: tree.created_at,
-        photo_file: coverFile,
-      },
+    data: buildBackupData({
+      tree,
+      coverFile,
       persons: family.persons,
       parentLinks: family.parentLinks,
       unions: family.unions,
       events,
-      photos: photos.map((photo) => ({ ...photo, file: zipPathByPhoto.get(photo.id) ?? null })),
+      photos,
+      zipPathByPhoto,
       phaDoConfig: phaDo,
-    },
+    }),
   });
   downloadBlob(new Blob([zip as BlobPart], { type: 'application/zip' }), exportFileName('Sao-luu', tree.name, today, 'zip'));
   return failed.length;
