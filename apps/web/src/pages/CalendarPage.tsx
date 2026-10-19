@@ -44,7 +44,7 @@ export const CalendarPage = () => {
 
   return (
     <>
-      {signedIn ? <AppHeader email={state.session.user.email} /> : <PublicHeader />}
+      {signedIn ? <AppHeader /> : <PublicHeader />}
       <main className="mx-auto grid max-w-5xl gap-6 px-4 py-8 lg:grid-cols-[1fr_22rem]">
         <div>
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">

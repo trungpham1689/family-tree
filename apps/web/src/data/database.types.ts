@@ -24,6 +24,7 @@ export type Database = {
           outside_generations: number;
           owner_id: string;
           public_token: string | null;
+          public_password_hash: string | null;
           updated_at: string;
         };
         Insert: {
@@ -34,6 +35,7 @@ export type Database = {
           outside_generations?: number;
           owner_id?: string;
           public_token?: string | null;
+          public_password_hash?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -44,6 +46,7 @@ export type Database = {
           outside_generations?: number;
           owner_id?: string;
           public_token?: string | null;
+          public_password_hash?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -426,9 +429,10 @@ export type Database = {
       link_account_to_person: { Args: { target_tree: string; person_id: string }; Returns: undefined };
       link_parent: { Args: { child_id: string; parent_id: string; link_kind: string }; Returns: undefined };
       link_spouse: { Args: { person_id: string; spouse_id: string }; Returns: undefined };
-      rotate_public_link: { Args: { target_tree: string }; Returns: string };
+      rotate_public_link: { Args: { target_tree: string; password: string }; Returns: string };
+      set_public_link_password: { Args: { target_tree: string; password: string }; Returns: undefined };
       disable_public_link: { Args: { target_tree: string }; Returns: undefined };
-      public_tree: { Args: { token: string }; Returns: Json };
+      public_tree: { Args: { token: string; password: string | null }; Returns: Json };
       public_tree_card: { Args: { token: string }; Returns: Json };
       import_into_tree: { Args: { target_tree: string; payload: Json }; Returns: number };
       import_new_tree: { Args: { tree_name: string; payload: Json }; Returns: string };

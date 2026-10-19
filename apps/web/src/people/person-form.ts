@@ -97,7 +97,7 @@ export type PersonFormResult = { ok: true; fields: PersonFields } | { ok: false;
 
 export const EMPTY_PERSON_FORM: PersonFormValues = {
   fullName: '',
-  gender: '',
+  gender: 'nam',
   birthOrder: '',
   commonName: '',
   tabooName: '',

@@ -3,6 +3,13 @@ import { fromStoredDate, type StoredDate } from './partial-date-input';
 
 type LifespanInput = { birth_year: number | null; death_year: number | null; is_deceased: boolean };
 
+/** Chữ cái đại diện khi chưa có ảnh: chữ đầu của từ cuối trong họ tên (ví dụ "Phạm Cự" → "C"). */
+export const nameInitial = (fullName: string): string => {
+  const words = fullName.trim().split(/\s+/).filter(Boolean);
+  const last = words.at(-1);
+  return last ? last.charAt(0).toUpperCase() : '?';
+};
+
 /** Dòng năm sinh–mất ngắn gọn hiển thị dưới tên một Người. */
 export const lifespanText = ({ birth_year: birth, death_year: death, is_deceased: deceased }: LifespanInput): string => {
   if (birth !== null && death !== null) return `${birth} – ${death}`;
@@ -25,14 +32,15 @@ export const deathAgeLabel = (age: number): string => (age >= 60 ? 'Hưởng th�
 export const currentAge = ({ birth_year: birth, is_deceased: deceased }: LifespanInput, todayYear: number): number | null =>
   !deceased && birth !== null ? todayYear - birth + 1 : null;
 
-/** "05/10/1945 (âm: 30/8/1945)" — kèm lịch còn lại khi biết đủ ngày. */
+/** "05/10/1945 — tức 20/9/1945 ÂL (năm Ất Dậu)" — kèm lịch còn lại khi biết đủ ngày. */
 export const describeDate = (stored: StoredDate): string | null => {
   const date = fromStoredDate(stored);
   if (!date) return null;
   const main = formatPartialDate(date);
   const other = toOtherCalendar(date);
   if (!other) return main;
-  return `${main} (${other.calendar === 'am' ? 'âm' : 'dương'}: ${formatPartialDate({ ...other, approximate: false }).replace(' ÂL', '')})`;
+  const otherText = formatPartialDate({ ...other, approximate: false });
+  return `${main} — tức ${otherText}${other.calendar === 'am' ? '' : ' dương lịch'}`;
 };
 
 const formatSolar = ({ day, month, year }: SolarDate) => `${day}/${month}/${year}`;

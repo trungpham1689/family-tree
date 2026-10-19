@@ -1,5 +1,4 @@
 import { Link, useParams } from 'react-router';
-import { useAuth } from '../auth/auth-context';
 import { useFamily, useTree } from '../data/tree-queries';
 import { findIncomplete, REASON_LABELS } from '../people/incomplete';
 import { lifespanText } from '../people/person-display';
@@ -11,8 +10,6 @@ import { FullPageMessage } from '../ui/FullPageMessage';
 /** Người còn thiếu giới tính, năm sinh, hoặc năm mất — để bổ sung dần. */
 export const IncompletePage = () => {
   const { treeId = '' } = useParams();
-  const { state } = useAuth();
-  const email = state.status === 'signed-in' ? state.session.user.email : undefined;
   const tree = useTree(treeId);
   const family = useFamily(treeId);
 
@@ -22,7 +19,7 @@ export const IncompletePage = () => {
 
   return (
     <>
-      <AppHeader email={email} />
+      <AppHeader />
       <TreeTabs treeId={treeId} />
       <main className="mx-auto max-w-2xl px-4 py-8">
         <h1 className="font-serif text-3xl font-bold text-son">Hồ sơ chưa đầy đủ</h1>

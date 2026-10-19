@@ -3,7 +3,7 @@ import { useAuth } from '../auth/auth-context';
 import { useDueReminders } from '../data/tree-queries';
 import { Button } from './Button';
 
-export const AppHeader = ({ email }: { email?: string | undefined }) => {
+export const AppHeader = () => {
   const { signOut } = useAuth();
   const reminders = useDueReminders();
 
@@ -26,7 +26,6 @@ export const AppHeader = ({ email }: { email?: string | undefined }) => {
               </span>
             )}
           </Link>
-          {email && <span className="hidden text-ink-muted sm:inline">{email}</span>}
           <Button variant="ghost" onClick={signOut}>
             Đăng xuất
           </Button>

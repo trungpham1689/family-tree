@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { useAuth } from '../auth/auth-context';
 import { useCreateTree, useMyTrees } from '../data/tree-queries';
 import { ROLE_LABELS } from '../data/role-labels';
 import { AppHeader } from '../ui/AppHeader';
@@ -9,14 +8,12 @@ import { Dialog } from '../ui/Dialog';
 import { ErrorBanner, TextAreaField, TextField } from '../ui/fields';
 
 export const MyTreesPage = () => {
-  const { state } = useAuth();
-  const email = state.status === 'signed-in' ? state.session.user.email : undefined;
   const trees = useMyTrees();
   const [creating, setCreating] = useState(false);
 
   return (
     <>
-      <AppHeader email={email} />
+      <AppHeader />
       <main className="mx-auto max-w-4xl px-4 py-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="font-serif text-3xl font-bold">Gia phả của tôi</h1>

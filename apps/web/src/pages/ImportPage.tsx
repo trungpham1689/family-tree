@@ -1,6 +1,5 @@
 import { useState, type ChangeEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { useAuth } from '../auth/auth-context';
 import { useImportExcel, useTree } from '../data/tree-queries';
 import { buildImportPreview, type ImportPreview } from '../excel/import-preview';
 import { downloadTemplate, readGiaPhaSheet } from '../excel/xlsx-io';
@@ -12,14 +11,12 @@ const PAGE = 200;
 
 /** Nhập Gia phả từ Excel: tải file mẫu, tải file đã điền, xem trước kèm lỗi, xác nhận mới lưu. */
 export const ImportPage = () => {
-  const { state } = useAuth();
-  const email = state.status === 'signed-in' ? state.session.user.email : undefined;
   const [params] = useSearchParams();
   const targetTreeId = params.get('vao');
 
   return (
     <>
-      <AppHeader email={email} />
+      <AppHeader />
       <main className="mx-auto max-w-5xl px-4 py-8">
         {targetTreeId ? <ImportIntoExisting treeId={targetTreeId} /> : <ImportFlow treeId={null} treeName={null} />}
       </main>

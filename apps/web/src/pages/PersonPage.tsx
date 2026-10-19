@@ -28,7 +28,7 @@ import {
 import type { Person } from '../data/trees';
 import type { ChildRelative, FamilyGraph, ParentLinkKind, UnionStatus } from '../family/family-graph';
 import { birthOrderLabel, kindLabel, LINK_KIND_LABELS, spouseLabel, UNION_STATUS_LABELS } from '../family/labels';
-import { lifespanText } from '../people/person-display';
+import { lifespanText, nameInitial } from '../people/person-display';
 import { DeletePerson } from '../people/DeletePerson';
 import { EditPerson } from '../people/EditPerson';
 import { EMPTY_PERSON_FORM } from '../people/person-form';
@@ -45,7 +45,6 @@ type Action = 'none' | 'edit' | 'add-child' | 'add-parent' | 'add-spouse' | 'del
 export const PersonPage = () => {
   const { treeId = '', personId = '' } = useParams();
   const { state } = useAuth();
-  const email = state.status === 'signed-in' ? state.session.user.email : undefined;
   const accountId = state.status === 'signed-in' ? state.session.user.id : null;
   const tree = useTree(treeId);
   const family = useFamily(treeId);
@@ -56,7 +55,7 @@ export const PersonPage = () => {
 
   return (
     <>
-      <AppHeader email={email} />
+      <AppHeader />
       <main className="mx-auto max-w-3xl px-4 py-8">
         <Link to={`/gia-pha/${treeId}`} className="text-ink-muted hover:text-son">
           ← {tree.data?.name ?? 'Gia phả'}
@@ -705,7 +704,7 @@ const ReminderControls = ({ treeId, person, isMe }: { treeId: string; person: Pe
 /** Ảnh đại diện trong đầu trang: chỉ hiện, không sửa ở đây — sửa trong mục "Ảnh tư liệu". */
 const PersonAvatar = ({ person }: { person: Person }) => {
   const avatar = useAvatarDataUrl(person.avatar_path);
-  const initial = person.full_name.trim().charAt(0).toUpperCase() || '?';
+  const initial = nameInitial(person.full_name);
   // Màu theo giới tính (như trên Cây) để nổi khỏi nền giấy, không chìm khi chưa có ảnh; đã mất thì viền xám.
   const genderColor = person.gender === 'nu' ? 'var(--color-son)' : person.gender === 'nam' ? 'var(--color-kim)' : 'var(--color-ink-muted)';
   const borderColor = person.is_deceased ? 'var(--color-ink-muted)' : genderColor;

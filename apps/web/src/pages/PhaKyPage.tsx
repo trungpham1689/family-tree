@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router';
-import { useAuth } from '../auth/auth-context';
 import { loadFontBinary } from '../data/pha-do';
 import { useFamily, useTree } from '../data/tree-queries';
 import { buildNarrative, notablePersons } from '../pha-ky/narrative';
@@ -13,8 +12,6 @@ import { FullPageMessage } from '../ui/FullPageMessage';
 /** Phả ký: văn bản tường thuật từng đời (khác Phả đồ, vốn là sơ đồ hình). */
 export const PhaKyPage = () => {
   const { treeId = '' } = useParams();
-  const { state } = useAuth();
-  const email = state.status === 'signed-in' ? state.session.user.email : undefined;
   const tree = useTree(treeId);
   const family = useFamily(treeId);
   const [exporting, setExporting] = useState(false);
@@ -46,7 +43,7 @@ export const PhaKyPage = () => {
 
   return (
     <>
-      <AppHeader email={email} />
+      <AppHeader />
       <TreeTabs treeId={treeId} />
       <main className="mx-auto max-w-3xl px-4 py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">

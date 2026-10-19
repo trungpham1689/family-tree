@@ -1,7 +1,6 @@
 import { nextAnniversary } from '@gia-pha/lunar';
 import { useState, type FormEvent } from 'react';
 import { useParams } from 'react-router';
-import { useAuth } from '../auth/auth-context';
 import { todayInVietnam } from '../calendar/month-grid';
 import type { TreeEvent } from '../data/calendar';
 import { useRemoveTreeEvent, useSaveTreeEvent, useTree, useTreeEvents } from '../data/tree-queries';
@@ -23,8 +22,6 @@ import { FullPageMessage } from '../ui/FullPageMessage';
 /** Sự kiện của một Gia phả: họp họ, ngày tự đặt. Ai có vai trò cũng xem; Biên tập viên tạo, sửa, xoá. */
 export const EventsPage = () => {
   const { treeId = '' } = useParams();
-  const { state } = useAuth();
-  const email = state.status === 'signed-in' ? state.session.user.email : undefined;
   const tree = useTree(treeId);
   const events = useTreeEvents(treeId);
   const [editing, setEditing] = useState<TreeEvent | 'new' | null>(null);
@@ -34,7 +31,7 @@ export const EventsPage = () => {
 
   return (
     <>
-      <AppHeader email={email} />
+      <AppHeader />
       <TreeTabs treeId={treeId} />
       <main className="mx-auto max-w-3xl px-4 py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">

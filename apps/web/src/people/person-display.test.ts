@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { NO_DATE } from './partial-date-input';
-import { ageAtDeath, anniversaryText, describeDate, lifespanText } from './person-display';
+import { ageAtDeath, anniversaryText, describeDate, lifespanText, nameInitial } from './person-display';
+
+describe('nameInitial', () => {
+  it.each([
+    ['Phạm Cự', 'C'],
+    ['Phạm Văn Tổ', 'T'],
+    ['  Nguyễn   Thị  Dâu  ', 'D'],
+    ['', '?'],
+  ])('%s → "%s"', (fullName, expected) => {
+    expect(nameInitial(fullName)).toBe(expected);
+  });
+});
 
 describe('lifespanText', () => {
   it.each([
@@ -30,7 +41,7 @@ describe('describeDate', () => {
   it('ngày đầy đủ kèm lịch còn lại', () => {
     expect(
       describeDate({ ...NO_DATE, precision: 'ngay', year: 2026, month: 2, day: 17, solarDate: '2026-02-17' }),
-    ).toBe('17/02/2026 (âm: 1/1/2026 (năm Bính Ngọ))');
+    ).toBe('17/02/2026 — tức 1/1/2026 ÂL (năm Bính Ngọ)');
   });
 
   it('chỉ có năm', () => {

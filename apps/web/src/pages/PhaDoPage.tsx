@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router';
-import { useAuth } from '../auth/auth-context';
 import { loadFontBinary } from '../data/pha-do';
 import { useFamily, usePersonAvatars, usePhaDoConfig, useSavePhaDoConfig, useTree } from '../data/tree-queries';
 import type { Person, TreeWithRole } from '../data/trees';
@@ -28,8 +27,6 @@ import { FullPageMessage } from '../ui/FullPageMessage';
 /** Thiết kế bản in Phả đồ: phạm vi, khổ giấy, nội dung ô; xem trước đúng như bản in và xuất PDF vector. */
 export const PhaDoPage = () => {
   const { treeId = '' } = useParams();
-  const { state } = useAuth();
-  const email = state.status === 'signed-in' ? state.session.user.email : undefined;
   const tree = useTree(treeId);
   const family = useFamily(treeId);
   const saved = usePhaDoConfig(treeId);
@@ -39,7 +36,7 @@ export const PhaDoPage = () => {
 
   return (
     <>
-      <AppHeader email={email} />
+      <AppHeader />
       <TreeTabs treeId={treeId} />
       <main className="mx-auto max-w-7xl px-4 py-6">
         <h1 className="font-serif text-3xl font-bold text-son">Phả đồ</h1>

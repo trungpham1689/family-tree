@@ -81,20 +81,51 @@ describe('seam B: link chia sẻ công khai', () => {
     ids = { root: root!.id, living, hiddenParent, grandchild, hiddenLeaf };
   });
 
-  const enable = () => me.rpc<string>('rotate_public_link', { target_tree: treeId });
-  const fetchPublic = (token: string | null) => db.asAnon().rpc<PublicTree | null>('public_tree', { token });
+  const PASSWORD = 'matkhau123';
+  const enable = (password = PASSWORD) => me.rpc<string>('rotate_public_link', { target_tree: treeId, password });
+  const fetchPublic = (token: string | null, password: string | null = PASSWORD) =>
+    db.asAnon().rpc<PublicTree | { wrong_password: true } | null>('public_tree', { token, password });
 
-  it('Chủ sở hữu bật link; khách không đăng nhập xem được cây', async () => {
+  it('Chủ sở hữu bật link; khách đúng mật khẩu xem được cây', async () => {
     const token = await enable();
     expect(token).toMatch(/^[0-9a-f]{32}$/);
-    const result = (await fetchPublic(token))!;
+    const result = (await fetchPublic(token))! as PublicTree;
     expect(result.tree.name).toBe('Họ Phạm làng Đông');
     expect(result.persons.find((p) => p.id === ids.grandchild)?.full_name).toBe('Phạm Văn Cháu');
     expect(result.positions.find((p) => p.person_id === ids.grandchild)?.generation).toBe(3);
   });
 
+  it('sai mật khẩu hoặc không nhập thì không xem được, nhưng khác với link không còn hiệu lực', async () => {
+    const token = await enable();
+    expect(await fetchPublic(token, 'sai-mat-khau')).toEqual({ wrong_password: true });
+    expect(await fetchPublic(token, null)).toEqual({ wrong_password: true });
+    expect(await fetchPublic('0'.repeat(32), PASSWORD)).toBeNull();
+  });
+
+  it('mật khẩu dưới 4 ký tự bị từ chối', async () => {
+    await expect(me.rpc('rotate_public_link', { target_tree: treeId, password: 'abc' })).rejects.toThrow(/PASSWORD_TOO_SHORT/);
+  });
+
+  it('đổi mật khẩu mà không đổi link', async () => {
+    const token = await enable();
+    await me.rpc('set_public_link_password', { target_tree: treeId, password: 'mat-khau-moi' });
+    expect(await fetchPublic(token, PASSWORD)).toEqual({ wrong_password: true });
+    expect(await fetchPublic(token, 'mat-khau-moi')).not.toBeNull();
+  });
+
+  it('chỉ Chủ sở hữu đổi được mật khẩu; chưa bật link thì không đổi được', async () => {
+    const editor = await db.createUser(`bt-${crypto.randomUUID()}@example.com`);
+    await db.admin.query("insert into tree_roles (tree_id, account_id, role) values ($1, $2, 'editor')", [treeId, editor.id]);
+    await expect(
+      db.as(editor).rpc('set_public_link_password', { target_tree: treeId, password: 'khac-mat-khau' }),
+    ).rejects.toThrow(/NOT_ALLOWED/);
+    await expect(me.rpc('set_public_link_password', { target_tree: treeId, password: 'chua-bat-link' })).rejects.toThrow(
+      /LINK_NOT_ENABLED/,
+    );
+  });
+
   it('không chứa trường riêng tư nào của người còn sống', async () => {
-    const result = (await fetchPublic(await enable()))!;
+    const result = (await fetchPublic(await enable()))! as PublicTree;
     const living = result.persons.find((p) => p.id === ids.living)!;
     expect(living).toMatchObject({ full_name: 'Phạm Văn Sống', birth_year: 1960, is_deceased: false });
     for (const field of LIVING_PRIVATE_FIELDS) expect(living, field).not.toHaveProperty(field);
@@ -105,7 +136,7 @@ describe('seam B: link chia sẻ công khai', () => {
   });
 
   it('người đã mất hiện đầy đủ trừ Mộ phần', async () => {
-    const result = (await fetchPublic(await enable()))!;
+    const result = (await fetchPublic(await enable()))! as PublicTree;
     const root = result.persons.find((p) => p.id === ids.root)!;
     expect(root).toMatchObject({ biography: 'Khai khẩn làng', occupation: 'Lý trưởng', death_year: 1920 });
     expect(root).not.toHaveProperty('burial_place');
@@ -113,7 +144,7 @@ describe('seam B: link chia sẻ công khai', () => {
   });
 
   it('người bị ẩn không xuất hiện; con cháu vẫn nối qua ô ẩn danh', async () => {
-    const result = (await fetchPublic(await enable()))!;
+    const result = (await fetchPublic(await enable()))! as PublicTree;
     const raw = JSON.stringify(result);
     expect(raw).not.toContain('Phạm Văn Kín');
     expect(raw).not.toContain('Phạm Thị Giấu');
@@ -164,8 +195,10 @@ describe('seam B: link chia sẻ công khai', () => {
   it('chỉ Chủ sở hữu bật/tắt được link', async () => {
     const editor = await db.createUser(`bt-${crypto.randomUUID()}@example.com`);
     await db.admin.query("insert into tree_roles (tree_id, account_id, role) values ($1, $2, 'editor')", [treeId, editor.id]);
-    await expect(db.as(editor).rpc('rotate_public_link', { target_tree: treeId })).rejects.toThrow(/NOT_ALLOWED/);
-    await expect(db.asAnon().rpc('rotate_public_link', { target_tree: treeId })).rejects.toThrow();
+    await expect(db.as(editor).rpc('rotate_public_link', { target_tree: treeId, password: PASSWORD })).rejects.toThrow(
+      /NOT_ALLOWED/,
+    );
+    await expect(db.asAnon().rpc('rotate_public_link', { target_tree: treeId, password: PASSWORD })).rejects.toThrow();
   });
 
   it('thẻ xem trước chỉ có tên gia phả và số người', async () => {

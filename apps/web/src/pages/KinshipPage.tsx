@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useParams } from 'react-router';
-import { useAuth } from '../auth/auth-context';
 import { useFamily, useTree } from '../data/tree-queries';
 import { relationTerm } from '../family/kinship';
 import { PersonPicker } from '../people/PersonPicker';
@@ -14,8 +13,6 @@ import { FullPageMessage } from '../ui/FullPageMessage';
 /** Tra cứu xưng hô: chọn hai Người, xem người kia gọi người này là gì. */
 export const KinshipPage = () => {
   const { treeId = '' } = useParams();
-  const { state } = useAuth();
-  const email = state.status === 'signed-in' ? state.session.user.email : undefined;
   const tree = useTree(treeId);
   const family = useFamily(treeId);
   const [aId, setAId] = useState<string | null>(null);
@@ -30,7 +27,7 @@ export const KinshipPage = () => {
 
   return (
     <>
-      <AppHeader email={email} />
+      <AppHeader />
       <TreeTabs treeId={treeId} />
       <main className="mx-auto max-w-2xl px-4 py-8">
         <h1 className="font-serif text-3xl font-bold text-son">Tra cứu quan hệ</h1>

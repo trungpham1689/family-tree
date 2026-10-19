@@ -10,7 +10,14 @@ import { dueReminders, occurrencesBetween } from '@gia-pha/reminders';
 import { listTreeEvents, loadMyCalendar, removeTreeEvent, saveTreeEvent } from './calendar';
 import { importIntoTree, importNewTree } from './excel-import';
 import { loadPhaDoConfig, savePhaDoConfig } from './pha-do';
-import { disablePublicLink, fetchPublicTree, rotatePublicLink, setHiddenFromPublic } from './public-tree';
+import {
+  disablePublicLink,
+  fetchPublicTree,
+  fetchPublicTreeCard,
+  rotatePublicLink,
+  setHiddenFromPublic,
+  setPublicLinkPassword,
+} from './public-tree';
 import {
   addToWatch,
   linkAccountToPerson,
@@ -102,7 +109,7 @@ export const useCreateTree = () => {
 export const useRenameTree = (treeId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => renameTree(treeId, name),
+    mutationFn: (input: { name: string; description: string | null }) => renameTree(treeId, input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trees'] }),
   });
 };
@@ -277,16 +284,31 @@ export const useImportExcel = () => {
 // ---------------------------------------------------------------------------
 // Link chia sẻ công khai
 // ---------------------------------------------------------------------------
-export const usePublicTree = (token: string) =>
-  useQuery({ queryKey: ['public', token], queryFn: () => fetchPublicTree(token), retry: false });
+/** Thẻ xem trước nhẹ, không cần mật khẩu — hiện tên gia phả trên màn hình nhập mật khẩu. */
+export const usePublicTreeCard = (token: string) =>
+  useQuery({ queryKey: ['public-card', token], queryFn: () => fetchPublicTreeCard(token), retry: false });
+
+/** `password` null khi chưa nhập (ví dụ vừa mở trang) — chỉ gọi khi có để tránh dò mật khẩu không cần thiết. */
+export const usePublicTree = (token: string, password: string | null) =>
+  useQuery({
+    queryKey: ['public', token, password],
+    queryFn: () => fetchPublicTree(token, password),
+    enabled: password !== null,
+    retry: false,
+  });
 
 export const useRotatePublicLink = (treeId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => rotatePublicLink(treeId),
+    mutationFn: (password: string) => rotatePublicLink(treeId, password),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: treeKeys.detail(treeId) }),
   });
 };
+
+export const useSetPublicLinkPassword = (treeId: string) =>
+  useMutation({
+    mutationFn: (password: string) => setPublicLinkPassword(treeId, password),
+  });
 
 export const useDisablePublicLink = (treeId: string) => {
   const queryClient = useQueryClient();

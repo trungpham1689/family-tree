@@ -1,6 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PGlite, type Transaction } from '@electric-sql/pglite';
+import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 
 /**
  * Seam B: database của dự án, truy cập đúng như PostgREST của Supabase làm —
@@ -57,6 +58,7 @@ export async function createTestDb(): Promise<TestDb> {
   // Trả ngày/giờ dạng chuỗi như PostgREST (không đổi sang Date của JS).
   const db = await PGlite.create({
     parsers: { [DATE_OID]: (value: string) => value, [TIMESTAMPTZ_OID]: (value: string) => value },
+    extensions: { pgcrypto },
   });
   await db.exec(await readFile(SHIM_FILE, 'utf8'));
   for (const file of await listMigrations()) {

@@ -58,8 +58,8 @@ export const getTree = async (treeId: string, accountId: string): Promise<TreeWi
 export const createTree = async (input: { name: string; description: string | null }): Promise<Tree> =>
   unwrap(await supabase.from('family_trees').insert(input).select(TREE_COLUMNS).single());
 
-export const renameTree = async (treeId: string, name: string): Promise<void> => {
-  const { error } = await supabase.from('family_trees').update({ name }).eq('id', treeId);
+export const renameTree = async (treeId: string, input: { name: string; description: string | null }): Promise<void> => {
+  const { error } = await supabase.from('family_trees').update(input).eq('id', treeId);
   if (error) throw new DataError(error);
 };
 

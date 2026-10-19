@@ -27,7 +27,7 @@ export const MembersPanel = ({ tree }: { tree: TreeWithRole }) => {
         <h2 id="thanh-vien" className="font-serif text-2xl font-bold">
           Thành viên
         </h2>
-        {canInvite && !inviting && <Button onClick={() => setInviting(true)}>+ Mời người</Button>}
+        {canInvite && !inviting && <Button onClick={() => setInviting(true)}>+ Thêm quản trị</Button>}
       </div>
 
       {inviting && <InviteForm treeId={tree.id} onDone={() => setInviting(false)} />}

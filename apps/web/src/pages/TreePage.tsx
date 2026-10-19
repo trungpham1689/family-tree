@@ -1,10 +1,9 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { useAuth } from '../auth/auth-context';
 import { ROLE_LABELS } from '../data/role-labels';
 import { useAddChild, useCreatePerson, useDeleteTree, useFamily, usePersonAvatars, useRenameTree, useTree } from '../data/tree-queries';
 import type { Person, TreeWithRole } from '../data/trees';
-import { lifespanText } from '../people/person-display';
+import { lifespanText, nameInitial } from '../people/person-display';
 import type { FamilyGraph, GenerationGroup } from '../family/family-graph';
 import { kindLabel } from '../family/labels';
 import { EMPTY_PERSON_FORM } from '../people/person-form';
@@ -19,20 +18,18 @@ import { PersonForm } from '../people/PersonForm';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
-import { ErrorBanner, TextField } from '../ui/fields';
+import { ErrorBanner, TextAreaField, TextField } from '../ui/fields';
 import { FullPageMessage } from '../ui/FullPageMessage';
 
 export const TreePage = () => {
   const { treeId = '' } = useParams();
-  const { state } = useAuth();
-  const email = state.status === 'signed-in' ? state.session.user.email : undefined;
   const tree = useTree(treeId);
 
   if (tree.isPending) return <FullPageMessage>Đang tải…</FullPageMessage>;
   if (tree.isError) {
     return (
       <>
-        <AppHeader email={email} />
+        <AppHeader />
         <main className="mx-auto max-w-4xl space-y-4 px-4 py-8">
           <ErrorBanner>{tree.error.message}</ErrorBanner>
           <Link to="/gia-pha" className="font-semibold text-son underline">
@@ -45,7 +42,7 @@ export const TreePage = () => {
 
   return (
     <>
-      <AppHeader email={email} />
+      <AppHeader />
       <TreeTabs treeId={tree.data.id} />
       <TreeView tree={tree.data} />
     </>
@@ -86,7 +83,7 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
             {isOwner && (
               <>
                 <Button variant="secondary" onClick={() => setRenaming(true)}>
-                  Đổi tên
+                  Sửa thông tin
                 </Button>
                 <Button variant="ghost" className="text-danger" onClick={() => setDeleting(true)}>
                   Xoá
@@ -168,7 +165,7 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
         )}
       </Dialog>
 
-      <Dialog open={renaming} title="Đổi tên gia phả" onClose={() => setRenaming(false)}>
+      <Dialog open={renaming} title="Sửa thông tin gia phả" onClose={() => setRenaming(false)}>
         {renaming && <RenameForm tree={tree} onDone={() => setRenaming(false)} />}
       </Dialog>
 
@@ -344,7 +341,7 @@ const GenerationCard = ({
   const childCount = graph.childrenOf(person.id).length;
   const [adding, setAdding] = useState(false);
   const addChild = useAddChild(treeId);
-  const initial = person.full_name.trim().charAt(0).toUpperCase() || '?';
+  const initial = nameInitial(person.full_name);
 
   return (
     <li>
@@ -435,15 +432,23 @@ const ExportButton = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<
 const RenameForm = ({ tree, onDone }: { tree: TreeWithRole; onDone: () => void }) => {
   const rename = useRenameTree(tree.id);
   const [name, setName] = useState(tree.name);
+  const [description, setDescription] = useState(tree.description ?? '');
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    rename.mutate(name.trim(), { onSuccess: onDone });
+    rename.mutate({ name: name.trim(), description: description.trim() || null }, { onSuccess: onDone });
   };
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <TextField label="Tên mới" required maxLength={120} value={name} onChange={(event) => setName(event.target.value)} />
+      <TextField label="Tên" required maxLength={120} value={name} onChange={(event) => setName(event.target.value)} />
+      <TextAreaField
+        label="Lời giới thiệu"
+        rows={4}
+        maxLength={2000}
+        value={description}
+        onChange={(event) => setDescription(event.target.value)}
+      />
       {rename.isError && <ErrorBanner>{rename.error.message}</ErrorBanner>}
       <div className="flex justify-end gap-3">
         <Button variant="secondary" onClick={onDone}>

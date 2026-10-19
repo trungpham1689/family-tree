@@ -53,8 +53,6 @@ const extraText = (line: ExtraLine, person: Person, generation: number | null): 
         : null;
     case 'doi':
       return generation !== null ? `Đời ${generation}` : null;
-    case 'han':
-      return person.han_name;
     case 'que':
       return person.hometown;
   }

@@ -1,21 +1,52 @@
-import { useCallback, type ReactNode } from 'react';
+import { useCallback, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
-import type { PublicPerson, PublicTree } from '../data/public-tree';
-import { usePublicTree } from '../data/tree-queries';
+import type { PublicTree, PublicPerson } from '../data/public-tree';
+import { usePublicTree, usePublicTreeCard } from '../data/tree-queries';
 import { birthOrderLabel, kindLabel, spouseLabel } from '../family/labels';
 import { lifespanText } from '../people/person-display';
 import { ProfileInfo } from '../people/ProfileInfo';
 import { TreeExplorer } from '../tree/TreeExplorer';
-import { ErrorBanner } from '../ui/fields';
+import { Button } from '../ui/Button';
+import { ErrorBanner, TextField } from '../ui/fields';
 import { FullPageMessage } from '../ui/FullPageMessage';
 import { PublicHeader } from '../ui/PublicHeader';
 
-/** Tải bản công khai một lần; cả trang Cây và trang Người dùng chung. */
+const passwordKey = (token: string) => `gia-pha:public-pw:${token}`;
+
+const readStoredPassword = (token: string): string | null => {
+  try {
+    return sessionStorage.getItem(passwordKey(token));
+  } catch {
+    return null;
+  }
+};
+
+const storePassword = (token: string, password: string | null) => {
+  try {
+    if (password === null) sessionStorage.removeItem(passwordKey(token));
+    else sessionStorage.setItem(passwordKey(token), password);
+  } catch {
+    // Không lưu được thì chỉ phải nhập lại mật khẩu ở lần tải sau, không mất gì khác.
+  }
+};
+
+/** Tải bản công khai một lần; cả trang Cây và trang Người dùng chung. Phải nhập đúng mật khẩu mới thấy nội dung. */
 const PublicShell = ({ children }: { children: (data: PublicTree, token: string) => ReactNode }) => {
   const { token = '' } = useParams();
-  const result = usePublicTree(token);
+  const card = usePublicTreeCard(token);
+  const [password, setPassword] = useState<string | null>(() => readStoredPassword(token));
+  const result = usePublicTree(token, password);
 
-  if (result.isPending) return <FullPageMessage>Đang tải gia phả…</FullPageMessage>;
+  if (card.isPending) return <FullPageMessage>Đang tải gia phả…</FullPageMessage>;
+
+  const wrongPassword = result.isSuccess && result.data.status === 'wrong-password';
+  const missing = (result.isSuccess && result.data.status === 'missing') || card.data === null;
+
+  const submitPassword = (entered: string) => {
+    storePassword(token, entered);
+    setPassword(entered);
+  };
+
   return (
     <div className="flex min-h-dvh flex-col">
       <PublicHeader />
@@ -24,7 +55,7 @@ const PublicShell = ({ children }: { children: (data: PublicTree, token: string)
           <ErrorBanner>{result.error.message}</ErrorBanner>
         </main>
       )}
-      {result.isSuccess && result.data === null && (
+      {missing && (
         <main className="mx-auto max-w-xl px-4 py-16 text-center">
           <h1 className="font-serif text-3xl font-bold text-son">Link không còn hiệu lực</h1>
           <p className="mt-3 text-ink-muted">
@@ -32,8 +63,50 @@ const PublicShell = ({ children }: { children: (data: PublicTree, token: string)
           </p>
         </main>
       )}
-      {result.isSuccess && result.data !== null && children(result.data, token)}
+      {!missing && (password === null || wrongPassword) && (
+        <PasswordGate treeName={card.data?.name ?? null} wrong={wrongPassword} onSubmit={submitPassword} />
+      )}
+      {!missing && password !== null && result.isPending && <FullPageMessage>Đang tải gia phả…</FullPageMessage>}
+      {result.isSuccess && result.data.status === 'ok' && children(result.data.data, token)}
     </div>
+  );
+};
+
+const PasswordGate = ({
+  treeName,
+  wrong,
+  onSubmit,
+}: {
+  treeName: string | null;
+  wrong: boolean;
+  onSubmit: (password: string) => void;
+}) => {
+  const [value, setValue] = useState('');
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (value.trim()) onSubmit(value);
+  };
+
+  return (
+    <main className="mx-auto w-full max-w-sm px-4 py-16">
+      <h1 className="font-serif text-2xl font-bold text-son">{treeName ? `Gia phả ${treeName}` : 'Gia phả'}</h1>
+      <p className="mt-2 text-ink-muted">Nhập mật khẩu chủ gia phả đã chia sẻ để xem.</p>
+      <form onSubmit={submit} className="mt-4 space-y-3">
+        <TextField
+          label="Mật khẩu"
+          type="password"
+          autoFocus
+          required
+          value={value}
+          error={wrong ? 'Sai mật khẩu, hãy thử lại.' : undefined}
+          onChange={(event) => setValue(event.target.value)}
+        />
+        <Button type="submit" className="w-full">
+          Xem gia phả
+        </Button>
+      </form>
+    </main>
   );
 };
 

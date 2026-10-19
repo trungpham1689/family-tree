@@ -26,27 +26,47 @@ type PublicPayload = {
   positions: { person_id: string; generation: number | null; branch_id: string | null; kind: string }[];
 };
 
-/** null khi link sai, đã tắt hoặc đã được tạo lại. */
-export const fetchPublicTree = async (token: string): Promise<PublicTree | null> => {
-  const { data, error } = await supabase.rpc('public_tree', { token });
+/** 'missing' khi link sai, đã tắt hoặc đã được tạo lại; 'wrong-password' khi link còn nhưng sai mật khẩu. */
+export type PublicTreeResult = { status: 'ok'; data: PublicTree } | { status: 'missing' } | { status: 'wrong-password' };
+
+export const fetchPublicTree = async (token: string, password: string | null): Promise<PublicTreeResult> => {
+  const { data, error } = await supabase.rpc('public_tree', { token, password });
   if (error) throw new DataError(error);
-  if (!data) return null;
+  if (!data) return { status: 'missing' };
+  if (typeof data === 'object' && 'wrong_password' in data) return { status: 'wrong-password' };
   const payload = data as unknown as PublicPayload;
   return {
-    tree: payload.tree,
-    graph: buildFamilyGraph({
-      persons: payload.persons.map((person) => ({ ...BLANK_PERSON, ...person, anonymous: person.anonymous ?? false })),
-      parentLinks: payload.parentLinks,
-      unions: payload.unions,
-      positions: payload.positions,
-    }),
+    status: 'ok',
+    data: {
+      tree: payload.tree,
+      graph: buildFamilyGraph({
+        persons: payload.persons.map((person) => ({ ...BLANK_PERSON, ...person, anonymous: person.anonymous ?? false })),
+        parentLinks: payload.parentLinks,
+        unions: payload.unions,
+        positions: payload.positions,
+      }),
+    },
   };
 };
 
-export const rotatePublicLink = async (treeId: string): Promise<string> => {
-  const { data, error } = await supabase.rpc('rotate_public_link', { target_tree: treeId });
+export type PublicTreeCard = { name: string; description: string | null; persons: number };
+
+/** Thẻ xem trước nhẹ (tên, số người) — không cần mật khẩu, để hiện trên màn hình nhập mật khẩu. */
+export const fetchPublicTreeCard = async (token: string): Promise<PublicTreeCard | null> => {
+  const { data, error } = await supabase.rpc('public_tree_card', { token });
+  if (error) throw new DataError(error);
+  return (data as PublicTreeCard | null) ?? null;
+};
+
+export const rotatePublicLink = async (treeId: string, password: string): Promise<string> => {
+  const { data, error } = await supabase.rpc('rotate_public_link', { target_tree: treeId, password });
   if (error) throw new DataError(error);
   return data;
+};
+
+export const setPublicLinkPassword = async (treeId: string, password: string): Promise<void> => {
+  const { error } = await supabase.rpc('set_public_link_password', { target_tree: treeId, password });
+  if (error) throw new DataError(error);
 };
 
 export const disablePublicLink = async (treeId: string): Promise<void> => {

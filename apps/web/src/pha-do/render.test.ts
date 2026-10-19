@@ -20,7 +20,7 @@ const sample = () =>
       blankPerson({ id: 'con-b', full_name: 'Phạm Văn Bé', gender: 'nam', birth_order: 2 }),
       blankPerson({ id: 'chau-a', full_name: 'Phạm Văn Cháu A', gender: 'nam' }),
       blankPerson({ id: 'chat-a', full_name: 'Phạm Văn Chắt A', gender: 'nam' }),
-      blankPerson({ id: 'chau-b', full_name: 'Phạm Văn Cháu B', gender: 'nam', han_name: '范文' }),
+      blankPerson({ id: 'chau-b', full_name: 'Phạm Văn Cháu B', gender: 'nam', hometown: 'Làng Đông' }),
       blankPerson({ id: 'lac', full_name: 'Phạm Văn Lạc', gender: 'nam' }),
     ],
     parentLinks: [
@@ -62,10 +62,10 @@ describe('seam C: Phả đồ', () => {
     expect(names).not.toContain('Phạm Văn Ả');
   });
 
-  it('dòng thêm: ngày giỗ, tên chữ Hán', () => {
-    const names = texts({ ...base, extraLines: ['gio', 'han'] });
+  it('dòng thêm: ngày giỗ, quê quán', () => {
+    const names = texts({ ...base, extraLines: ['gio', 'que'] });
     expect(names).toContain('Giỗ 12/3 ÂL');
-    expect(names).toContain('范文');
+    expect(names).toContain('Làng Đông');
   });
 
   it('viền theo giới tính, nền trắng kể cả khi đã mất (chỉ thêm dấu † ở dòng năm)', () => {
@@ -216,7 +216,7 @@ describe('khổ giấy và cấu hình', () => {
     expect(readPhaDoConfig({ paper: 'B5', extraLines: ['gio', 'gio', 'x', 'han', 'que'] }, 2)).toMatchObject({
       paper: 'A1',
       outsideGenerations: 2,
-      extraLines: ['gio', 'han'],
+      extraLines: ['gio', 'que'],
     });
     expect(readPhaDoConfig(null, 0)).toEqual(defaultPhaDoConfig(0));
   });

@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { useAuth } from '../auth/auth-context';
 import { occurrencesToIcs } from '../calendar/ics';
 import { todayInVietnam } from '../calendar/month-grid';
 import { occurrencesBetween, upcoming } from '@gia-pha/reminders';
@@ -30,8 +29,6 @@ const OFFSET_OPTIONS: { value: 0 | 1 | 3 | 7; label: string }[] = [
 
 /** Sự kiện: giỗ/sinh nhật/sự kiện 30 ngày tới, Danh sách nhắc giỗ, độ sớm nhắc mỗi gia phả (gộp từ "Sắp tới" + "Nhắc nhở"). */
 export const SuKienPage = () => {
-  const { state } = useAuth();
-  const email = state.status === 'signed-in' ? state.session.user.email : undefined;
   const today = todayInVietnam();
   const calendar = useMyCalendar(true);
   const upcomingList = useMemo(() => (calendar.data ? upcoming(calendar.data, today, 30) : []), [calendar.data, today]);
@@ -60,7 +57,7 @@ export const SuKienPage = () => {
 
   return (
     <>
-      <AppHeader email={email} />
+      <AppHeader />
       <main className="mx-auto max-w-3xl px-4 py-8">
         <h1 className="font-serif text-3xl font-bold text-son">Sự kiện</h1>
 

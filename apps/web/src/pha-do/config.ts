@@ -17,12 +17,11 @@ export type PhaDoScope =
   | { kind: 'from-person'; personId: string; depth: number };
 
 /** Dòng thêm trong mỗi ô (tối đa 2), ngoài tên và năm sinh–mất. */
-export type ExtraLine = 'gio' | 'doi' | 'han' | 'que';
+export type ExtraLine = 'gio' | 'doi' | 'que';
 
 export const EXTRA_LINE_LABELS: Record<ExtraLine, string> = {
   gio: 'Ngày giỗ',
   doi: 'Đời',
-  han: 'Tên chữ Hán',
   que: 'Quê quán',
 };
 
@@ -64,7 +63,7 @@ export const pageSizeMm = (config: Pick<PhaDoConfig, 'paper' | 'customWidthCm' |
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
-const EXTRA_LINES: readonly ExtraLine[] = ['gio', 'doi', 'han', 'que'];
+const EXTRA_LINES: readonly ExtraLine[] = ['gio', 'doi', 'que'];
 
 /** Đọc cấu hình đã lưu (JSON từ database); giá trị lạ thì dùng mặc định thay vì hỏng trang. */
 export const readPhaDoConfig = (stored: unknown, outsideGenerations: number): PhaDoConfig => {
