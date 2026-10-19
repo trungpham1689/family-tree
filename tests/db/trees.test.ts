@@ -118,6 +118,19 @@ describe('seam B: Gia phả và Người', () => {
       await db.as(stranger).query('update family_trees set outside_generations = 3 where id = $1', [tree.id]);
       expect(await read()).toBe(0);
     });
+
+    it('ảnh gia phả (photo_path): Chủ sở hữu đặt được, người lạ thì không', async () => {
+      const tree = await createTree(owner);
+      const read = async () =>
+        (await db.as(owner).query<{ photo_path: string | null }>('select photo_path from family_trees where id = $1', [tree.id]))[0]!.photo_path;
+      expect(await read()).toBeNull();
+
+      await db.as(owner).query('update family_trees set photo_path = $2 where id = $1', [tree.id, `${tree.id}/driveFileId123`]);
+      expect(await read()).toBe(`${tree.id}/driveFileId123`);
+
+      await db.as(stranger).query('update family_trees set photo_path = null where id = $1', [tree.id]);
+      expect(await read()).toBe(`${tree.id}/driveFileId123`);
+    });
   });
 
   describe('Người', () => {

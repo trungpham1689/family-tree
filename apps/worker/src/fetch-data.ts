@@ -15,7 +15,7 @@ export type ReminderData = {
 export const loadReminderData = async (supabaseUrl: string, serviceRoleKey: string): Promise<ReminderData> => {
   const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
 
-  const [trees, persons, events, roles, muted, prefs, reads] = await Promise.all([
+  const [trees, persons, events, roles, muted, prefs, reads, approvals] = await Promise.all([
     supabase.from('family_trees').select('id, name'),
     supabase.from('persons').select('id, tree_id, full_name, is_deceased, anniversary_day, anniversary_month, birth_solar_date'),
     supabase.from('tree_events').select('id, tree_id, title, calendar, repeats_yearly, year, month, day, leap, start_time, location'),
@@ -24,13 +24,16 @@ export const loadReminderData = async (supabaseUrl: string, serviceRoleKey: stri
     supabase.from('reminder_watch').select('account_id, person_id'),
     supabase.from('reminder_prefs').select('account_id, tree_id, offset_days, email_enabled'),
     supabase.from('notification_reads').select('account_id, notification_key'),
+    supabase.from('account_approvals').select('account_id').eq('approved', true),
   ]);
-  for (const result of [trees, persons, events, roles, muted, prefs, reads]) {
+  for (const result of [trees, persons, events, roles, muted, prefs, reads, approvals]) {
     if (result.error) throw new Error(result.error.message);
   }
 
   const treesByAccount = new Map<string, string[]>();
-  for (const row of roles.data ?? []) treesByAccount.set(row.account_id, [...(treesByAccount.get(row.account_id) ?? []), row.tree_id]);
+  // Tài khoản chưa được duyệt không dùng được app nên không nhận email nhắc.
+  const approved = new Set((approvals.data ?? []).map((row) => row.account_id));
+  for (const row of (roles.data ?? []).filter((role) => approved.has(role.account_id))) treesByAccount.set(row.account_id, [...(treesByAccount.get(row.account_id) ?? []), row.tree_id]);
 
   const mutedByAccount = new Map<string, Set<string>>();
   for (const row of muted.data ?? []) {

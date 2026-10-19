@@ -1,7 +1,6 @@
-import { useLayoutEffect, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
-import { AVATAR_MIME_TYPES, MAX_AVATAR_BYTES, type PersonPhoto } from '../data/photos';
 import {
   useAddChild,
   useAddParent,
@@ -10,22 +9,17 @@ import {
   useAvatarDataUrl,
   useFamily,
   useLinkAccountToPerson,
-  usePersonPhotos,
   useRejectDeletePerson,
-  useRemovePhoto,
   useMutedGioPersons,
   useReorderChildren,
   useReorderUnions,
-  useSetAvatarPhoto,
   useSetFoundsBranch,
   useSetHiddenFromPublic,
   useSetProgenitor,
   useToggleGioMute,
   useTree,
   useUpdateParentLinkKind,
-  useUpdatePhotoCaption,
   useUpdateUnion,
-  useUploadPhoto,
 } from '../data/tree-queries';
 import type { Person } from '../data/trees';
 import type { ChildRelative, FamilyGraph, ParentLinkKind, SpouseRelative, UnionStatus } from '../family/family-graph';
@@ -35,6 +29,7 @@ import { DeletePerson } from '../people/DeletePerson';
 import { EditPerson } from '../people/EditPerson';
 import { EMPTY_PERSON_FORM } from '../people/person-form';
 import { PersonForm } from '../people/PersonForm';
+import { PhotoGallery } from '../people/PersonPhotos';
 import { ProfileInfo } from '../people/ProfileInfo';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
@@ -135,7 +130,7 @@ const PersonDetail = ({ treeId, graph, person, canEdit, isOwner, accountId, link
 
       <ProfileInfo person={person} graph={graph} />
 
-      <PhotoGallery treeId={treeId} person={person} canEdit={canEdit} />
+      <PhotoGallery treeId={treeId} personId={person.id} canEdit={false} />
 
       <Section
         title="Cha mẹ"
@@ -756,7 +751,7 @@ const ReminderControls = ({ treeId, person, isMe }: { treeId: string; person: Pe
   );
 };
 
-/** Ảnh đại diện trong đầu trang: chỉ hiện, không sửa ở đây — sửa trong mục "Ảnh tư liệu". */
+/** Ảnh đại diện trong đầu trang: chỉ hiện, không sửa ở đây — đổi ảnh trong "Sửa thông tin". */
 const PersonAvatar = ({ person }: { person: Person }) => {
   const avatar = useAvatarDataUrl(person.avatar_path);
   const initial = nameInitial(person.full_name);
@@ -775,122 +770,6 @@ const PersonAvatar = ({ person }: { person: Person }) => {
         <span className="grid size-full place-items-center text-3xl font-bold text-white">{initial}</span>
       )}
     </div>
-  );
-};
-
-/** Mục "Ảnh tư liệu": tối đa vài ảnh/người (giới hạn ở database), chú thích, chọn một ảnh làm đại diện. */
-const PhotoGallery = ({ treeId, person, canEdit }: { treeId: string; person: Person; canEdit: boolean }) => {
-  const photos = usePersonPhotos(person.id);
-  const upload = useUploadPhoto(treeId, person.id);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [pickError, setPickError] = useState<string | null>(null);
-
-  const pick = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    setPickError(null);
-    if (!AVATAR_MIME_TYPES.includes(file.type)) {
-      setPickError('Chỉ nhận ảnh JPEG, PNG hoặc WEBP.');
-      return;
-    }
-    if (file.size > MAX_AVATAR_BYTES) {
-      setPickError(`Ảnh tối đa ${Math.floor(MAX_AVATAR_BYTES / (1024 * 1024))}MB.`);
-      return;
-    }
-    upload.mutate({ treeId, personId: person.id, file, caption: null, setAsAvatar: (photos.data?.length ?? 0) === 0 });
-  };
-
-  if (!canEdit && (photos.data?.length ?? 0) === 0) return null;
-
-  return (
-    <section className="mt-8">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="font-serif text-xl font-bold">Ảnh tư liệu</h2>
-        {canEdit && (
-          <Button variant="ghost" disabled={upload.isPending} onClick={() => inputRef.current?.click()}>
-            {upload.isPending ? 'Đang tải lên…' : '+ Thêm ảnh'}
-          </Button>
-        )}
-      </div>
-      {canEdit && <input ref={inputRef} type="file" accept={AVATAR_MIME_TYPES.join(',')} className="hidden" onChange={pick} />}
-      {(pickError || upload.isError) && <ErrorBanner>{pickError ?? upload.error?.message}</ErrorBanner>}
-      {photos.isSuccess && photos.data.length === 0 && <p className="mt-2 text-ink-muted">Chưa có ảnh.</p>}
-      {photos.isSuccess && photos.data.length > 0 && (
-        <ul className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3">
-          {photos.data.map((photo) => (
-            <PhotoCard key={photo.id} treeId={treeId} personId={person.id} photo={photo} canEdit={canEdit} />
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-};
-
-const PhotoCard = ({
-  treeId,
-  personId,
-  photo,
-  canEdit,
-}: {
-  treeId: string;
-  personId: string;
-  photo: PersonPhoto;
-  canEdit: boolean;
-}) => {
-  const image = useAvatarDataUrl(photo.storage_path);
-  const setAvatar = useSetAvatarPhoto(treeId, personId);
-  const updateCaption = useUpdatePhotoCaption(treeId, personId);
-  const remove = useRemovePhoto(treeId, personId);
-  const [caption, setCaption] = useState(photo.caption ?? '');
-
-  return (
-    <li className="space-y-1.5">
-      <div className="aspect-square overflow-hidden rounded-xl border border-line bg-paper">
-        {image.data && <img src={image.data} alt={photo.caption ?? ''} className="size-full object-cover" />}
-      </div>
-      {canEdit ? (
-        <input
-          aria-label="Chú thích ảnh"
-          placeholder="Chú thích…"
-          className="w-full rounded-lg border border-line bg-surface px-2 py-1 text-sm"
-          value={caption}
-          onChange={(event) => setCaption(event.target.value)}
-          onBlur={() => {
-            if (caption !== (photo.caption ?? '')) updateCaption.mutate({ photoId: photo.id, caption: caption.trim() || null });
-          }}
-        />
-      ) : (
-        photo.caption && <p className="text-sm text-ink-muted">{photo.caption}</p>
-      )}
-      {canEdit && (
-        <div className="flex items-center justify-between text-sm">
-          {photo.is_avatar ? (
-            <span className="font-semibold text-son">Ảnh đại diện</span>
-          ) : (
-            <button
-              type="button"
-              className="font-semibold text-son hover:underline disabled:text-ink-muted"
-              disabled={setAvatar.isPending}
-              onClick={() => setAvatar.mutate(photo.id)}
-            >
-              Đặt làm đại diện
-            </button>
-          )}
-          <button
-            type="button"
-            className="text-danger hover:underline disabled:text-ink-muted"
-            disabled={remove.isPending}
-            onClick={() => remove.mutate({ photoId: photo.id, path: photo.storage_path })}
-          >
-            Xoá
-          </button>
-        </div>
-      )}
-      {(setAvatar.isError || updateCaption.isError || remove.isError) && (
-        <p className="text-sm text-danger">{setAvatar.error?.message ?? updateCaption.error?.message ?? remove.error?.message}</p>
-      )}
-    </li>
   );
 };
 

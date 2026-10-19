@@ -9,13 +9,13 @@ Ràng buộc: chỉ dùng gói miễn phí. Nhiều dòng họ, mỗi họ 500�
 | Thành phần | Dịch vụ | Giới hạn free đáng chú ý |
 |---|---|---|
 | Database + đăng nhập | Supabase Free | 500 MB DB, 50k MAU, **tạm dừng sau 7 ngày không có request** |
-| Ảnh | Cloudflare R2 | 10 GB, không tính phí băng thông |
+| Ảnh | Google Drive của chủ app, qua Pages Function `/api/photos` | 15 GB; ảnh nén còn 100–300KB nên đủ cho hàng chục nghìn ảnh |
 | Hosting web | Cloudflare Pages | Băng thông không giới hạn |
 | Việc chạy hằng ngày (nhắc giỗ) | Cloudflare Worker Cron | 100k request/ngày, CPU ngắn |
 | Email | Resend Free | 3.000/tháng, **100/ngày**, 1 domain |
 | Xuất PDF/PNG phả đồ | Chạy trong trình duyệt | Không tốn server |
 
-Lý do không dùng Supabase Storage cho ảnh: chỉ 1 GB; một dòng họ 800 người có ảnh đã có thể dùng hết.
+Lý do không dùng Supabase Storage cho ảnh: chỉ 1 GB; một dòng họ 800 người có ảnh đã có thể dùng hết. Chọn Google Drive thay R2 (2026-10-19): chủ app đã có sẵn Drive, không thêm dịch vụ; mỗi gia phả một thư mục để dễ sao lưu thủ công.
 
 ## Hệ quả
 - Cron hằng ngày gọi API Supabase, vừa gửi nhắc vừa giữ project không bị tạm dừng.

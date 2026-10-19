@@ -13,6 +13,7 @@ export type NarrativeItem = {
   personId: string;
   kind: PersonKind;
   gender: string | null;
+  adopted: boolean;
   name: string;
   lifespan: string | null;
   detail: string;
@@ -71,7 +72,7 @@ export const buildNarrative = (graph: FamilyGraph<Person>): NarrativeGeneration[
     total: group.total,
     items: group.persons.map((person) => {
       const { lifespan, detail, text } = personNarrative(graph, person);
-      return { personId: person.id, kind: graph.placement(person.id).kind, gender: person.gender, name: person.full_name, lifespan, detail, text };
+      return { personId: person.id, kind: graph.placement(person.id).kind, gender: person.gender, adopted: graph.parentsOf(person.id).some((parent) => parent.kind === 'nuoi'), name: person.full_name, lifespan, detail, text };
     }),
   }));
 

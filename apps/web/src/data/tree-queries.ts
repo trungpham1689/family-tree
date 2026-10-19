@@ -63,7 +63,9 @@ import {
   fetchAvatarDataUrl,
   listPersonPhotos,
   removePersonPhoto,
+  removeTreePhoto,
   setAvatarPhoto,
+  setTreePhoto,
   updatePhotoCaption,
   uploadPersonPhoto,
 } from './photos';
@@ -223,6 +225,14 @@ export const useUploadPhoto = (treeId: string, personId: string) => usePhotoMuta
 export const useSetAvatarPhoto = (treeId: string, personId: string) => usePhotoMutation(treeId, personId, setAvatarPhoto);
 export const useUpdatePhotoCaption = (treeId: string, personId: string) => usePhotoMutation(treeId, personId, updatePhotoCaption);
 export const useRemovePhoto = (treeId: string, personId: string) => usePhotoMutation(treeId, personId, removePersonPhoto);
+
+const useTreePhotoMutation = <Input, Output>(mutationFn: (input: Input) => Promise<Output>) => {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trees'] }) });
+};
+
+export const useSetTreePhoto = () => useTreePhotoMutation(setTreePhoto);
+export const useRemoveTreePhoto = () => useTreePhotoMutation(removeTreePhoto);
 
 /** Ảnh đại diện của một Người, tải về và chuyển sẵn thành data URL; null khi chưa có ảnh. */
 export const useAvatarDataUrl = (avatarPath: string | null) =>

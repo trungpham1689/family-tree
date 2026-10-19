@@ -15,6 +15,12 @@ export type Database = {
         Update: { key?: string; value?: number };
         Relationships: [];
       };
+      account_approvals: {
+        Row: { account_id: string; email: string | null; approved: boolean; created_at: string; approved_at: string | null };
+        Insert: { account_id: string; email?: string | null; approved?: boolean; created_at?: string; approved_at?: string | null };
+        Update: { account_id?: string; email?: string | null; approved?: boolean; created_at?: string; approved_at?: string | null };
+        Relationships: [];
+      };
       family_trees: {
         Row: {
           created_at: string;
@@ -23,6 +29,7 @@ export type Database = {
           name: string;
           outside_generations: number;
           owner_id: string;
+          photo_path: string | null;
           public_token: string | null;
           public_password_hash: string | null;
           updated_at: string;
@@ -34,6 +41,7 @@ export type Database = {
           name: string;
           outside_generations?: number;
           owner_id?: string;
+          photo_path?: string | null;
           public_token?: string | null;
           public_password_hash?: string | null;
           updated_at?: string;
@@ -45,6 +53,7 @@ export type Database = {
           name?: string;
           outside_generations?: number;
           owner_id?: string;
+          photo_path?: string | null;
           public_token?: string | null;
           public_password_hash?: string | null;
           updated_at?: string;

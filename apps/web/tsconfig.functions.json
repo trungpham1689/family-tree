@@ -14,5 +14,5 @@
     "noUnusedParameters": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["functions", "src/share/og-meta.ts"]
+  "include": ["functions", "src/share/og-meta.ts", "src/drive"]
 }

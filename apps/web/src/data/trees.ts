@@ -9,7 +9,7 @@ import type { PersonFields } from '../people/person-form';
  */
 
 export type TreeRole = 'owner' | 'editor' | 'viewer';
-export type Tree = Pick<Row<'family_trees'>, 'id' | 'name' | 'description' | 'owner_id' | 'created_at' | 'outside_generations' | 'public_token'>;
+export type Tree = Pick<Row<'family_trees'>, 'id' | 'name' | 'description' | 'owner_id' | 'created_at' | 'outside_generations' | 'public_token' | 'photo_path'>;
 export type TreeWithRole = Tree & { role: TreeRole; linkedPersonId: string | null };
 export type Person = Row<'persons'>;
 
@@ -31,7 +31,7 @@ const unwrap = <Result extends QueryResult>({ data, error }: Result): NonNullabl
 
 const isTreeRole = (value: string): value is TreeRole => value === 'owner' || value === 'editor' || value === 'viewer';
 
-const TREE_COLUMNS = 'id, name, description, owner_id, created_at, outside_generations, public_token';
+const TREE_COLUMNS = 'id, name, description, owner_id, created_at, outside_generations, public_token, photo_path';
 
 export const listMyTrees = async (accountId: string): Promise<TreeWithRole[]> => {
   const rows = unwrap(

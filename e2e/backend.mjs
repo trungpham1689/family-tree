@@ -29,8 +29,17 @@ for (const file of (await readdir(join(ROOT, 'supabase/migrations'))).filter((f)
 await db.exec(`
   create schema if not exists e2e;
   create function e2e.create_user(user_email text) returns uuid
-  language sql security definer set search_path = '' as
-  $$ insert into auth.users (email) values (user_email) returning id $$;
+  language plpgsql security definer set search_path = '' as
+  $$
+  declare
+    new_id uuid;
+  begin
+    insert into auth.users (email) values (user_email) returning id into new_id;
+    -- Tài khoản kiểm thử dùng được ngay, không chờ duyệt.
+    update public.account_approvals set approved = true where account_id = new_id;
+    return new_id;
+  end;
+  $$;
 `);
 
 const pgServer = new PGLiteSocketServer({ db, port: PG_PORT, host: '127.0.0.1', maxConnections: 4 });

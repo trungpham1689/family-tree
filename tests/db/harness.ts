@@ -29,7 +29,8 @@ export type Caller = {
 };
 
 export type TestDb = {
-  createUser(email: string): Promise<TestUser>;
+  /** Mặc định đã duyệt; truyền `{ approved: false }` để thử tài khoản chờ duyệt. */
+  createUser(email: string, options?: { approved?: boolean }): Promise<TestUser>;
   as(user: TestUser): Caller;
   asAnon(): Caller;
   /** Truy cập không qua RLS — chỉ để dựng dữ liệu hoặc kiểm tra trong test. */
@@ -92,11 +93,13 @@ export async function createTestDb(): Promise<TestDb> {
   };
 
   return {
-    createUser: async (email) => {
+    createUser: async (email, options = {}) => {
       const result = await db.query<TestUser>(
         'insert into auth.users (email) values ($1) returning id, email',
         [email],
       );
+      // Trigger mặc định để tài khoản mới ở trạng thái chưa duyệt; test thường cần tài khoản dùng được ngay.
+      if (options.approved !== false) await db.query('update public.account_approvals set approved = true where account_id = $1', [result.rows[0]!.id]);
       return result.rows[0]!;
     },
     as: (user) => callerFor('authenticated', user.id),

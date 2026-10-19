@@ -25,6 +25,13 @@ const COLOR = {
 /** Một khối trước/sau phần theo Đời: Lời mở đầu, Nguồn gốc, Các chi, Người tiêu biểu, Lời kết. */
 export type PdfSection = { heading: string; paragraphs: readonly string[] };
 
+/** Ảnh nhúng vào PDF (data URL JPEG): ảnh cả gia phả dưới tiêu đề, ảnh đại diện từng Người theo personId. */
+export type PdfPhotos = { cover?: string | undefined; people?: ReadonlyMap<string, string> | undefined };
+
+const COVER_WIDTH = 110;
+const COVER_MAX_HEIGHT = 75;
+const PERSON_PHOTO = 18;
+
 /** Phả ký ra PDF khổ A4, chữ thật (NotoSerif, có dấu tiếng Việt), cùng tông màu và bố cục với trang web. */
 export const narrativeToPdf = (
   generations: readonly NarrativeGeneration[],
@@ -32,6 +39,7 @@ export const narrativeToPdf = (
   title: string,
   before: readonly PdfSection[] = [],
   after: readonly PdfSection[] = [],
+  photos: PdfPhotos = {},
 ): jsPDF => {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   doc.addFileToVFS('NotoSerif-Regular.ttf', fonts.regular);
@@ -59,6 +67,15 @@ export const narrativeToPdf = (
   doc.setLineWidth(0.6);
   doc.line(PAGE_WIDTH / 2 - 16, y, PAGE_WIDTH / 2 + 16, y);
   y += LINE_HEIGHT * 1.6;
+
+  if (photos.cover) {
+    const { width, height } = doc.getImageProperties(photos.cover);
+    const coverHeight = Math.min(COVER_MAX_HEIGHT, (COVER_WIDTH * height) / width);
+    const coverWidth = (coverHeight * width) / height;
+    ensureSpace(coverHeight + LINE_HEIGHT);
+    doc.addImage(photos.cover, 'JPEG', (PAGE_WIDTH - coverWidth) / 2, y, coverWidth, coverHeight);
+    y += coverHeight + LINE_HEIGHT * 1.2;
+  }
 
   /** Lời mở đầu, Nguồn gốc, Các chi, Người tiêu biểu, Lời kết: thẻ nền giấy, viền mảnh — như card trên web. */
   const writeCard = (heading: string, paragraphs: readonly string[]) => {
@@ -116,10 +133,12 @@ export const narrativeToPdf = (
 
     const indent = 7;
     for (const item of group.items) {
+      const photo = photos.people?.get(item.personId);
       doc.setFont(FONT, 'bold');
       doc.setFontSize(11.5);
       const nameWidth = doc.getTextWidth(item.name);
-      ensureSpace(LINE_HEIGHT);
+      ensureSpace(photo ? PERSON_PHOTO + LINE_HEIGHT : LINE_HEIGHT);
+      const itemTop = y;
       const dotColor: readonly [number, number, number] = item.kind === 'thuy_to' ? COLOR.kim : COLOR.son;
       doc.setFillColor(...dotColor);
       doc.circle(MARGIN + 1.3, y - 1.3, 1.1, 'F');
@@ -134,15 +153,20 @@ export const narrativeToPdf = (
       }
       y += LINE_HEIGHT * 1.05;
 
+      // Ảnh nằm bên phải; chi tiết hẹp lại cho tới hết chiều cao ảnh rồi mới chạy hết bề ngang.
+      const photoBottom = photo ? itemTop - LINE_HEIGHT + PERSON_PHOTO + 1 : 0;
+      if (photo) doc.addImage(photo, 'JPEG', PAGE_WIDTH - MARGIN - PERSON_PHOTO, itemTop - LINE_HEIGHT + 1.5, PERSON_PHOTO, PERSON_PHOTO);
+
       if (item.detail) {
         doc.setFont(FONT, 'normal');
         doc.setFontSize(10.5);
         doc.setTextColor(...COLOR.ink);
-        const lines = doc.splitTextToSize(item.detail, maxWidth - indent) as string[];
+        const lines = doc.splitTextToSize(item.detail, maxWidth - indent - (photo ? PERSON_PHOTO + 3 : 0)) as string[];
         ensureSpace(lines.length * PARA_LINE);
         doc.text(lines, MARGIN + indent, y);
         y += lines.length * PARA_LINE;
       }
+      y = Math.max(y, photoBottom);
       y += LINE_HEIGHT * 0.6;
     }
     y += LINE_HEIGHT * 0.5;

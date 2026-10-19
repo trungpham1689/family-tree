@@ -40,4 +40,16 @@ describe('xuất PDF Phả ký', () => {
     expect(output).toMatch(/NotoSerif/);
     expect(doc.output('arraybuffer').byteLength).toBeGreaterThan(10_000);
   });
+
+  it('nhúng được ảnh gia phả và ảnh đại diện từng Người', () => {
+    const jpeg =
+      'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
+    const generations = buildNarrative(family());
+    const plain = narrativeToPdf(generations, fonts, 'Phả ký họ Phạm').output('arraybuffer').byteLength;
+    const withPhotos = narrativeToPdf(generations, fonts, 'Phả ký họ Phạm', [], [], {
+      cover: jpeg,
+      people: new Map([['to', jpeg]]),
+    }).output('arraybuffer').byteLength;
+    expect(withPhotos).toBeGreaterThan(plain);
+  });
 });

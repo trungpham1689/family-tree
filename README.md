@@ -44,8 +44,9 @@ pnpm dev                                 # mở http://localhost:5173
 
 ## Hạ tầng (toàn bộ gói miễn phí, xem [ADR 0004](docs/adr/0004-ha-tang-mien-phi.md))
 
-- **Supabase** project `family-tree` (`gihidxqjfcezsrcibrla`, vùng Singapore): database, đăng nhập, Storage (ảnh).
-- **Cloudflare Pages**: hosting web, tự deploy khi có commit lên `main`.
+- **Supabase** project `family-tree` (`gihidxqjfcezsrcibrla`, vùng Singapore): database, đăng nhập. Ảnh cũ còn trong Storage cho tới khi chạy script chuyển (mục 4).
+- **Cloudflare Pages**: hosting web, tự deploy khi có commit lên `main`; Pages Function `/api/photos` đứng giữa trình duyệt và Google Drive.
+- **Google Drive** (15 GB miễn phí): ảnh Người và ảnh gia phả, thư mục `Family-tree/<tên gia phả>/Ảnh Gia Phả` và `Ảnh Thành Viên`.
 - **Cloudflare Worker Cron** (`apps/worker`): chạy mỗi thứ Hai, có sự kiện tuần tới mới gửi Bản tin nhắc qua **Resend** — chưa deploy, xem mục 3 dưới.
 
 ## Việc chủ dự án cần tự làm
@@ -107,3 +108,35 @@ Chưa làm bước này thì nhắc nhở vẫn chạy trong app (chuông "Nhắ
    npx wrangler deploy
    ```
    Worker chạy theo lịch đã đặt sẵn trong `wrangler.toml` (`0 0 * * 1`, tức thứ Hai 7:00 sáng giờ Việt Nam), chỉ gửi nếu tuần tới có sự kiện, không cần làm gì thêm. Xem log: `npx wrangler tail`. Đổi `APP_URL`/`RESEND_FROM` thì sửa `[vars]` trong `wrangler.toml` rồi deploy lại.
+
+### 4. Ảnh trên Google Drive
+
+Ảnh (đại diện, tư liệu, ảnh gia phả) nằm trong **Drive của bạn**, người dùng không cần tài khoản Google. Pages Function
+`/api/photos` kiểm tra đăng nhập và vai trò bằng database, rồi mới dùng khoá Drive bên dưới. Chưa làm mục này thì nút tải ảnh báo lỗi, phần còn lại của app chạy bình thường.
+
+1. [Google Cloud Console](https://console.cloud.google.com) → tạo project → **APIs & Services → Library** → bật **Google Drive API**.
+2. **OAuth consent screen**: loại *External*, thêm email của bạn vào *Test users*, rồi bấm **Publish app** (để refresh token không hết hạn sau 7 ngày; app chỉ dùng quyền `drive.file`, không cần Google duyệt).
+3. **Credentials → Create credentials → OAuth client ID**, loại *Web application*, thêm Authorized redirect URI `https://developers.google.com/oauthplayground`. Ghi lại *Client ID* và *Client secret*.
+4. Vào [OAuth 2.0 Playground](https://developers.google.com/oauthplayground) → ⚙ → tích *Use your own OAuth credentials*, dán Client ID/secret → ở bước 1 nhập scope `https://www.googleapis.com/auth/drive.file` → **Authorize APIs** (đăng nhập đúng tài khoản Google sẽ chứa ảnh) → **Exchange authorization code for tokens** → chép **Refresh token**.
+5. Cloudflare Pages → Settings → Environment variables (Production), thêm dạng *Secret*: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`. Deploy lại.
+6. Áp migration `supabase/migrations/20261019080000_anh_google_drive.sql` lên Supabase.
+7. Có ảnh cũ trên Supabase Storage thì chuyển một lần (chạy thử trước với `--dry-run`):
+   ```bash
+   cd apps/web
+   SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… GOOGLE_CLIENT_ID=… GOOGLE_CLIENT_SECRET=… GOOGLE_REFRESH_TOKEN=… \
+     node --experimental-strip-types scripts/migrate-photos-to-drive.mjs
+   ```
+
+Quy cách ảnh cho người dùng: Người — ảnh vuông/dọc, mặt ở giữa, tối thiểu 300×300px (nên ≥800px); ảnh gia phả — ảnh ngang, tối thiểu 1200×800px; cả hai tối đa 15MB, JPEG/PNG/WEBP, tối đa 5 ảnh/Người. Trình duyệt tự thu nhỏ (Người 1000px, gia phả 1600px) và nén JPEG nên mỗi ảnh còn khoảng 100–300KB trên Drive; Function chặn cứng ở 4MB.
+
+Chạy cục bộ: `pnpm dev` không có `/api/photos`. Muốn thử tải ảnh, build rồi chạy `npx wrangler pages dev dist` trong `apps/web` với file `.dev.vars` chứa ba biến Google và hai biến `VITE_SUPABASE_*`.
+
+### 5. Duyệt tài khoản mới
+
+Ai đăng ký cũng vào được trang đăng nhập, nhưng tài khoản mới chỉ thấy màn "Tài khoản đang chờ duyệt" — không xem, không sửa, không tạo được gia phả nào (kể cả khi đã được mời) — cho tới khi bạn duyệt:
+
+- **Supabase Dashboard → Table Editor → `account_approvals`** → tìm dòng theo `email` → tích `approved` → Save. Người dùng tự vào được trong vòng 30 giây (hoặc bấm "Kiểm tra lại").
+- Hoặc SQL Editor: `update account_approvals set approved = true where email = 'nguoi@example.com';`
+- Thu hồi: bỏ tích `approved`, người đó mất quyền ngay và không nhận email nhắc nữa.
+
+Tài khoản có từ trước khi có tính năng này được duyệt sẵn (migration `20261019090000_duyet_tai_khoan.sql`).

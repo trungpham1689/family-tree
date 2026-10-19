@@ -1,7 +1,19 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ROLE_LABELS } from '../data/role-labels';
-import { useAddChild, useCreatePerson, useDeleteTree, useFamily, usePersonAvatars, useRenameTree, useTree } from '../data/tree-queries';
+import {
+  useAddChild,
+  useAvatarDataUrl,
+  useCreatePerson,
+  useDeleteTree,
+  useFamily,
+  usePersonAvatars,
+  useRemoveTreePhoto,
+  useRenameTree,
+  useSetTreePhoto,
+  useTree,
+} from '../data/tree-queries';
+import { ImagePicker } from '../people/PersonPhotos';
 import type { Person, TreeWithRole } from '../data/trees';
 import { lifespanText, nameInitial } from '../people/person-display';
 import type { FamilyGraph, GenerationGroup } from '../family/family-graph';
@@ -453,6 +465,7 @@ const RenameForm = ({ tree, onDone }: { tree: TreeWithRole; onDone: () => void }
         value={description}
         onChange={(event) => setDescription(event.target.value)}
       />
+      <TreePhotoField tree={tree} />
       {rename.isError && <ErrorBanner>{rename.error.message}</ErrorBanner>}
       <div className="flex justify-end gap-3">
         <Button variant="secondary" onClick={onDone}>
@@ -463,6 +476,34 @@ const RenameForm = ({ tree, onDone }: { tree: TreeWithRole; onDone: () => void }
         </Button>
       </div>
     </form>
+  );
+};
+
+/** Ảnh đại diện cả gia phả (hiện đầu Phả ký). Lưu ngay khi tải lên, không chờ nút Lưu của form. */
+const TreePhotoField = ({ tree }: { tree: TreeWithRole }) => {
+  const image = useAvatarDataUrl(tree.photo_path);
+  const setPhoto = useSetTreePhoto();
+  const removePhoto = useRemoveTreePhoto();
+
+  return (
+    <div>
+      <span className="block font-medium">Ảnh gia phả</span>
+      {image.data && <img src={image.data} alt="" className="mt-2 max-h-48 rounded-xl border border-line object-cover" />}
+      <div className="mt-2 flex flex-wrap items-start gap-3">
+        <ImagePicker
+          kind="tree"
+          label={tree.photo_path ? 'Đổi ảnh' : 'Tải ảnh lên'}
+          pending={setPhoto.isPending}
+          error={setPhoto.error?.message ?? removePhoto.error?.message}
+          onPick={(file) => setPhoto.mutate({ treeId: tree.id, file, previousPath: tree.photo_path })}
+        />
+        {tree.photo_path && (
+          <Button variant="ghost" className="text-danger!" disabled={removePhoto.isPending} onClick={() => removePhoto.mutate({ treeId: tree.id, path: tree.photo_path! })}>
+            Xoá ảnh
+          </Button>
+        )}
+      </div>
+    </div>
   );
 };
 

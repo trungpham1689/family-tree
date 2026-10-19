@@ -7,6 +7,7 @@ import { ErrorBanner } from '../ui/fields';
 import { diffPersonFields } from './person-conflict';
 import { personToFormValues, type PersonFields } from './person-form';
 import { PersonForm } from './PersonForm';
+import { PhotoGallery } from './PersonPhotos';
 
 type Conflict = { fields: PersonFields; current: Person };
 
@@ -87,15 +88,21 @@ export const EditPerson = ({
   }
 
   return (
-    <PersonForm
-      initial={initial}
-      graph={graph}
-      currentPersonId={person.id}
-      submitLabel="Lưu thay đổi"
-      busy={update.isPending}
-      serverError={update.error?.message ?? null}
-      onCancel={onDone}
-      onSubmit={(fields) => save(fields, baseVersion)}
-    />
+    <div className="space-y-6">
+      <div>
+        <PhotoGallery treeId={treeId} personId={person.id} canEdit />
+        <p className="mt-2 text-sm text-ink-muted">Ảnh được lưu ngay khi tải lên, không cần bấm “Lưu thay đổi”.</p>
+      </div>
+      <PersonForm
+        initial={initial}
+        graph={graph}
+        currentPersonId={person.id}
+        submitLabel="Lưu thay đổi"
+        busy={update.isPending}
+        serverError={update.error?.message ?? null}
+        onCancel={onDone}
+        onSubmit={(fields) => save(fields, baseVersion)}
+      />
+    </div>
   );
 };

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useParams } from 'react-router';
 import { toIsoDate, todayInVietnam } from '../calendar/month-grid';
 import { loadFontBinary } from '../data/pha-do';
-import { useFamily, useTree } from '../data/tree-queries';
+import { useAvatarDataUrl, useFamily, usePersonAvatars, useTree } from '../data/tree-queries';
 import { anniversaryText } from '../people/person-display';
 import { kindLabel } from '../family/labels';
 import { exportFileName } from '../lib/download';
@@ -10,7 +10,6 @@ import { branchSummaries, buildNarrative, closingNote, notablePersons, originSum
 import { TreeTabs } from '../tree/TreeTabs';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
-import { Collapsible } from '../ui/Collapsible';
 import { ErrorBanner } from '../ui/fields';
 import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
@@ -28,6 +27,9 @@ export const PhaKyPage = () => {
   const notable = useMemo(() => (family.data ? notablePersons(family.data) : []), [family.data]);
   const origin = useMemo(() => (family.data ? originSummary(family.data) : null), [family.data]);
   const branches = useMemo(() => (family.data ? branchSummaries(family.data) : []), [family.data]);
+
+  const cover = useAvatarDataUrl(tree.data?.photo_path ?? null);
+  const avatars = usePersonAvatars(family.data?.persons ?? [], true);
 
   if (tree.isPending || family.isPending) return <FullPageMessage>Đang tải…</FullPageMessage>;
   const error = tree.error ?? family.error;
@@ -77,7 +79,10 @@ export const PhaKyPage = () => {
 
       const after = generations.length > 0 ? [{ heading: 'Lời kết', paragraphs: [closingNote(today)] }] : [];
 
-      narrativeToPdf(generations, { regular, bold }, `Phả ký ${tree.data.name}`, before, after).save(
+      narrativeToPdf(generations, { regular, bold }, `Phả ký ${tree.data.name}`, before, after, {
+        cover: cover.data,
+        people: avatars.data,
+      }).save(
         exportFileName('Pha-ky', tree.data.name, toIsoDate(today), 'pdf'),
       );
     } catch {
@@ -107,6 +112,8 @@ export const PhaKyPage = () => {
         {family.isSuccess && (
           <div className="mt-6 space-y-8">
             {generations.length === 0 && <p className="text-ink-muted">Gia phả chưa có ai.</p>}
+
+            {cover.data && <img src={cover.data} alt={`Ảnh gia phả ${tree.data?.name ?? ''}`} className="mx-auto max-h-80 rounded-2xl border border-line object-cover" />}
 
             {tree.data?.description && (
               <section aria-label="Lời mở đầu" className="rounded-2xl border border-son/30 bg-son/5 p-5">
@@ -178,30 +185,6 @@ export const PhaKyPage = () => {
                 </ul>
               </section>
             )}
-            {generations.length > 0 && (
-              <Collapsible title="Cách đọc Phả ký này" defaultOpen>
-                <p className="leading-relaxed text-ink-muted">
-                  Mỗi Đời là một đoạn thời gian; đường kẻ dọc nối các Người theo thứ tự xuất hiện. Tên in đậm là tên chính,
-                  năm sinh–mất (nếu có) trong ngoặc ngay sau tên; nhãn màu như <span className="rounded-full bg-son/10 px-1.5 py-0.5 text-xs font-semibold text-son">Thuỷ tổ</span>{' '}
-                  chỉ vai trò đặc biệt. Phần tô nền ở đầu trang (Lời mở đầu, Nguồn gốc, Các chi, Người tiêu biểu) là tổng
-                  hợp; bấm vào tên ở đó để nhảy thẳng tới người trong danh sách theo Đời bên dưới.
-                </p>
-                <p className="mt-3 text-sm text-ink-muted">
-                  Chấm tròn trước mỗi tên dùng chung quy ước với Phả đồ:
-                </p>
-                <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-muted">
-                  <span className="flex items-center gap-1.5">
-                    <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-kim bg-paper" /> Nam
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-son bg-paper" /> Nữ
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-dashed border-kim bg-paper" /> Dâu/Rể (viền đứt — vào họ, không cùng huyết thống)
-                  </span>
-                </p>
-              </Collapsible>
-            )}
             {generations.map((group) => (
               <section key={group.generation}>
                 <div className="flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-son/20 pb-2">
@@ -222,8 +205,11 @@ export const PhaKyPage = () => {
                         aria-hidden="true"
                         className={`absolute -left-[1.9rem] size-3.5 rounded-full border-2 bg-paper ${genderBorder} ${dashed ? 'border-dashed' : 'border-solid'} ${index === 0 ? 'top-0' : 'top-1'}`}
                       />
+                      <div className="flex items-start gap-3">
+                      <div className="min-w-0 flex-1">
                       <h3 className="flex flex-wrap items-baseline gap-2 font-serif text-lg font-bold">
                         {item.name}
+                        {item.adopted && <span role="img" aria-label="Con nuôi" title="Con nuôi" className="size-2 self-center rounded-full bg-ink-muted" />}
                         {item.lifespan && <span className="text-sm font-normal text-ink-muted">({item.lifespan})</span>}
                         {item.kind !== 'dinh' && (
                           <span className="rounded-full bg-son/10 px-2 py-0.5 text-xs font-semibold text-son">
@@ -232,12 +218,37 @@ export const PhaKyPage = () => {
                         )}
                       </h3>
                       {item.detail && <p className="mt-1 leading-relaxed text-ink">{item.detail}</p>}
+                      </div>
+                      {avatars.data?.get(item.personId) && (
+                        <img src={avatars.data.get(item.personId)} alt={item.name} className="size-20 shrink-0 rounded-lg border border-line object-cover" />
+                      )}
+                      </div>
                     </article>
                     );
                   })}
                 </div>
               </section>
             ))}
+
+            {generations.length > 0 && (
+              <section aria-label="Chú thích" className="rounded-2xl border border-line bg-surface px-5 py-4 text-sm text-ink-muted">
+                <p>Chấm tròn trước mỗi tên dùng chung quy ước với Phả đồ:</p>
+                <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <span className="flex items-center gap-1.5">
+                    <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-kim bg-paper" /> Nam
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-son bg-paper" /> Nữ
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-dashed border-kim bg-paper" /> Dâu/Rể (viền đứt — vào họ, không cùng huyết thống)
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span aria-hidden="true" className="size-2 rounded-full bg-ink-muted" /> Con nuôi (chấm đặc cạnh tên)
+                  </span>
+                </p>
+              </section>
+            )}
 
             {generations.length > 0 && (
               <section aria-label="Lời kết" className="rounded-2xl border border-dashed border-line px-5 py-4">

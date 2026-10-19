@@ -12,3 +12,4 @@ supabase/.temp
 .wrangler/
 apps/web/dist-e2e/
 e2e/.out/
+.dev.vars
