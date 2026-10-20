@@ -8,6 +8,7 @@ import {
   useInviteToTree,
   usePendingDeletions,
   useRejectDeletePerson,
+  useSendInviteEmail,
   useRemoveTreeRole,
   useTreeInvitations,
   useTreeMembers,
@@ -105,10 +106,13 @@ const PendingDeletions = ({ treeId }: { treeId: string }) => {
   );
 };
 
+const formatSent = (iso: string) => new Date(iso).toLocaleString('vi-VN', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
+
 /** Lời mời gửi tới email chưa có tài khoản: người đó đăng ký bằng đúng email này (và được duyệt) là thấy gia phả, không cần mời lại. */
 const PendingInvitations = ({ treeId }: { treeId: string }) => {
   const invitations = useTreeInvitations(treeId, true);
   const cancel = useCancelTreeInvitation(treeId);
+  const sendEmail = useSendInviteEmail(treeId);
 
   if (!invitations.isSuccess || invitations.data.length === 0) return null;
 
@@ -121,14 +125,23 @@ const PendingInvitations = ({ treeId }: { treeId: string }) => {
           <li key={invitation.email} className="flex flex-wrap items-center justify-between gap-2 py-3">
             <div>
               <p className="font-medium">{invitation.email}</p>
-              <p className="text-sm text-ink-muted">{ROLE_LABELS[invitation.role]}</p>
+              <p className="text-sm text-ink-muted">
+                {ROLE_LABELS[invitation.role]} · {invitation.emailed_at ? `đã gửi email lúc ${formatSent(invitation.emailed_at)}` : 'chưa gửi email'}
+              </p>
             </div>
-            <Button variant="ghost" className="text-danger!" disabled={cancel.isPending} onClick={() => cancel.mutate(invitation.email)}>
-              Huỷ lời mời
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" disabled={sendEmail.isPending} onClick={() => sendEmail.mutate(invitation.email)}>
+                {sendEmail.isPending && sendEmail.variables === invitation.email ? 'Đang gửi…' : invitation.emailed_at ? 'Gửi lại email' : 'Gửi email'}
+              </Button>
+              <Button variant="ghost" className="text-danger!" disabled={cancel.isPending} onClick={() => cancel.mutate(invitation.email)}>
+                Huỷ lời mời
+              </Button>
+            </div>
           </li>
         ))}
       </ul>
+      {sendEmail.isError && <ErrorBanner>{sendEmail.error.message}</ErrorBanner>}
+      {sendEmail.isSuccess && <p role="status" className="mt-2 text-sm text-ink-muted">Đã gửi email mời tới {sendEmail.variables}.</p>}
       {cancel.isError && <ErrorBanner>{cancel.error.message}</ErrorBanner>}
     </div>
   );
@@ -136,6 +149,7 @@ const PendingInvitations = ({ treeId }: { treeId: string }) => {
 
 const InviteForm = ({ treeId, onDone }: { treeId: string; onDone: (notice: string) => void }) => {
   const invite = useInviteToTree(treeId);
+  const sendEmail = useSendInviteEmail(treeId);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<InvitableRole>('editor');
 
@@ -145,13 +159,17 @@ const InviteForm = ({ treeId, onDone }: { treeId: string; onDone: (notice: strin
     invite.mutate(
       { email: address, role },
       {
-        onSuccess: (outcome) => {
+        onSuccess: async (outcome) => {
           setEmail('');
-          onDone(
-            outcome === 'pending'
-              ? `Chưa có tài khoản dùng ${address}. Đã lưu lời mời: người này đăng ký bằng đúng email này và được duyệt là tự thấy gia phả, không cần mời lại.`
-              : "Đã thêm tài khoản này vào gia phả.",
-          );
+          if (outcome === 'added') return onDone('Đã thêm tài khoản này vào gia phả.');
+          // Chưa có tài khoản: lời mời đã lưu, gửi tiếp email mời đăng ký; gửi hỏng thì lời mời vẫn còn và có nút "Gửi email" ở danh sách chờ.
+          const saved = `Chưa có tài khoản dùng ${address}. Đã lưu lời mời: người này đăng ký bằng đúng email này và được duyệt là tự thấy gia phả, không cần mời lại.`;
+          try {
+            await sendEmail.mutateAsync(address);
+            onDone(`${saved} Đã gửi email mời tới ${address}.`);
+          } catch (error) {
+            onDone(`${saved} Chưa gửi được email: ${(error as Error).message}`);
+          }
         },
       },
     );
@@ -180,8 +198,8 @@ const InviteForm = ({ treeId, onDone }: { treeId: string; onDone: (notice: strin
         <Button type="button" variant="secondary" onClick={() => onDone('')}>
           Huỷ
         </Button>
-        <Button type="submit" disabled={invite.isPending || !email.trim()}>
-          {invite.isPending ? 'Đang mời…' : 'Mời'}
+        <Button type="submit" disabled={invite.isPending || sendEmail.isPending || !email.trim()}>
+          {invite.isPending || sendEmail.isPending ? 'Đang mời…' : 'Mời'}
         </Button>
       </div>
     </form>

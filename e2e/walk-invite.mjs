@@ -10,6 +10,12 @@ const assert = (condition, message) => {
 const stamp = Date.now();
 const guestEmail = `moi-chua-co-${stamp}@example.com`;
 let treeUrl = '';
+// Preview của e2e không có Pages Functions: giả /api/invite-email, ghi lại các lần gọi (email thật được kiểm tra bằng unit test của handler).
+const emailCalls = [];
+await page.route('**/api/invite-email', async (route) => {
+  emailCalls.push({ auth: route.request().headers().authorization, body: route.request().postDataJSON() });
+  await route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+});
 
 const signUp = async (target, email, name) => {
   await target.goto(`${APP}/`);
@@ -37,7 +43,9 @@ await step('Chủ sở hữu tạo gia phả rồi mời email chưa có tài kh
   await page.getByRole('button', { name: 'Mời', exact: true }).click();
   const status = page.getByRole('status');
   await status.waitFor();
-  assert((await status.textContent()).includes('Đã lưu lời mời'), 'không báo đã lưu lời mời chờ');
+  const notice = await status.textContent();
+  assert(notice.includes('Đã lưu lời mời') && notice.includes('Đã gửi email mời'), `thông báo thiếu: ${notice}`);
+  assert(emailCalls.length === 1 && emailCalls[0].auth?.startsWith('Bearer ') && emailCalls[0].body.email === guestEmail, 'không gọi /api/invite-email đúng một lần với phiên đăng nhập');
   await page.getByRole('heading', { name: 'Lời mời chờ đăng ký' }).waitFor();
   await page.getByText(guestEmail, { exact: true }).waitFor();
   await page.screenshot({ path: `${SHOTS}/moi-cho-dang-ky.png`, fullPage: true });

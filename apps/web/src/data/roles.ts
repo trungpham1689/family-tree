@@ -30,7 +30,7 @@ export const inviteToTree = async (input: { treeId: string; email: string; role:
   return data === 'pending' ? 'pending' : 'added';
 };
 
-export type TreeInvitation = { email: string; role: InvitableRole; created_at: string };
+export type TreeInvitation = { email: string; role: InvitableRole; created_at: string; emailed_at: string | null };
 
 export const listTreeInvitations = async (treeId: string): Promise<TreeInvitation[]> => {
   const { data, error } = await supabase.rpc('list_tree_invitations', { target_tree: treeId });
@@ -55,4 +55,17 @@ export const updateTreeRole = async (input: { treeId: string; accountId: string;
 export const removeTreeRole = async (input: { treeId: string; accountId: string }): Promise<void> => {
   const { error } = await supabase.rpc('remove_tree_role', { target_tree: input.treeId, target_account: input.accountId });
   failOn(error);
+};
+
+/** Gửi (hoặc gửi lại) email mời cho lời mời chờ đăng ký, qua Pages Function /api/invite-email. Lời mời vẫn được lưu dù gửi thất bại. */
+export const sendInviteEmail = async (input: { treeId: string; email: string }): Promise<void> => {
+  const { data } = await supabase.auth.getSession();
+  const response = await fetch('/api/invite-email', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${data.session?.access_token ?? ''}` },
+    body: JSON.stringify(input),
+  }).catch(() => null);
+  const body = (await response?.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+  if (response?.ok && body?.ok === true) return;
+  throw new Error(body?.error ?? 'Không kết nối được máy chủ gửi email. Hãy thử lại.');
 };

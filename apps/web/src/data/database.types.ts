@@ -539,7 +539,9 @@ export type Database = {
         Returns: { branch_id: string | null; generation: number | null; kind: string; person_id: string }[];
       };
       invite_to_tree: { Args: { target_tree: string; invite_email: string; new_role: string }; Returns: string };
-      list_tree_invitations: { Args: { target_tree: string }; Returns: { email: string; role: string; created_at: string }[] };
+      list_tree_invitations: { Args: { target_tree: string }; Returns: { email: string; role: string; created_at: string; emailed_at: string | null }[] };
+      claim_invitation_email: { Args: { target_tree: string; invite_email: string }; Returns: boolean };
+      release_invitation_email: { Args: { target_tree: string; invite_email: string }; Returns: undefined };
       cancel_tree_invitation: { Args: { target_tree: string; invite_email: string }; Returns: undefined };
       update_tree_role: { Args: { target_tree: string; target_account: string; new_role: string }; Returns: undefined };
       remove_tree_role: { Args: { target_tree: string; target_account: string }; Returns: undefined };

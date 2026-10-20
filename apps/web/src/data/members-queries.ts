@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMutation } from './use-mutation';
-import { cancelTreeInvitation, inviteToTree, listTreeInvitations, listTreeMembers, removeTreeRole, updateTreeRole, type InvitableRole } from './roles';
+import { cancelTreeInvitation, inviteToTree, listTreeInvitations, sendInviteEmail, listTreeMembers, removeTreeRole, updateTreeRole, type InvitableRole } from './roles';
 import { queryKeys } from './query-keys';
 
 // ---------------------------------------------------------------------------
@@ -20,6 +20,15 @@ export const useInviteToTree = (treeId: string) => {
 /** Lời mời đang chờ người chưa có tài khoản đăng ký (chỉ Chủ sở hữu xem được). */
 export const useTreeInvitations = (treeId: string, enabled: boolean) =>
   useQuery({ queryKey: queryKeys.invitations(treeId), queryFn: () => listTreeInvitations(treeId), enabled });
+
+/** Gửi/gửi lại email mời; xong thì tải lại danh sách để thấy "đã gửi lúc …". */
+export const useSendInviteEmail = (treeId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (email: string) => sendInviteEmail({ treeId, email }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.invitations(treeId) }),
+  });
+};
 
 export const useCancelTreeInvitation = (treeId: string) => {
   const queryClient = useQueryClient();

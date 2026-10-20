@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createTestDb, type Caller, type TestDb, type TestUser } from './harness';
 
-type Invitation = { email: string; role: string; created_at: string };
+type Invitation = { email: string; role: string; created_at: string; emailed_at: string | null };
 
 describe('seam B: mời bằng email chưa có tài khoản', () => {
   let db: TestDb;
@@ -106,6 +106,29 @@ describe('seam B: mời bằng email chưa có tài khoản', () => {
     await expect(invite(unique('thu-51'))).rejects.toThrow(/TOO_MANY_INVITATIONS/);
     // Mời lại một email đã chờ vẫn được dù đã đủ 50.
     await invite('cho-0@example.com', 'editor');
+  });
+
+  it('gửi email mời: claim cho gửi một lần rồi chặn 1 phút, release nhả lượt, emailed_at hiện trong danh sách; chỉ Chủ sở hữu', async () => {
+    const address = unique('moi');
+    await invite(address);
+    expect((await invitations())[0]?.emailed_at).toBeNull();
+    const claim = () => me.rpc<boolean>('claim_invitation_email', { target_tree: treeId, invite_email: address.toUpperCase() });
+    expect(await claim()).toBe(true);
+    expect((await invitations())[0]?.emailed_at).not.toBeNull();
+    expect(await claim()).toBe(false);
+    await me.rpc('release_invitation_email', { target_tree: treeId, invite_email: address });
+    expect(await claim()).toBe(true);
+    // Quá 1 phút thì gửi lại được.
+    await db.admin.query("update tree_pending_invites set emailed_at = now() - interval '2 minutes' where email = $1", [address]);
+    expect(await claim()).toBe(true);
+    // Không có lời mời cho email này: false, không lỗi.
+    expect(await me.rpc<boolean>('claim_invitation_email', { target_tree: treeId, invite_email: 'khong-co@example.com' })).toBe(false);
+
+    const editor = await db.createUser(unique('bt'));
+    await invite(editor.email);
+    const asEditor = db.as(editor);
+    await expect(asEditor.rpc('claim_invitation_email', { target_tree: treeId, invite_email: address })).rejects.toThrow(/NOT_ALLOWED/);
+    await expect(asEditor.rpc('release_invitation_email', { target_tree: treeId, invite_email: address })).rejects.toThrow(/NOT_ALLOWED/);
   });
 
   it('không đọc ghi trực tiếp bảng lời mời được', async () => {

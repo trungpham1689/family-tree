@@ -1057,6 +1057,24 @@ begin
 end;
 $function$;
 
+-- public.claim_invitation_email(target_tree uuid, invite_email text)  [anon: không, authenticated: có, service_role: có]
+CREATE OR REPLACE FUNCTION public.claim_invitation_email(target_tree uuid, invite_email text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+begin
+  if not public.is_tree_owner(target_tree) then
+    raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
+  end if;
+  update public.tree_pending_invites set emailed_at = now()
+  where tree_id = target_tree and email = lower(btrim(coalesce(invite_email, '')))
+    and (emailed_at is null or emailed_at < now() - interval '1 minute');
+  return found;
+end;
+$function$;
+
 -- public.digest_recipients()  [anon: không, authenticated: không, service_role: có]
 CREATE OR REPLACE FUNCTION public.digest_recipients()
  RETURNS TABLE(tree_id uuid, email text)
@@ -1253,7 +1271,7 @@ $function$;
 
 -- public.list_tree_invitations(target_tree uuid)  [anon: không, authenticated: có, service_role: có]
 CREATE OR REPLACE FUNCTION public.list_tree_invitations(target_tree uuid)
- RETURNS TABLE(email text, role text, created_at timestamp with time zone)
+ RETURNS TABLE(email text, role text, created_at timestamp with time zone, emailed_at timestamp with time zone)
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
  SET search_path TO ''
@@ -1263,7 +1281,7 @@ begin
     raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
   end if;
   return query
-    select i.email, i.role, i.created_at from public.tree_pending_invites i where i.tree_id = target_tree order by i.created_at, i.email;
+    select i.email, i.role, i.created_at, i.emailed_at from public.tree_pending_invites i where i.tree_id = target_tree order by i.created_at, i.email;
 end;
 $function$;
 
@@ -1456,6 +1474,22 @@ begin
   end if;
   update public.persons set pending_delete_by = null, pending_delete_at = null
   where id = reject_delete_person.target_person;
+end;
+$function$;
+
+-- public.release_invitation_email(target_tree uuid, invite_email text)  [anon: không, authenticated: có, service_role: có]
+CREATE OR REPLACE FUNCTION public.release_invitation_email(target_tree uuid, invite_email text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+begin
+  if not public.is_tree_owner(target_tree) then
+    raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
+  end if;
+  update public.tree_pending_invites set emailed_at = null
+  where tree_id = target_tree and email = lower(btrim(coalesce(invite_email, '')));
 end;
 $function$;
 
