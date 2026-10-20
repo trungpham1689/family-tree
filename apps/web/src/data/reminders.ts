@@ -1,8 +1,8 @@
 import { supabase } from '../lib/supabase';
 import { failOn } from './trees';
 
-/** Đánh dấu một Người trong một Gia phả là chính tài khoản đang gọi; mồi Danh sách nhắc giỗ lần đầu. */
-export const linkAccountToPerson = async (input: { treeId: string; personId: string }): Promise<void> => {
+/** Đánh dấu một Người trong một Gia phả là chính tài khoản đang gọi; `personId` null là bỏ đánh dấu. */
+export const linkAccountToPerson = async (input: { treeId: string; personId: string | null }): Promise<void> => {
   const { error } = await supabase.rpc('link_account_to_person', { target_tree: input.treeId, person_id: input.personId });
   failOn(error);
 };

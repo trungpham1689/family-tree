@@ -74,8 +74,11 @@ export const PendingDeleteBanner = ({
   );
 };
 
-/** "Đây là tôi" (liên kết tài khoản với Người) và bật/tắt nhắc giỗ của riêng Người này. */
-export const ReminderControls = ({ treeId, person, isMe }: { treeId: string; person: Person; isMe: boolean }) => {
+/**
+ * "Đây là tôi" (liên kết tài khoản với Người) và bật/tắt nhắc giỗ của riêng Người này. Mỗi tài khoản chỉ đánh dấu được một Người:
+ * đã đánh dấu thì nút ở những Người khác ẩn đi, đến khi bỏ đánh dấu. Nhắc giỗ chỉ có ở Người đã mất.
+ */
+export const ReminderControls = ({ treeId, person, linkedPersonId }: { treeId: string; person: Person; linkedPersonId: string | null }) => {
   const link = useLinkAccountToPerson(treeId);
   const mutedList = useMutedGioPersons();
   const toggle = useToggleGioMute();
@@ -83,19 +86,31 @@ export const ReminderControls = ({ treeId, person, isMe }: { treeId: string; per
 
   return (
     <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-      {isMe ? (
-        <Tag>Đây là bạn</Tag>
+      {linkedPersonId === person.id ? (
+        <>
+          <Tag>Đây là bạn</Tag>
+          <button
+            type="button"
+            className="font-semibold text-son hover:underline disabled:text-ink-muted"
+            disabled={link.isPending}
+            onClick={() => link.mutate(null)}
+          >
+            Bỏ đánh dấu đây là tôi
+          </button>
+        </>
       ) : (
-        <button
-          type="button"
-          className="font-semibold text-son hover:underline disabled:text-ink-muted"
-          disabled={link.isPending}
-          onClick={() => link.mutate(person.id)}
-        >
-          Đánh dấu đây là tôi
-        </button>
+        linkedPersonId === null && (
+          <button
+            type="button"
+            className="font-semibold text-son hover:underline disabled:text-ink-muted"
+            disabled={link.isPending}
+            onClick={() => link.mutate(person.id)}
+          >
+            Đánh dấu đây là tôi
+          </button>
+        )
       )}
-      {mutedList.isSuccess && (
+      {person.is_deceased && mutedList.isSuccess && (
         <button
           type="button"
           className="font-semibold text-son hover:underline disabled:text-ink-muted"

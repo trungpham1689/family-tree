@@ -473,7 +473,7 @@ export type Database = {
       is_tree_owner: { Args: { target_tree: string }; Returns: boolean };
       set_progenitor: { Args: { person_id: string }; Returns: undefined };
       set_avatar_photo: { Args: { photo_id: string }; Returns: undefined };
-      link_account_to_person: { Args: { target_tree: string; person_id: string }; Returns: undefined };
+      link_account_to_person: { Args: { target_tree: string; person_id: string | null }; Returns: undefined };
       link_parent: { Args: { child_id: string; parent_id: string; link_kind: string }; Returns: undefined };
       link_spouse: { Args: { person_id: string; spouse_id: string }; Returns: undefined };
       rotate_public_link: { Args: { target_tree: string; password: string }; Returns: string };

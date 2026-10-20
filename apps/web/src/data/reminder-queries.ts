@@ -25,7 +25,8 @@ import { useMyCalendar } from './calendar-queries';
 export const useLinkAccountToPerson = (treeId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (personId: string) => linkAccountToPerson({ treeId, personId }),
+    /** `null`: bỏ đánh dấu "đây là tôi". */
+    mutationFn: (personId: string | null) => linkAccountToPerson({ treeId, personId }),
     onSuccess: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.detail(treeId) }),

@@ -54,6 +54,13 @@ describe('seam B: Nhắc nhở (liên kết tài khoản, Danh sách nhắc gi�
     expect(await me.query('select person_id from reminder_watch where account_id = auth.uid()')).toEqual([]);
   });
 
+  it('bỏ đánh dấu: truyền null thì tài khoản không còn liên kết Người nào', async () => {
+    await me.rpc('link_account_to_person', { target_tree: treeId, person_id: chatId });
+    await me.rpc('link_account_to_person', { target_tree: treeId, person_id: null });
+    const [role] = await me.query<{ linked_person_id: string | null }>('select linked_person_id from tree_roles where tree_id = $1', [treeId]);
+    expect(role!.linked_person_id).toBeNull();
+  });
+
   it('không liên kết được Người ở gia phả khác', async () => {
     const [other] = await me.query<{ id: string }>("insert into family_trees (name) values ('Họ khác') returning id");
     const [person] = await me.query<{ id: string }>("insert into persons (tree_id, full_name) values ($1, 'Lạ') returning id", [other!.id]);

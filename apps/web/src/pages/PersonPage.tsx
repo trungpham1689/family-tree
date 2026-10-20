@@ -110,7 +110,7 @@ const PersonDetail = ({ treeId, graph, person, viewer }: DetailProps) => {
               {branchRoot && <Tag>Chi {branchRoot.full_name}</Tag>}
               {person.birth_order !== null && <Tag>{birthOrderLabel(person.birth_order)}</Tag>}
             </dl>
-            <ReminderControls treeId={treeId} person={person} isMe={linkedPersonId === person.id} />
+            <ReminderControls treeId={treeId} person={person} linkedPersonId={linkedPersonId} />
           </div>
         </div>
         {canEditThisPerson && (
