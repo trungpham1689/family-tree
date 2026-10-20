@@ -16,7 +16,7 @@ export const MyProfileDialog = ({ open, onClose }: { open: boolean; onClose: () 
   };
 
   return (
-    <Dialog open={open} title="Hồ sơ của tôi" onClose={close}>
+    <Dialog open={open} title="Cá nhân" onClose={close}>
       <div className="space-y-4">
         {email && (
           <p className="break-all text-ink-muted">

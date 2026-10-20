@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
 import { authErrorMessage } from '../auth/auth-error-message';
 import { supabase } from '../lib/supabase';
-import { effects, queryKeys, useAccountId, useMutationWithEffects } from './query-keys';
+import { HEADER_STALE_MS, effects, queryKeys, useAccountId, useMutationWithEffects } from './query-keys';
 import type { ProfileValues } from './profile';
 import { failOn } from './trees';
 
@@ -36,6 +36,7 @@ export const useIsSuperadmin = (enabled = true) => {
   return useQuery({
     queryKey: queryKeys.superadmin(accountId),
     enabled,
+    staleTime: HEADER_STALE_MS,
     queryFn: async () => {
       const { data, error } = await supabase.from('account_approvals').select('approved, is_superadmin').maybeSingle();
       failOn(error);

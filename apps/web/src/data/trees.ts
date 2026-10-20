@@ -52,10 +52,12 @@ export const listMyTrees = async (accountId: string): Promise<TreeWithRole[]> =>
 };
 
 export const getTree = async (treeId: string, accountId: string): Promise<TreeWithRole> => {
-  const tree = unwrap(await supabase.from('family_trees').select(TREE_COLUMNS).eq('id', treeId).single());
-  const { role, linked_person_id } = unwrap(
-    await supabase.from('tree_roles').select('role, linked_person_id').eq('tree_id', treeId).eq('account_id', accountId).single(),
-  );
+  const [treeResult, roleResult] = await Promise.all([
+    supabase.from('family_trees').select(TREE_COLUMNS).eq('id', treeId).single(),
+    supabase.from('tree_roles').select('role, linked_person_id').eq('tree_id', treeId).eq('account_id', accountId).single(),
+  ]);
+  const tree = unwrap(treeResult);
+  const { role, linked_person_id } = unwrap(roleResult);
   if (!isTreeRole(role)) throw new DataError({ code: 'PGRST116' });
   return { ...tree, role, linkedPersonId: linked_person_id };
 };

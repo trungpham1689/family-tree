@@ -34,6 +34,9 @@ export const queryKeys = {
   publicTree: (token: string, password: string | null) => ['public', token, password] as const,
 } satisfies Record<string, readonly unknown[] | ((...args: never[]) => readonly [QueryRoot, ...unknown[]])>;
 
+/** Dữ liệu ở thanh đầu trang (chuông nhắc, quyền, duyệt) hiện trên mọi trang: ít đổi, đã có `effects` làm mới sau khi ghi nên không cần tải lại mỗi lần chuyển trang. */
+export const HEADER_STALE_MS = 5 * 60_000;
+
 export type QueryEffect = readonly (readonly unknown[])[];
 
 /** Thao tác → các truy vấn cần tải lại. Mỗi dòng nói vì sao. */

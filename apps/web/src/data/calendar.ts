@@ -42,8 +42,11 @@ const fail = (error: { code?: string; message?: string } | null) => {
  * Dữ liệu cho "Lịch của tôi": mọi Gia phả tài khoản có vai trò. Chỉ tải những Người có giỗ
  * (đã mất) hoặc có ngày sinh dương đầy đủ — RLS bảo đảm chỉ thấy Gia phả của mình.
  */
-export const loadMyCalendar = async (accountId: string): Promise<CalendarSource> => {
-  const trees = await listMyTrees(accountId);
+export const loadMyCalendar = async (
+  accountId: string,
+  loadTrees: () => ReturnType<typeof listMyTrees> = () => listMyTrees(accountId),
+): Promise<CalendarSource> => {
+  const trees = await loadTrees();
   const ids = trees.map((tree) => tree.id);
   if (ids.length === 0) return { trees: [], persons: [], events: [], marriages: [] };
   const [persons, events, marriages] = await Promise.all([

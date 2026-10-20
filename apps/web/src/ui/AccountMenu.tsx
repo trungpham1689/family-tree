@@ -8,12 +8,15 @@ const ITEM = 'block min-h-11 w-full px-4 text-left hover:bg-paper';
 /** Ảnh đại diện chữ cái đầu của tên (hoặc email); bấm mở menu "Cá nhân" / "Đăng xuất". Bấm ra ngoài hoặc Esc thì đóng. */
 export const AccountMenu = () => {
   const { state, signOut } = useAuth();
-  const email = state.status === 'signed-in' ? state.session.user.email : undefined;
-  const profile = useMyProfile();
+  const user = state.status === 'signed-in' ? state.session.user : undefined;
+  const email = user?.email;
   const [open, setOpen] = useState(false);
+  // Chữ cái avatar lấy từ tên lúc đăng ký (đã có trong phiên) hoặc email; hồ sơ chỉ tải khi mở menu.
+  const profile = useMyProfile(open);
   const [profileOpen, setProfileOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const label = profile.data?.fullName || email || '?';
+  const signupName = typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : '';
+  const label = profile.data?.fullName || signupName || email || '?';
 
   useEffect(() => {
     if (!open) return;

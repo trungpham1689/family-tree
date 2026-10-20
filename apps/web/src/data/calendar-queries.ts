@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { effects, queryKeys, useMutationWithEffects } from './query-keys';
+import { HEADER_STALE_MS, effects, queryKeys, useMutationWithEffects } from './query-keys';
 import { useAuth } from '../auth/auth-context';
 import { disableCalendarFeed, getCalendarFeedToken, rotateCalendarFeed } from './calendar-feed';
+import { listMyTrees } from './trees';
 import { listTreeEvents, loadMyCalendar, removeTreeEvent, saveTreeEvent } from './calendar';
 import { fetchAvatarDataUrl, listEventPhotos, removeEventPhoto, uploadEventPhoto, type EventPhoto } from './photos';
 
@@ -14,10 +15,16 @@ const IMAGE_GC_MS = 5 * 60 * 1000;
 export const useMyCalendar = (enabled: boolean) => {
   const { state } = useAuth();
   const accountId = state.status === 'signed-in' ? state.session.user.id : '';
+  const queryClient = useQueryClient();
   return useQuery({
     queryKey: queryKeys.calendar(accountId),
-    queryFn: () => loadMyCalendar(accountId),
+    // Danh sách gia phả dùng chung với trang "Gia phả của tôi": còn mới thì không hỏi lại.
+    queryFn: () =>
+      loadMyCalendar(accountId, () =>
+        queryClient.fetchQuery({ queryKey: queryKeys.mine(accountId), queryFn: () => listMyTrees(accountId), staleTime: 30_000 }),
+      ),
     enabled: enabled && accountId !== '',
+    staleTime: HEADER_STALE_MS,
   });
 };
 

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router';
-import { queryKeys } from '../data/query-keys';
+import { HEADER_STALE_MS, queryKeys } from '../data/query-keys';
 import { supabase } from '../lib/supabase';
 import { Button } from '../ui/Button';
 import { FullPageMessage } from '../ui/FullPageMessage';
@@ -12,6 +12,8 @@ const useApproved = (accountId: string | null) =>
   useQuery({
     queryKey: queryKeys.approval(accountId ?? ''),
     enabled: accountId !== null,
+    // Đã duyệt thì không hỏi lại mỗi lần chuyển trang (database vẫn kiểm quyền ở mọi truy vấn); chưa duyệt thì tải lại như cũ.
+    staleTime: (query) => (query.state.data === true ? HEADER_STALE_MS : 0),
     // Chưa duyệt thì kiểm tra lại mỗi 30 giây để tự vào được ngay khi vừa được duyệt.
     refetchInterval: (query) => (query.state.data === false ? 30_000 : false),
     queryFn: async () => {

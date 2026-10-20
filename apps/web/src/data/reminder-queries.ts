@@ -15,7 +15,7 @@ import {
   setReminderOffset,
   unmuteGioReminder,
 } from './reminders';
-import { queryKeys } from './query-keys';
+import { HEADER_STALE_MS, queryKeys } from './query-keys';
 import { useMyCalendar } from './calendar-queries';
 
 // ---------------------------------------------------------------------------
@@ -34,7 +34,7 @@ export const useLinkAccountToPerson = (treeId: string) => {
 };
 
 /** Những Người tài khoản đang xem đã tắt nhắc giỗ (mặc định ai cũng được nhắc, trừ Người trong danh sách này). */
-export const useMutedGioPersons = () => useQuery({ queryKey: queryKeys.reminderWatch, queryFn: listMutedGioPersons });
+export const useMutedGioPersons = () => useQuery({ queryKey: queryKeys.reminderWatch, queryFn: listMutedGioPersons, staleTime: HEADER_STALE_MS });
 
 export const useToggleGioMute = () => {
   const queryClient = useQueryClient();
@@ -48,7 +48,7 @@ export const useToggleGioMute = () => {
 const toPrefsMap = prefsByTree;
 const toReadSet = (keys: readonly string[]): Set<string> => new Set(keys);
 
-export const useReminderPrefs = () => useQuery({ queryKey: queryKeys.reminderPrefs, queryFn: listReminderPrefs, select: toPrefsMap });
+export const useReminderPrefs = () => useQuery({ queryKey: queryKeys.reminderPrefs, queryFn: listReminderPrefs, select: toPrefsMap, staleTime: HEADER_STALE_MS });
 
 export const useSetReminderOffset = () => {
   const queryClient = useQueryClient();
@@ -87,7 +87,7 @@ export const useDueReminders = () => {
   const calendar = useMyCalendar(true);
   const muted = useMutedGioPersons();
   const prefs = useReminderPrefs();
-  const reads = useQuery({ queryKey: queryKeys.notificationReads, queryFn: listNotificationReads, select: toReadSet });
+  const reads = useQuery({ queryKey: queryKeys.notificationReads, queryFn: listNotificationReads, select: toReadSet, staleTime: HEADER_STALE_MS });
 
   const due = useMemo(() => {
     if (!calendar.data) return [];

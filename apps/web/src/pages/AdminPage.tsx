@@ -322,7 +322,7 @@ const AccountRow = ({
       {account.isBanned ? (
         <Badge tone="red">Bị chặn</Badge>
       ) : account.isSuperadmin ? (
-        <Badge tone="gold">{account.isRoot ? 'Siêu quản trị gốc' : 'Siêu quản trị'}</Badge>
+        <Badge tone="gold">{account.isRoot ? 'Super Admin' : 'Siêu quản trị'}</Badge>
       ) : account.approved ? (
         <Badge tone="green">Đã duyệt</Badge>
       ) : (

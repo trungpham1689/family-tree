@@ -29,7 +29,8 @@ import { FullPageMessage } from './ui/FullPageMessage';
 
 const queryClient = new QueryClient({
   // gcTime phải không ngắn hơn thời hạn lưu offline, nếu không dữ liệu bị dọn khỏi bộ nhớ trước khi kịp lưu.
-  defaultOptions: { queries: { staleTime: 30_000, retry: 1, gcTime: OFFLINE_MAX_AGE_MS } },
+  // Không tải lại khi quay về tab: dữ liệu đã có thì giữ, thao tác ghi tự làm mới đúng truy vấn liên quan (xem query-keys.ts).
+  defaultOptions: { queries: { staleTime: 30_000, retry: 1, gcTime: OFFLINE_MAX_AGE_MS, refetchOnWindowFocus: false } },
 });
 
 const router = createBrowserRouter([

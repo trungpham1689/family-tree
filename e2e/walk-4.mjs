@@ -84,7 +84,7 @@ await step('gốc cấp rồi gỡ quyền siêu quản trị; dòng của gốc
   await page.getByRole('dialog').getByRole('button', { name: 'Gỡ quyền' }).click();
   await row.getByText('Đã duyệt', { exact: true }).waitFor();
   const mine = page.getByRole('listitem').filter({ hasText: rootEmail });
-  await mine.getByText('Siêu quản trị gốc').waitFor();
+  await mine.getByText('Super Admin', { exact: true }).waitFor();
   if (await mine.getByRole('button', { name: /Thu hồi|Gỡ siêu quản trị/ }).count()) throw new Error('gốc có nút thu hồi/gỡ quyền');
 });
 

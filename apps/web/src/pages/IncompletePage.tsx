@@ -20,7 +20,7 @@ const IncompleteBody = ({ treeId, persons }: { treeId: string; persons: Person[]
   const entries = findIncomplete(persons);
   return (
     <>
-      <h1 className="font-serif text-3xl font-bold text-son">Hồ sơ chưa đầy đủ</h1>
+      <h1 className="font-serif text-3xl font-bold text-son">Thông tin thành viên cần cập nhật</h1>
       <p className="mt-1 text-ink-muted">Giới tính, năm sinh, hoặc năm mất (nếu đã mất) còn thiếu — bổ sung dần khi có thông tin.</p>
       <div className="mt-6">
         {entries.length === 0 ? (

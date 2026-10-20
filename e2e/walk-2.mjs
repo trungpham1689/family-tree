@@ -142,7 +142,7 @@ await step('Tra cứu quan hệ: chọn hai người, thấy xưng hô', async (
 
 await step('Hồ sơ chưa đầy đủ: liệt kê người thiếu thông tin', async () => {
   await page.goto(`${treeUrl}/thieu-thong-tin`);
-  await page.getByRole('heading', { name: 'Hồ sơ chưa đầy đủ' }).waitFor();
+  await page.getByRole('heading', { name: 'Thông tin thành viên cần cập nhật' }).waitFor();
   await shot('24d-thieu-thong-tin');
 });
 

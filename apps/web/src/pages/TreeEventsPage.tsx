@@ -75,7 +75,6 @@ export const TreeEventsPage = () => {
   const events = useTreeEvents(treeId);
   const family = useFamily(treeId);
   const eventPhotos = useEventPhotos(treeId);
-  const photoImages = useEventPhotoImages(eventPhotos.data ?? []);
   const [editing, setEditing] = useState<TreeEvent | 'new' | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   /** Sau khi lưu sự kiện: bộ lọc nhảy tới năm và tên của nó để thấy ngay kết quả. */
@@ -131,7 +130,7 @@ export const TreeEventsPage = () => {
             initial={initial}
             extra={(occurrence) => {
               const event = eventOf(occurrence);
-              return event ? <EventExtras event={event} graph={family.data} photos={photosOf(event.id)} images={photoImages.data} /> : null;
+              return event ? <EventExtras event={event} graph={family.data} photos={photosOf(event.id)} /> : null;
             }}
             actions={(occurrence) => {
               const event = eventOf(occurrence);
@@ -196,7 +195,6 @@ export const TreeEventsPage = () => {
               event={editing === 'new' ? null : editing}
               graph={family.data}
               photos={editing === 'new' ? [] : photosOf(editing.id)}
-              images={photoImages.data}
               onDone={(saved) => {
                 if (saved?.year) setFocus({ from: `${saved.year}-01-01`, to: `${saved.year}-12-31`, query: saved.title, n: (focus?.n ?? 0) + 1 });
                 setEditing(null);
@@ -230,7 +228,9 @@ const hostName = (graph: FamilyGraph<Person> | undefined, hostId: string | null)
   hostId && graph?.person(hostId) ? personLabel(graph, hostId) : null;
 
 /** Dưới dòng của một sự kiện: mô tả, người chủ trì, nơi hiển thị và ảnh. */
-const EventExtras = ({ event, graph, photos, images }: { event: TreeEvent; graph: FamilyGraph<Person> | undefined; photos: readonly EventPhoto[]; images: Images }) => {
+const EventExtras = ({ event, graph, photos }: { event: TreeEvent; graph: FamilyGraph<Person> | undefined; photos: readonly EventPhoto[] }) => {
+  // Chỉ tải file ảnh của những sự kiện đang hiện trong danh sách.
+  const images = useEventPhotoImages(photos).data;
   const host = hostName(graph, event.host_person_id);
   return (
     <>
@@ -289,16 +289,15 @@ const EventForm = ({
   event,
   graph,
   photos,
-  images,
   onDone,
 }: {
   treeId: string;
   event: TreeEvent | null;
   graph: FamilyGraph<Person> | undefined;
   photos: readonly EventPhoto[];
-  images: Images;
   onDone: (saved?: { title: string; year: number | null }) => void;
 }) => {
+  const images = useEventPhotoImages(photos).data;
   const save = useSaveTreeEvent(treeId);
   const upload = useUploadEventPhoto(treeId);
   const removePhoto = useRemoveEventPhoto(treeId);
