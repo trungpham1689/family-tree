@@ -17,12 +17,29 @@ export const listTreeMembers = async (treeId: string): Promise<TreeMember[]> => 
   return (data ?? []) as TreeMember[];
 };
 
-export const inviteToTree = async (input: { treeId: string; email: string; role: InvitableRole }): Promise<void> => {
-  const { error } = await supabase.rpc('invite_to_tree', {
+/** `added`: email đã có tài khoản, vai trò cấp ngay. `pending`: chưa có tài khoản, lời mời lưu chờ đến khi người đó đăng ký bằng email này. */
+export type InviteOutcome = 'added' | 'pending';
+
+export const inviteToTree = async (input: { treeId: string; email: string; role: InvitableRole }): Promise<InviteOutcome> => {
+  const { data, error } = await supabase.rpc('invite_to_tree', {
     target_tree: input.treeId,
     invite_email: input.email,
     new_role: input.role,
   });
+  failOn(error);
+  return data === 'pending' ? 'pending' : 'added';
+};
+
+export type TreeInvitation = { email: string; role: InvitableRole; created_at: string };
+
+export const listTreeInvitations = async (treeId: string): Promise<TreeInvitation[]> => {
+  const { data, error } = await supabase.rpc('list_tree_invitations', { target_tree: treeId });
+  failOn(error);
+  return (data ?? []) as TreeInvitation[];
+};
+
+export const cancelTreeInvitation = async (input: { treeId: string; email: string }): Promise<void> => {
+  const { error } = await supabase.rpc('cancel_tree_invitation', { target_tree: input.treeId, invite_email: input.email });
   failOn(error);
 };
 

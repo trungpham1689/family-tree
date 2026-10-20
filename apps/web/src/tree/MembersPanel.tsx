@@ -4,10 +4,12 @@ import { ROLE_LABELS } from '../data/role-labels';
 import type { InvitableRole } from '../data/roles';
 import {
   useApproveDeletePerson,
+  useCancelTreeInvitation,
   useInviteToTree,
   usePendingDeletions,
   useRejectDeletePerson,
   useRemoveTreeRole,
+  useTreeInvitations,
   useTreeMembers,
   useUpdateTreeRole,
 } from '../data/tree-queries';
@@ -21,6 +23,7 @@ export const MembersPanel = ({ tree }: { tree: TreeWithRole }) => {
   const isOwner = isTreeOwner(tree.role);
   const canInvite = isOwner;
   const [inviting, setInviting] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   return (
     <section aria-labelledby="tai-khoan-co-quyen" className="rounded-2xl border border-line bg-surface p-5">
@@ -31,7 +34,20 @@ export const MembersPanel = ({ tree }: { tree: TreeWithRole }) => {
         {canInvite && !inviting && <Button onClick={() => setInviting(true)}>+ Thêm quản trị</Button>}
       </div>
 
-      {inviting && <InviteForm treeId={tree.id} onDone={() => setInviting(false)} />}
+      {inviting && (
+        <InviteForm
+          treeId={tree.id}
+          onDone={(outcome) => {
+            setInviting(false);
+            setNotice(outcome);
+          }}
+        />
+      )}
+      {notice && (
+        <p role="status" className="mt-3 rounded-xl bg-kim-soft px-4 py-3">
+          {notice}
+        </p>
+      )}
 
       {members.isPending && <p className="mt-3 text-ink-muted">Đang tải…</p>}
       {members.isError && (
@@ -47,6 +63,7 @@ export const MembersPanel = ({ tree }: { tree: TreeWithRole }) => {
         </ul>
       )}
 
+      {isOwner && <PendingInvitations treeId={tree.id} />}
       {isOwner && <PendingDeletions treeId={tree.id} />}
     </section>
   );
@@ -88,19 +105,53 @@ const PendingDeletions = ({ treeId }: { treeId: string }) => {
   );
 };
 
-const InviteForm = ({ treeId, onDone }: { treeId: string; onDone: () => void }) => {
+/** Lời mời gửi tới email chưa có tài khoản: người đó đăng ký bằng đúng email này (và được duyệt) là thấy gia phả, không cần mời lại. */
+const PendingInvitations = ({ treeId }: { treeId: string }) => {
+  const invitations = useTreeInvitations(treeId, true);
+  const cancel = useCancelTreeInvitation(treeId);
+
+  if (!invitations.isSuccess || invitations.data.length === 0) return null;
+
+  return (
+    <div className="mt-6 border-t border-line pt-4">
+      <h3 className="font-serif text-lg font-bold">Lời mời chờ đăng ký</h3>
+      <p className="text-sm text-ink-muted">Những email này chưa có tài khoản. Họ đăng ký bằng đúng email và được duyệt là tự thấy gia phả.</p>
+      <ul className="mt-3 divide-y divide-line">
+        {invitations.data.map((invitation) => (
+          <li key={invitation.email} className="flex flex-wrap items-center justify-between gap-2 py-3">
+            <div>
+              <p className="font-medium">{invitation.email}</p>
+              <p className="text-sm text-ink-muted">{ROLE_LABELS[invitation.role]}</p>
+            </div>
+            <Button variant="ghost" className="text-danger!" disabled={cancel.isPending} onClick={() => cancel.mutate(invitation.email)}>
+              Huỷ lời mời
+            </Button>
+          </li>
+        ))}
+      </ul>
+      {cancel.isError && <ErrorBanner>{cancel.error.message}</ErrorBanner>}
+    </div>
+  );
+};
+
+const InviteForm = ({ treeId, onDone }: { treeId: string; onDone: (notice: string) => void }) => {
   const invite = useInviteToTree(treeId);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<InvitableRole>('editor');
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    const address = email.trim().toLowerCase();
     invite.mutate(
-      { email: email.trim(), role },
+      { email: address, role },
       {
-        onSuccess: () => {
+        onSuccess: (outcome) => {
           setEmail('');
-          onDone();
+          onDone(
+            outcome === 'pending'
+              ? `Chưa có tài khoản dùng ${address}. Đã lưu lời mời: người này đăng ký bằng đúng email này và được duyệt là tự thấy gia phả, không cần mời lại.`
+              : "Đã thêm tài khoản này vào gia phả.",
+          );
         },
       },
     );
@@ -126,7 +177,7 @@ const InviteForm = ({ treeId, onDone }: { treeId: string; onDone: () => void }) 
       </label>
       {invite.isError && <ErrorBanner>{invite.error.message}</ErrorBanner>}
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="secondary" onClick={onDone}>
+        <Button type="button" variant="secondary" onClick={() => onDone('')}>
           Huỷ
         </Button>
         <Button type="submit" disabled={invite.isPending || !email.trim()}>

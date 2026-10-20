@@ -27,7 +27,7 @@ describe('dbErrorMessage', () => {
   });
 
   it('báo chưa có tài khoản khi mời email lạ', () => {
-    expect(dbErrorMessage({ code: '23514', message: 'ACCOUNT_NOT_FOUND' })).toMatch(/Chưa có tài khoản/);
+    expect(dbErrorMessage({ code: '23514', message: 'ACCOUNT_NOT_FOUND' })).toMatch(/Không tìm thấy tài khoản/);
   });
 
   it('báo đã là Chủ sở hữu khi mời nhầm chính mình', () => {

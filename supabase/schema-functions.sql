@@ -585,6 +585,11 @@ declare
 begin
   insert into public.account_approvals (account_id, email, approved, is_superadmin, approved_at, full_name, birth_date, phone)
   values (new.id, new.email, is_root, is_root, case when is_root then now() end, name_text, birth, phone_text);
+
+  insert into public.tree_roles (tree_id, account_id, role, invited_by)
+  select i.tree_id, new.id, i.role, i.invited_by from public.tree_invitations i where i.email = lower(coalesce(new.email, ''))
+  on conflict (tree_id, account_id) do nothing;
+  delete from public.tree_invitations where email = lower(coalesce(new.email, ''));
   return new;
 end;
 $function$;
@@ -1037,6 +1042,21 @@ CREATE OR REPLACE FUNCTION public.can_view_tree(target_tree uuid)
  SET search_path TO ''
 AS $function$ select private.tree_role(target_tree) is not null $function$;
 
+-- public.cancel_tree_invitation(target_tree uuid, invite_email text)  [anon: không, authenticated: có, service_role: có]
+CREATE OR REPLACE FUNCTION public.cancel_tree_invitation(target_tree uuid, invite_email text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+begin
+  if not public.is_tree_owner(target_tree) then
+    raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
+  end if;
+  delete from public.tree_invitations where tree_id = target_tree and email = lower(btrim(coalesce(invite_email, '')));
+end;
+$function$;
+
 -- public.digest_recipients()  [anon: không, authenticated: không, service_role: có]
 CREATE OR REPLACE FUNCTION public.digest_recipients()
  RETURNS TABLE(tree_id uuid, email text)
@@ -1100,12 +1120,13 @@ $function$;
 
 -- public.invite_to_tree(target_tree uuid, invite_email text, new_role text)  [anon: không, authenticated: có, service_role: có]
 CREATE OR REPLACE FUNCTION public.invite_to_tree(target_tree uuid, invite_email text, new_role text)
- RETURNS void
+ RETURNS text
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
 declare
+  address constant text := lower(btrim(coalesce(invite_email, '')));
   invitee uuid;
 begin
   if not public.is_tree_owner(target_tree) then
@@ -1114,18 +1135,27 @@ begin
   if new_role not in ('editor', 'viewer') then
     raise exception 'INVALID_ROLE' using errcode = 'check_violation';
   end if;
-
-  invitee := private.account_id_by_email(invite_email);
-  if invitee is null then
-    raise exception 'ACCOUNT_NOT_FOUND'
-      using detail = 'Chưa có tài khoản dùng email này. Mời họ tạo tài khoản trước.', errcode = 'no_data_found';
+  if address !~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' or char_length(address) > 254 then
+    raise exception 'INVALID_EMAIL' using errcode = 'check_violation';
   end if;
+
+  invitee := private.account_id_by_email(address);
+  if invitee is null then
+    if not exists (select 1 from public.tree_invitations where tree_id = target_tree and email = address)
+       and (select count(*) from public.tree_invitations where tree_id = target_tree) >= 50 then
+      raise exception 'TOO_MANY_INVITATIONS' using errcode = 'check_violation';
+    end if;
+    insert into public.tree_invitations (tree_id, email, role, invited_by) values (target_tree, address, new_role, auth.uid())
+      on conflict (tree_id, email) do update set role = excluded.role;
+    return 'pending';
+  end if;
+
   if exists (select 1 from public.tree_roles where tree_id = target_tree and account_id = invitee and role = 'owner') then
     raise exception 'ALREADY_OWNER' using errcode = 'check_violation';
   end if;
-
   insert into public.tree_roles (tree_id, account_id, role, invited_by) values (target_tree, invitee, new_role, auth.uid())
     on conflict (tree_id, account_id) do update set role = excluded.role;
+  return 'added';
 end;
 $function$;
 
@@ -1218,6 +1248,22 @@ begin
     from public.persons p
     where p.tree_id = target_tree and p.pending_delete_by is not null
     order by p.pending_delete_at;
+end;
+$function$;
+
+-- public.list_tree_invitations(target_tree uuid)  [anon: không, authenticated: có, service_role: có]
+CREATE OR REPLACE FUNCTION public.list_tree_invitations(target_tree uuid)
+ RETURNS TABLE(email text, role text, created_at timestamp with time zone)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+begin
+  if not public.is_tree_owner(target_tree) then
+    raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
+  end if;
+  return query
+    select i.email, i.role, i.created_at from public.tree_invitations i where i.tree_id = target_tree order by i.created_at, i.email;
 end;
 $function$;
 

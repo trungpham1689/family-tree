@@ -13,6 +13,7 @@ export const queryKeys = {
   detail: (treeId: string) => ['trees', treeId] as const,
   family: (treeId: string) => ['trees', treeId, 'family'] as const,
   members: (treeId: string) => ['trees', treeId, 'members'] as const,
+  invitations: (treeId: string) => ['trees', treeId, 'invitations'] as const,
   pendingDeletions: (treeId: string) => ['trees', treeId, 'pending-deletions'] as const,
   events: (treeId: string) => ['trees', treeId, 'events'] as const,
   eventPhotos: (treeId: string) => ['trees', treeId, 'event-photos'] as const,

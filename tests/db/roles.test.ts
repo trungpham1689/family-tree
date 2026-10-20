@@ -65,10 +65,8 @@ describe('seam B: mời vai trò Biên tập viên / Người xem', () => {
     ).rejects.toThrow(/NOT_ALLOWED/);
   });
 
-  it('mời email chưa có tài khoản báo lỗi rõ ràng', async () => {
-    await expect(
-      me.rpc('invite_to_tree', { target_tree: treeId, invite_email: 'chua-dang-ky@example.com', new_role: 'editor' }),
-    ).rejects.toThrow(/ACCOUNT_NOT_FOUND/);
+  it('mời email chưa có tài khoản không lỗi: lưu lời mời chờ đăng ký (xem invitations.test.ts)', async () => {
+    expect(await me.rpc('invite_to_tree', { target_tree: treeId, invite_email: 'chua-dang-ky@example.com', new_role: 'editor' })).toBe('pending');
   });
 
   it('không mời được với vai trò ngoài editor/viewer', async () => {
