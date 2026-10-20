@@ -213,6 +213,7 @@ await step('mời Biên tập viên bằng email; họ thấy gia phả với đ
 
 await step('Phả đồ: xem trước, xuất PDF và PNG', async () => {
   await page.goto(`${treeUrl}/pha-do`);
+  await page.locator('summary', { hasText: 'Trang trí' }).click();
   await page.getByLabel('Phụ đề').fill('Kính dâng tổ tiên – năm 2026');
   await page.getByLabel('Câu đối – vế bên trái').fill('Uống nước nhớ nguồn');
   await page.getByLabel('Câu đối – vế bên phải').fill('Ăn quả nhớ kẻ trồng cây');

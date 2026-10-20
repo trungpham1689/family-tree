@@ -43,11 +43,11 @@ await step('đăng ký và nhập gia phả từ file Excel mẫu', async () => 
   await page.getByRole('button', { name: 'Xác nhận & lưu' }).click();
   await page.waitForURL(/\/gia-pha\/[0-9a-f-]{36}$/, { timeout: 20000 });
   treeUrl = page.url();
-  await page.getByText('Thống kê vui').waitFor();
+  await page.getByText('Thống kê', { exact: true }).waitFor();
 });
 
-await step('Thống kê vui hiện số liệu thật', async () => {
-  await page.getByText('Thống kê vui').click();
+await step('Thống kê hiện số liệu thật', async () => {
+  await page.getByText('Thống kê', { exact: true }).click();
   const text = await page.locator('main').innerText();
   for (const expected of ['Tuổi thọ trung bình', 'Họ phổ biến', 'Phạm']) if (!text.includes(expected)) throw new Error(`thiếu "${expected}"`);
   await shot('w3-01-stats');
@@ -123,8 +123,8 @@ await step('Người trùng: thêm người cùng tên, trang gộp liệt kê n
   await dialog.getByLabel('Họ và tên').fill('Phạm Văn Trưởng');
   await dialog.getByRole('button', { name: 'Thêm con', exact: true }).click();
   await page.getByText('Phạm Văn Trưởng').first().waitFor();
-  await page.goto(`${treeUrl}/trung-lap`);
-  await page.getByRole('heading', { name: 'Người trùng' }).waitFor();
+  await page.goto(`${treeUrl}/thieu-thong-tin`);
+  await page.getByRole('heading', { name: 'Thành viên trùng' }).waitFor();
   await until(async () => (await page.getByRole('button', { name: /Gộp 1 người vào/ }).count()) > 0, 'nhóm trùng xuất hiện', 15000);
   // Backend giả lập (PGlite + PostgREST, một kết nối) thỉnh thoảng trả 503 tạm thời; thao tác gộp cho phép bấm lại.
   for (let attempt = 0; attempt < 4; attempt += 1) {
@@ -155,11 +155,11 @@ await step('PWA: manifest, noindex, apple-touch-icon', async () => {
 
 await step('service worker đăng ký và xem lại gia phả khi mất mạng', async () => {
   await page.goto(treeUrl);
-  await page.getByText('Thống kê vui').waitFor();
+  await page.getByText('Thống kê', { exact: true }).waitFor();
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.waitForTimeout(2500); // chờ bộ nhớ đệm IndexedDB lưu (throttle 2s)
   await page.reload(); // để service worker kiểm soát trang
-  await page.getByText('Thống kê vui').waitFor();
+  await page.getByText('Thống kê', { exact: true }).waitFor();
   await page.waitForTimeout(2500);
   await context.setOffline(true);
   await page.reload();
