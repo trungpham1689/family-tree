@@ -35,6 +35,10 @@ export const BUSINESS_MESSAGES: Record<string, (details?: string | null) => stri
   PHOTO_NOT_FOUND: () => 'Không tìm thấy ảnh này. Có thể đã bị xoá; hãy tải lại trang.',
   PHOTO_PATH_INVALID: () => 'Đường dẫn ảnh không thuộc gia phả này.',
   PHOTO_IMMUTABLE: () => 'Không thể chuyển ảnh sang Người hay gia phả khác.',
+  ROOT_ONLY: () => 'Chỉ siêu quản trị gốc mới cấp hoặc gỡ quyền siêu quản trị.',
+  SUPERADMIN_PROTECTED: () => 'Không thể thu hồi hay gỡ quyền của siêu quản trị gốc. Siêu quản trị khác phải được gỡ quyền trước khi thu hồi.',
+  ACCOUNT_BANNED: () => 'Tài khoản đang bị chặn. Hãy bỏ chặn trước khi duyệt.',
+  ACCOUNT_OWNS_TREES: () => 'Tài khoản này đang sở hữu gia phả nên không xoá được (xoá sẽ mất cả gia phả). Hãy chặn tài khoản thay vì xoá.',
   TREE_IMMUTABLE: () => 'Không thể chuyển Người sang gia phả khác.',
 };
 

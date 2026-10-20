@@ -15,12 +15,14 @@ const MESSAGES_BY_CODE: Record<string, string> = {
   validation_failed: 'Email hoặc mật khẩu chưa hợp lệ.',
   signup_disabled: 'Hiện chưa mở đăng ký tài khoản mới.',
   same_password: 'Mật khẩu mới phải khác mật khẩu cũ.',
+  user_banned: 'Tài khoản này đã bị chặn. Hãy liên hệ người quản lý.',
   user_not_found: 'Không tìm thấy tài khoản với email này.',
 };
 
 const MESSAGES_BY_TEXT: Array<[RegExp, string]> = [
   [/invalid login credentials/i, MESSAGES_BY_CODE.invalid_credentials!],
   [/email not confirmed/i, MESSAGES_BY_CODE.email_not_confirmed!],
+  [/banned/i, MESSAGES_BY_CODE.user_banned!],
   [/already registered/i, MESSAGES_BY_CODE.user_already_exists!],
   [/password should be/i, MESSAGES_BY_CODE.weak_password!],
   [/failed to fetch|network/i, 'Không kết nối được máy chủ. Hãy kiểm tra mạng rồi thử lại.'],

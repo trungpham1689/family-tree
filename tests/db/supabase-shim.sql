@@ -15,7 +15,9 @@ create table auth.users (
   id uuid primary key default gen_random_uuid(),
   email text unique,
   raw_user_meta_data jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  last_sign_in_at timestamptz,
+  banned_until timestamptz
 );
 
 create function auth.jwt() returns jsonb

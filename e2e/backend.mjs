@@ -37,8 +37,8 @@ await db.exec(`
     new_id uuid;
   begin
     insert into auth.users (email) values (user_email) returning id into new_id;
-    -- Tài khoản kiểm thử dùng được ngay, không chờ duyệt.
-    update public.account_approvals set approved = true where account_id = new_id;
+    -- Tài khoản kiểm thử dùng được ngay, không chờ duyệt; riêng email bắt đầu bằng "cho-duyet-" giữ trạng thái chờ duyệt (kịch bản trang quản trị).
+    update public.account_approvals set approved = true where account_id = new_id and user_email not like 'cho-duyet-%';
     return new_id;
   end;
   $$;

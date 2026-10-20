@@ -5,6 +5,8 @@ import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router';
 import { AuthProvider } from './auth/AuthProvider';
 import { RequireAuth } from './auth/RequireAuth';
+import { RequireSuperadmin } from './auth/RequireSuperadmin';
+import { AdminPage } from './pages/AdminPage';
 import './index.css';
 import { CalendarPage } from './pages/CalendarPage';
 import { LoginPage } from './pages/LoginPage';
@@ -106,6 +108,16 @@ const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <TimelinePage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/quan-tri',
+    element: (
+      <RequireAuth>
+        <RequireSuperadmin>
+          <AdminPage />
+        </RequireSuperadmin>
       </RequireAuth>
     ),
   },

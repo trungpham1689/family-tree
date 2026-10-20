@@ -141,7 +141,15 @@ Chạy cục bộ: `pnpm dev` không có `/api/photos`. Muốn thử tải ảnh
 
 ### 5. Duyệt tài khoản mới
 
-Ai đăng ký cũng vào được trang đăng nhập, nhưng tài khoản mới chỉ thấy màn "Tài khoản đang chờ duyệt" — không xem, không sửa, không tạo được gia phả nào (kể cả khi đã được mời) — cho tới khi bạn duyệt:
+Ai đăng ký cũng vào được trang đăng nhập, nhưng tài khoản mới chỉ thấy màn "Tài khoản đang chờ duyệt" — không xem, không sửa, không tạo được gia phả nào (kể cả khi đã được mời) — cho tới khi siêu quản trị duyệt.
+
+**Cách chính: trang quản trị `/quan-tri`** (link "Quản trị" trên thanh đầu trang, chỉ siêu quản trị thấy). Có ba tab Chờ duyệt / Đã duyệt / Tất cả, ô tìm theo email, nút Duyệt, Thu hồi (có hộp xác nhận), thấy ngày đăng ký, lần đăng nhập gần nhất và số gia phả của mỗi tài khoản.
+
+- Siêu quản trị gốc là `trungpham168@gmail.com` (đặt trong migration `20261020120000_quan_tri_tai_khoan.sql`): luôn được duyệt, không bị thu hồi hay gỡ quyền, và là người duy nhất cấp/gỡ quyền siêu quản trị cho tài khoản khác (nút "Cấp siêu quản trị"). Siêu quản trị khác duyệt/thu hồi được mọi tài khoản thường.
+- **Chặn** (ban): không đăng nhập được nữa và mất quyền dữ liệu ngay; bỏ chặn thì về trạng thái chờ duyệt. **Xoá**: xoá hẳn tài khoản (gõ lại email để xác nhận); không xoá được siêu quản trị hay người đang sở hữu gia phả (xoá sẽ mất cả gia phả và để ảnh mồ côi trên Drive) — với họ chỉ chặn. **Gửi link đặt lại mật khẩu**: gửi email "Quên mật khẩu" của Supabase tới tài khoản đó, họ tự đặt mật khẩu mới.
+- Quyền được database kiểm ở từng hàm `admin_*` (không chỉ ẩn giao diện); người thường gọi API trực tiếp cũng bị chặn.
+
+Cách thủ công vẫn dùng được:
 
 - **Supabase Dashboard → Table Editor → `account_approvals`** → tìm dòng theo `email` → tích `approved` → Save. Người dùng tự vào được trong vòng 30 giây (hoặc bấm "Kiểm tra lại").
 - Hoặc SQL Editor: `update account_approvals set approved = true where email = 'nguoi@example.com';`

@@ -441,6 +441,27 @@ CREATE OR REPLACE FUNCTION private.is_approved()
  SET search_path TO ''
 AS $function$ select coalesce((select approved from public.account_approvals where account_id = auth.uid()), false) $function$;
 
+-- private.is_root_superadmin()  [anon: không, authenticated: không, service_role: không]
+CREATE OR REPLACE FUNCTION private.is_root_superadmin()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select private.is_superadmin()
+    and coalesce((select lower(email) = private.root_superadmin_email() from public.account_approvals where account_id = auth.uid()), false)
+$function$;
+
+-- private.is_superadmin()  [anon: không, authenticated: không, service_role: không]
+CREATE OR REPLACE FUNCTION private.is_superadmin()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select coalesce((select is_superadmin and approved from public.account_approvals where account_id = auth.uid()), false)
+$function$;
+
 -- private.lock_person_photo()  [anon: không, authenticated: không, service_role: không]
 CREATE OR REPLACE FUNCTION private.lock_person_photo()
  RETURNS trigger
@@ -483,11 +504,22 @@ CREATE OR REPLACE FUNCTION private.new_account_approval()
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
+declare
+  is_root constant boolean := lower(coalesce(new.email, '')) = private.root_superadmin_email();
 begin
-  insert into public.account_approvals (account_id, email) values (new.id, new.email);
+  insert into public.account_approvals (account_id, email, approved, is_superadmin, approved_at)
+  values (new.id, new.email, is_root, is_root, case when is_root then now() end);
   return new;
 end;
 $function$;
+
+-- private.root_superadmin_email()  [anon: không, authenticated: không, service_role: không]
+CREATE OR REPLACE FUNCTION private.root_superadmin_email()
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO ''
+AS $function$ select 'trungpham168@gmail.com'::text $function$;
 
 -- private.stamp_approval()  [anon: không, authenticated: không, service_role: không]
 CREATE OR REPLACE FUNCTION private.stamp_approval()
@@ -640,6 +672,136 @@ begin
   insert into public.unions (partner_a, partner_b, order_for_a, order_for_b)
   values (add_spouse.person_id, new_id, coalesce(union_order, next_order), 1);
   return new_id;
+end;
+$function$;
+
+-- public.admin_delete_account(target_account uuid)  [anon: không, authenticated: có, service_role: có]
+CREATE OR REPLACE FUNCTION public.admin_delete_account(target_account uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  target public.account_approvals;
+begin
+  if not private.is_superadmin() then
+    raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
+  end if;
+  select * into target from public.account_approvals where account_id = target_account;
+  if not found then
+    raise exception 'ACCOUNT_NOT_FOUND' using errcode = 'no_data_found';
+  end if;
+  if target.is_superadmin then
+    raise exception 'SUPERADMIN_PROTECTED' using errcode = 'check_violation';
+  end if;
+  if exists (select 1 from public.family_trees where owner_id = target_account) then
+    raise exception 'ACCOUNT_OWNS_TREES' using errcode = 'check_violation';
+  end if;
+  delete from auth.users where id = target_account;
+end;
+$function$;
+
+-- public.admin_list_accounts()  [anon: không, authenticated: có, service_role: có]
+CREATE OR REPLACE FUNCTION public.admin_list_accounts()
+ RETURNS TABLE(account_id uuid, email text, approved boolean, is_superadmin boolean, is_root boolean, created_at timestamp with time zone, approved_at timestamp with time zone, last_sign_in_at timestamp with time zone, tree_count integer, is_banned boolean)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+begin
+  if not private.is_superadmin() then
+    raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
+  end if;
+  return query
+    select a.account_id, a.email, a.approved, a.is_superadmin,
+           lower(coalesce(a.email, '')) = private.root_superadmin_email(),
+           a.created_at, a.approved_at, u.last_sign_in_at,
+           (select count(*)::integer from public.family_trees t where t.owner_id = a.account_id),
+           coalesce(u.banned_until > now(), false)
+    from public.account_approvals a
+    left join auth.users u on u.id = a.account_id
+    order by a.approved, a.created_at desc;
+end;
+$function$;
+
+-- public.admin_set_approval(target_account uuid, new_approved boolean)  [anon: không, authenticated: có, service_role: có]
+CREATE OR REPLACE FUNCTION public.admin_set_approval(target_account uuid, new_approved boolean)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  target public.account_approvals;
+begin
+  if not private.is_superadmin() then
+    raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
+  end if;
+  select * into target from public.account_approvals where account_id = target_account;
+  if not found then
+    raise exception 'ACCOUNT_NOT_FOUND' using errcode = 'no_data_found';
+  end if;
+  if target.is_superadmin and not new_approved then
+    raise exception 'SUPERADMIN_PROTECTED' using errcode = 'check_violation';
+  end if;
+  if new_approved and exists (select 1 from auth.users where id = target_account and banned_until > now()) then
+    raise exception 'ACCOUNT_BANNED' using errcode = 'check_violation';
+  end if;
+  update public.account_approvals set approved = new_approved where account_id = target_account;
+end;
+$function$;
+
+-- public.admin_set_banned(target_account uuid, new_banned boolean)  [anon: không, authenticated: có, service_role: có]
+CREATE OR REPLACE FUNCTION public.admin_set_banned(target_account uuid, new_banned boolean)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  target public.account_approvals;
+begin
+  if not private.is_superadmin() then
+    raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
+  end if;
+  select * into target from public.account_approvals where account_id = target_account;
+  if not found then
+    raise exception 'ACCOUNT_NOT_FOUND' using errcode = 'no_data_found';
+  end if;
+  if target.is_superadmin then
+    raise exception 'SUPERADMIN_PROTECTED' using errcode = 'check_violation';
+  end if;
+  update auth.users set banned_until = case when new_banned then 'infinity'::timestamptz end where id = target_account;
+  if new_banned then
+    update public.account_approvals set approved = false where account_id = target_account;
+  end if;
+end;
+$function$;
+
+-- public.admin_set_superadmin(target_account uuid, make_superadmin boolean)  [anon: không, authenticated: có, service_role: có]
+CREATE OR REPLACE FUNCTION public.admin_set_superadmin(target_account uuid, make_superadmin boolean)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  target public.account_approvals;
+begin
+  if not private.is_root_superadmin() then
+    raise exception 'ROOT_ONLY' using errcode = 'insufficient_privilege';
+  end if;
+  select * into target from public.account_approvals where account_id = target_account;
+  if not found then
+    raise exception 'ACCOUNT_NOT_FOUND' using errcode = 'no_data_found';
+  end if;
+  if not make_superadmin and lower(coalesce(target.email, '')) = private.root_superadmin_email() then
+    raise exception 'SUPERADMIN_PROTECTED' using errcode = 'check_violation';
+  end if;
+  update public.account_approvals
+    set is_superadmin = make_superadmin, approved = approved or make_superadmin
+    where account_id = target_account;
 end;
 $function$;
 

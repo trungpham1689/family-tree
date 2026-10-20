@@ -45,7 +45,7 @@ try {
     '4173',
   );
   const results = [];
-  for (const script of ['walk-1.mjs', 'walk-2.mjs', 'walk-3.mjs', 'walk-mobile.mjs']) results.push(await run(script));
+  for (const script of ['walk-1.mjs', 'walk-2.mjs', 'walk-3.mjs', 'walk-4.mjs', 'walk-mobile.mjs']) results.push(await run(script));
   ok = results.every(Boolean);
 } catch (error) {
   console.error(error.message);

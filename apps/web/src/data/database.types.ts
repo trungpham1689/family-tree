@@ -16,9 +16,9 @@ export type Database = {
         Relationships: [];
       };
       account_approvals: {
-        Row: { account_id: string; email: string | null; approved: boolean; created_at: string; approved_at: string | null };
-        Insert: { account_id: string; email?: string | null; approved?: boolean; created_at?: string; approved_at?: string | null };
-        Update: { account_id?: string; email?: string | null; approved?: boolean; created_at?: string; approved_at?: string | null };
+        Row: { account_id: string; email: string | null; approved: boolean; is_superadmin: boolean; created_at: string; approved_at: string | null };
+        Insert: { account_id: string; email?: string | null; approved?: boolean; is_superadmin?: boolean; created_at?: string; approved_at?: string | null };
+        Update: { account_id?: string; email?: string | null; approved?: boolean; is_superadmin?: boolean; created_at?: string; approved_at?: string | null };
         Relationships: [];
       };
       family_trees: {
@@ -455,6 +455,25 @@ export type Database = {
       disable_public_link: { Args: { target_tree: string }; Returns: undefined };
       public_tree: { Args: { token: string; password: string | null }; Returns: Json };
       public_tree_card: { Args: { token: string }; Returns: Json };
+      admin_list_accounts: {
+        Args: Record<string, never>;
+        Returns: {
+          account_id: string;
+          email: string | null;
+          approved: boolean;
+          is_superadmin: boolean;
+          is_root: boolean;
+          created_at: string;
+          approved_at: string | null;
+          last_sign_in_at: string | null;
+          tree_count: number;
+          is_banned: boolean;
+        }[];
+      };
+      admin_set_approval: { Args: { target_account: string; new_approved: boolean }; Returns: undefined };
+      admin_set_banned: { Args: { target_account: string; new_banned: boolean }; Returns: undefined };
+      admin_delete_account: { Args: { target_account: string }; Returns: undefined };
+      admin_set_superadmin: { Args: { target_account: string; make_superadmin: boolean }; Returns: undefined };
       rotate_calendar_feed: { Args: Record<string, never>; Returns: string };
       my_calendar_feed: { Args: Record<string, never>; Returns: string | null };
       disable_calendar_feed: { Args: Record<string, never>; Returns: undefined };

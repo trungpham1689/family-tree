@@ -16,6 +16,9 @@ export const QUERY_ROOTS = {
   avatar: { persisted: false },
   avatars: { persisted: false },
   'calendar-feed': { persisted: false },
+  // Không giữ: quyền siêu quản trị và danh sách tài khoản (email người khác) không nên nằm lại trên máy; quyền thật do database kiểm.
+  superadmin: { persisted: false },
+  admin: { persisted: false },
   'public-card': { persisted: false },
   public: { persisted: false },
 } as const;

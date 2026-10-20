@@ -24,6 +24,8 @@ export const queryKeys = {
   notificationReads: ['notification-reads'] as const,
   calendarFeed: ['calendar-feed'] as const,
   approval: (accountId: string) => ['approval', accountId] as const,
+  superadmin: (accountId: string) => ['superadmin', accountId] as const,
+  adminAccounts: ['admin', 'accounts'] as const,
   avatar: (path: string | null) => ['avatar', path] as const,
   avatars: (entries: readonly string[]) => ['avatars', entries] as const,
   publicCard: (token: string) => ['public-card', token] as const,
@@ -44,6 +46,8 @@ export const effects = {
   merge: (treeId: string): QueryEffect => [...effects.family(treeId), queryKeys.photos(), queryKeys.reminderWatch],
   /** Sự kiện của gia phả cũng nằm trong lịch của mọi tài khoản. */
   events: (treeId: string): QueryEffect => [queryKeys.events(treeId), queryKeys.calendar()],
+  /** Duyệt/thu hồi/cấp quyền: danh sách tài khoản trên trang quản trị đổi theo. */
+  admin: (): QueryEffect => [queryKeys.adminAccounts],
   /** Đổi tên, ảnh bìa, số đời cháu ngoại, danh sách gia phả: mọi thứ dưới `trees`. */
   treeMeta: (): QueryEffect => [['trees']],
 };

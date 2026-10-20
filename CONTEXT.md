@@ -14,6 +14,9 @@ _Tránh dùng:_ "thành viên" để chỉ người trong cây (dễ nhầm vớ
 **Tài khoản**
 Một người dùng đăng nhập vào webapp. Một tài khoản có thể được *liên kết* với đúng một Người trong mỗi gia phả.
 
+**Siêu quản trị**
+Tài khoản quản lý hệ thống: vào được trang quản trị để duyệt hoặc thu hồi tài khoản khác. Khác với vai trò trong một gia phả. Siêu quản trị *gốc* không bị thu hồi và là người duy nhất cấp quyền này.
+
 **Đinh**
 Người sinh ra trong họ (có cha hoặc mẹ là người trong họ), được nối với cha mẹ.
 
