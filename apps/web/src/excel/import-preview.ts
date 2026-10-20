@@ -582,7 +582,7 @@ export const buildImportPreview = (table: readonly (readonly CellValue[])[]): Im
     if (entry === progenitor) relation = 'Thuỷ tổ';
     else if (!generation.has(entry.code)) relation = 'Chưa nối vào cây';
     else if (parents.length > 0) relation = `${entry.parentKind === 'nuoi' ? 'Con nuôi' : 'Con'} của ${parents.map(nameOf).join(' và ')}`;
-    else relation = `${entry.gender === 'nam' ? 'Rể' : entry.gender === 'nu' ? 'Dâu' : 'Vợ/chồng'} của ${spouses.map(nameOf).join(', ')}`;
+    else relation = `${entry.gender === 'nam' ? 'Chồng' : entry.gender === 'nu' ? 'Vợ' : 'Vợ/chồng'} của ${spouses.map(nameOf).join(', ')}`;
     return {
       row: entry.row,
       code: entry.code,

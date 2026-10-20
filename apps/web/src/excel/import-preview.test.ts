@@ -33,8 +33,8 @@ describe('mô-đun Excel: file mẫu', () => {
 
     const relation = (code: string) => result.people.find((person) => person.code === code)!;
     expect(relation('T1')).toMatchObject({ generation: 1, relation: 'Thuỷ tổ' });
-    expect(relation('T1V')).toMatchObject({ generation: 1, relation: 'Dâu của Phạm Văn Tổ' });
-    expect(relation('A2C')).toMatchObject({ generation: 2, relation: 'Rể của Phạm Thị Thứ' });
+    expect(relation('T1V')).toMatchObject({ generation: 1, relation: 'Vợ của Phạm Văn Tổ' });
+    expect(relation('A2C')).toMatchObject({ generation: 2, relation: 'Chồng của Phạm Thị Thứ' });
     expect(relation('B2')).toMatchObject({ generation: 3, relation: 'Con của Lê Văn Rể và Phạm Thị Thứ' });
     expect(relation('C1')).toMatchObject({ generation: 4 });
 
@@ -202,7 +202,7 @@ describe('Thuỷ tổ và vợ/chồng: ghi quan hệ ở dòng của bên nào 
     expect(result.errors).toEqual([]);
     expect(result.progenitorName).toBe('Chồng');
     expect(result.unconnected).toBe(0);
-    expect(result.people.find((p) => p.code === 'W')).toMatchObject({ generation: 1, relation: 'Dâu của Chồng' });
+    expect(result.people.find((p) => p.code === 'W')).toMatchObject({ generation: 1, relation: 'Vợ của Chồng' });
     expect(result.people.find((p) => p.code === 'K')).toMatchObject({ generation: 2 });
   };
 
