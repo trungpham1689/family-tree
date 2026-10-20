@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { singleFlight } from './single-flight';
 
 /**
  * Trạng thái chung của các nút "Xuất …" (PDF, PNG…): việc nào đang chạy (`running`), lỗi tiếng Việt nếu hỏng, và `run`
@@ -8,17 +9,21 @@ export const useExport = <Kind extends string = 'export'>() => {
   const [running, setRunning] = useState<Kind | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const run = async (kind: Kind, work: () => Promise<void> | void, failureMessage: string): Promise<void> => {
-    setRunning(kind);
-    setError(null);
-    try {
-      await work();
-    } catch {
-      setError(failureMessage);
-    } finally {
-      setRunning(null);
-    }
-  };
+  // Đang xuất thì bỏ qua lần bấm thêm (khoá đặt ngay lúc gọi, trước cả khi nút kịp bị vô hiệu).
+  const guarded = useRef(
+    singleFlight(async (kind: Kind, work: () => Promise<void> | void, failureMessage: string): Promise<void> => {
+      setRunning(kind);
+      setError(null);
+      try {
+        await work();
+      } catch {
+        setError(failureMessage);
+      } finally {
+        setRunning(null);
+      }
+    }),
+  );
+  const run = (kind: Kind, work: () => Promise<void> | void, failureMessage: string): Promise<void> => guarded.current(kind, work, failureMessage);
 
   return { running, error, run };
 };

@@ -137,8 +137,11 @@ export const ReorderableSpouses = ({
   const reorder = useReorderUnions(treeId);
   const byId = new Map(items.map((spouse) => [spouse.unionId, spouse]));
   const sourceOrder = items.map((spouse) => spouse.unionId);
-  const { order, canDrag, setRef, dragHandleProps } = useDragReorder(sourceOrder, canEdit, (next) =>
-    reorder.mutate({ viewerId, orderedUnionIds: next }),
+  const { order, canDrag, setRef, dragHandleProps } = useDragReorder(
+    sourceOrder,
+    canEdit,
+    (next) => reorder.mutate({ viewerId, orderedUnionIds: next }),
+    reorder.isPending,
   );
 
   return (

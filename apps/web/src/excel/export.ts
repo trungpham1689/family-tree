@@ -5,6 +5,7 @@
  */
 import type { SheetData } from 'write-excel-file/universal';
 import type { Row } from '../data/database.types';
+import { compareSiblings } from '../family/family-graph';
 import { PERSON_FIELD_KEYS } from '../people/person-form';
 import { COLUMNS, type RawRow } from './columns';
 import { GUIDE_SHEET, DATA_SHEET, templateSheets } from './template';
@@ -30,8 +31,6 @@ export type ExportData = {
     marriage_day?: number | null;
   }[];
 };
-
-const collator = new Intl.Collator('vi');
 
 const dateText = (
   precision: string | null,
@@ -73,11 +72,6 @@ const exportOrder = ({ persons, parentLinks, unions }: ExportData): ExportPerson
     spouses.set(union.partner_a, [...(spouses.get(union.partner_a) ?? []), { id: union.partner_b, order: union.order_for_a }]);
     spouses.set(union.partner_b, [...(spouses.get(union.partner_b) ?? []), { id: union.partner_a, order: union.order_for_b }]);
   }
-
-  const compareSiblings = (a: ExportPerson, b: ExportPerson) =>
-    (a.birth_order ?? 999) - (b.birth_order ?? 999) ||
-    (a.birth_year ?? 99_999) - (b.birth_year ?? 99_999) ||
-    collator.compare(a.full_name, b.full_name);
 
   const ordered: ExportPerson[] = [];
   const seen = new Set<string>();

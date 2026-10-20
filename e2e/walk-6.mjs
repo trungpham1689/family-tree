@@ -196,6 +196,25 @@ await step('Phả ký: bấm tên mở thành viên', async () => {
   await page.waitForURL(/\/nguoi\/[0-9a-f-]{36}$/);
 });
 
+await step('nút gọi API khoá ngay khi bấm: bấm đúp "Lưu cấu hình" chỉ gửi một lần', async () => {
+  await page.goto(`${treeUrl}/pha-do`);
+  const save = page.getByRole('button', { name: /Lưu cấu hình/ });
+  await save.waitFor();
+  const writes = [];
+  page.on('request', (request) => {
+    if (request.url().includes('pha_do_configs') && request.method() !== 'GET') writes.push(request.method());
+  });
+  // Làm chậm phản hồi để lần bấm thứ hai rơi vào lúc đang gọi.
+  await page.route('**/pha_do_configs*', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await route.continue();
+  });
+  await save.dblclick();
+  await page.getByRole('button', { name: 'Đã lưu cấu hình' }).waitFor();
+  await page.unroute('**/pha_do_configs*');
+  assert(writes.length === 1, `bấm đúp gửi ${writes.length} lần (${writes.join(',')})`);
+});
+
 await step('Người phụ trách cúng giỗ: không liệt kê sẵn, gõ tên mới có kết quả', async () => {
   await page.goto(treeUrl);
   await page.getByRole('link', { name: /Cha Tổ/ }).first().click();

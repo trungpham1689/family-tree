@@ -2,6 +2,8 @@ import { useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEve
 
 type DragHandleProps = {
   onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+  /** Đang lưu thứ tự lần trước: tay kéo vẫn hiện nhưng khoá, không bắt đầu kéo mới. */
+  disabled: boolean;
 };
 
 type Drag = { id: string; startClientY: number; startScrollY: number; startTop: number; pointerY: number };
@@ -21,7 +23,8 @@ const currentShift = (element: HTMLElement): number => new DOMMatrixReadOnly(get
  * - Lắng nghe ở `window` thay vì giữ con trỏ trên nút kéo: React chuyển dòng sang chỗ mới trong DOM,
  *   mà chuyển phần tử đang giữ con trỏ thì trình duyệt thả con trỏ ra và cú kéo bị đứng giữa chừng.
  */
-export const useDragReorder = (sourceOrder: string[], enabled: boolean, onReorder: (order: string[]) => void) => {
+/** `locked`: đang lưu lần kéo trước, chưa cho kéo tiếp (tay kéo vẫn hiện để giao diện không nháy). */
+export const useDragReorder = (sourceOrder: string[], enabled: boolean, onReorder: (order: string[]) => void, locked = false) => {
   const sourceKey = sourceOrder.join(',');
   // Chỉ dùng thứ tự đang kéo khi nó còn khớp dữ liệu hiện có; dữ liệu đổi (thêm/xoá, lưu xong) thì quay lại thứ tự từ server.
   const [dragState, setDragState] = useState({ key: sourceKey, order: sourceOrder });
@@ -80,7 +83,7 @@ export const useDragReorder = (sourceOrder: string[], enabled: boolean, onReorde
 
   const begin = (id: string, event: ReactPointerEvent<HTMLButtonElement>) => {
     const element = rowRefs.current.get(id);
-    if (!element || drag.current || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    if (locked || !element || drag.current || (event.pointerType === 'mouse' && event.button !== 0)) return;
     event.preventDefault();
     const started: Drag = { id, startClientY: event.clientY, startScrollY: window.scrollY, startTop: element.offsetTop, pointerY: event.clientY };
     drag.current = started;
@@ -150,6 +153,7 @@ export const useDragReorder = (sourceOrder: string[], enabled: boolean, onReorde
 
   const dragHandleProps = (id: string): DragHandleProps => ({
     onPointerDown: (event) => begin(id, event),
+    disabled: locked,
   });
 
   const setRef = (id: string, element: HTMLLIElement | null) => {

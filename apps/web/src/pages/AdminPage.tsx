@@ -110,6 +110,8 @@ export const AdminPage = () => {
         : deleteAccount.isPending
           ? deleteAccount.variables?.accountId
           : undefined;
+  // Gửi email đặt lại mật khẩu nhận theo email; hàng đó cũng khoá nút trong lúc gửi.
+  const resettingEmail = sendReset.isPending ? sendReset.variables?.email : undefined;
   const resetAll = () => {
     updateProfile.reset();
     setApproval.reset();
@@ -210,7 +212,7 @@ export const AdminPage = () => {
               account={account}
               isMe={account.accountId === myId}
               iAmRoot={iAmRoot}
-              busy={busyId === account.accountId}
+              busy={busyId === account.accountId || (resettingEmail !== undefined && resettingEmail === account.email)}
               onApprove={() => {
                 resetAll();
                 setApproval.mutate({ accountId: account.accountId, approved: true });

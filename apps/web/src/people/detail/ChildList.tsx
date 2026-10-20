@@ -20,7 +20,7 @@ export const ReorderableChildren = ({
   const reorder = useReorderChildren(treeId);
   const byId = new Map(items.map((child) => [child.person.id, child]));
   const sourceOrder = items.map((child) => child.person.id);
-  const { order, canDrag, setRef, dragHandleProps } = useDragReorder(sourceOrder, canEdit, (next) => reorder.mutate(next));
+  const { order, canDrag, setRef, dragHandleProps } = useDragReorder(sourceOrder, canEdit, (next) => reorder.mutate(next), reorder.isPending);
   // Sắp xếp ổn định: cùng ngày sinh (hoặc cùng thiếu ngày sinh) thì giữ thứ tự đang có.
   const byBirthDate = [...items].sort((a, b) => compareBirthDate(a.person, b.person)).map((child) => child.person.id);
   const sortedByBirthDate = byBirthDate.every((id, index) => id === order[index]);

@@ -123,3 +123,30 @@ describe('xuất Excel', () => {
     expect(rowsToTable(familyToRows({ persons: [], parentLinks: [], unions: [] }))).toHaveLength(1);
   });
 });
+
+describe('xuất Excel: thứ tự các con', () => {
+  const kids = (children: ExportPerson[]) =>
+    familyToRows({
+      persons: [person('cha', { is_progenitor: true }), ...children],
+      parentLinks: children.map((child) => ({ child_id: child.id, parent_id: 'cha', kind: 'ruot' })),
+      unions: [],
+    })
+      .map((row) => row.fullName)
+      .filter((name) => name !== 'cha');
+  const named = (id: string, extra: Partial<ExportPerson>) => person(id, { full_name: id, ...extra });
+
+  it('con sinh trước đứng trước: cùng năm thì theo tháng, ngày (không chỉ năm)', () => {
+    expect(
+      kids([
+        named('c', { birth_year: 1990, birth_month: 9, birth_day: 1 }),
+        named('a', { birth_year: 1990, birth_month: 2, birth_day: 20 }),
+        named('b', { birth_year: 1990, birth_month: 2, birth_day: 25 }),
+        named('d', { birth_year: 1989 }),
+      ]),
+    ).toEqual(['d', 'a', 'b', 'c']);
+  });
+
+  it('Thứ tự con đã ghi quyết định trước ngày sinh', () => {
+    expect(kids([named('x', { birth_year: 1980, birth_order: 2 }), named('y', { birth_year: 1990, birth_order: 1 })])).toEqual(['y', 'x']);
+  });
+});

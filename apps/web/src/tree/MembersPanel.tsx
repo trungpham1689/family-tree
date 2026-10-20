@@ -57,6 +57,8 @@ const PendingDeletions = ({ treeId }: { treeId: string }) => {
   const pending = usePendingDeletions(treeId, true);
   const approve = useApproveDeletePerson(treeId);
   const reject = useRejectDeletePerson(treeId);
+  // Đồng ý và từ chối là hai thao tác trái nhau: đang gọi cái nào (cho yêu cầu nào) thì khoá hết các nút.
+  const reviewing = approve.isPending || reject.isPending;
 
   if (!pending.isSuccess || pending.data.length === 0) return null;
 
@@ -71,10 +73,10 @@ const PendingDeletions = ({ treeId }: { treeId: string }) => {
               <p className="text-sm text-ink-muted">Yêu cầu bởi {request.requested_by_email}</p>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="secondary" disabled={reject.isPending} onClick={() => reject.mutate(request.person_id)}>
+              <Button variant="secondary" disabled={reviewing} onClick={() => reject.mutate(request.person_id)}>
                 Từ chối
               </Button>
-              <Button variant="danger" disabled={approve.isPending} onClick={() => approve.mutate(request.person_id)}>
+              <Button variant="danger" disabled={reviewing} onClick={() => approve.mutate(request.person_id)}>
                 Đồng ý xoá
               </Button>
             </div>
@@ -146,6 +148,8 @@ const MemberRow = ({ treeId, member, canManage }: MemberRowProps) => {
   const remove = useRemoveTreeRole(treeId);
   const [removing, setRemoving] = useState(false);
   const error = updateRole.error ?? remove.error;
+  // Đổi vai trò và gỡ quyền cùng tác động một thành viên: đang gọi cái nào thì khoá cả hai.
+  const busy = updateRole.isPending || remove.isPending;
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 py-3">
@@ -161,12 +165,12 @@ const MemberRow = ({ treeId, member, canManage }: MemberRowProps) => {
         removing ? (
           <div className="flex items-center gap-2">
             <span className="text-sm text-danger">Gỡ quyền của {member.email}?</span>
-            <Button variant="secondary" onClick={() => setRemoving(false)}>
+            <Button variant="secondary" disabled={busy} onClick={() => setRemoving(false)}>
               Huỷ
             </Button>
             <Button
               variant="danger"
-              disabled={remove.isPending}
+              disabled={busy}
               onClick={() => remove.mutate(member.account_id, { onSuccess: () => setRemoving(false) })}
             >
               Gỡ
@@ -176,7 +180,7 @@ const MemberRow = ({ treeId, member, canManage }: MemberRowProps) => {
           <div className="flex items-center gap-2">
             <Select
               value={member.role}
-              disabled={updateRole.isPending}
+              disabled={busy}
               onChange={(event) =>
                 updateRole.mutate({ accountId: member.account_id, role: event.target.value as InvitableRole })
               }
@@ -184,7 +188,7 @@ const MemberRow = ({ treeId, member, canManage }: MemberRowProps) => {
               <option value="editor">{ROLE_LABELS.editor}</option>
               <option value="viewer">{ROLE_LABELS.viewer}</option>
             </Select>
-            <Button variant="ghost" className="text-danger!" onClick={() => setRemoving(true)}>
+            <Button variant="ghost" className="text-danger!" disabled={busy} onClick={() => setRemoving(true)}>
               Gỡ
             </Button>
           </div>

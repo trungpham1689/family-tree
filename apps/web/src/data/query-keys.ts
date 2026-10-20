@@ -1,4 +1,5 @@
-import { useMutation, useQueryClient, type MutationFunction } from '@tanstack/react-query';
+import { useQueryClient, type MutationFunction } from '@tanstack/react-query';
+import { useMutation } from './use-mutation';
 import { useAuth } from '../auth/auth-context';
 import type { QueryRoot } from './query-roots';
 

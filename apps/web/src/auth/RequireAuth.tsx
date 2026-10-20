@@ -25,7 +25,7 @@ const useApproved = (accountId: string | null) =>
 
 /** Chỉ hiển thị nội dung khi đã đăng nhập và đã được duyệt; chưa đăng nhập thì chuyển về trang đăng nhập. */
 export const RequireAuth = ({ children }: { children: ReactNode }) => {
-  const { state, signOut } = useAuth();
+  const { state, signOut, signingOut } = useAuth();
   const location = useLocation();
   const approved = useApproved(state.status === 'signed-in' ? state.session.user.id : null);
 
@@ -49,8 +49,8 @@ export const RequireAuth = ({ children }: { children: ReactNode }) => {
             <Button variant="secondary" disabled={approved.isFetching} onClick={() => approved.refetch()}>
               Kiểm tra lại
             </Button>
-            <Button variant="ghost" onClick={signOut}>
-              Đăng xuất
+            <Button variant="ghost" disabled={signingOut} onClick={signOut}>
+              {signingOut ? 'Đang đăng xuất…' : 'Đăng xuất'}
             </Button>
           </div>
         </div>

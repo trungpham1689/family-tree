@@ -57,15 +57,35 @@ const lineageTermDown = (generations: number, targetGender: string | null, side:
   return sided;
 };
 
-/** `a` có năm sinh/thứ tự con sớm hơn `b` không; null khi chưa đủ dữ liệu để biết. */
-export const isOlder = (a: GraphPerson, b: GraphPerson): boolean | null => {
-  if (a.birth_year !== null && b.birth_year !== null) return a.birth_year < b.birth_year;
-  if (a.birth_order !== null && b.birth_order !== null) return a.birth_order < b.birth_order;
+/**
+ * So ngày sinh khi cả hai đều biết: năm, rồi tháng, rồi ngày (chỉ so tiếp khi phần trước bằng nhau và phần đó cả hai đều biết).
+ * Âm: a sinh trước; dương: b sinh trước; 0 hoặc null: chưa đủ dữ liệu để phân biệt.
+ */
+const knownBirthComparison = (a: GraphPerson, b: GraphPerson): number | null => {
+  for (const [x, y] of [
+    [a.birth_year, b.birth_year],
+    [a.birth_month ?? null, b.birth_month ?? null],
+    [a.birth_day ?? null, b.birth_day ?? null],
+  ] as const) {
+    if (x === null || y === null) return null;
+    if (x !== y) return x - y;
+  }
   return null;
 };
 
+/**
+ * `a` lớn tuổi hơn (sinh trước) `b` không; null khi chưa đủ dữ liệu để biết.
+ * Anh chị em cùng cha mẹ (`siblings`): Thứ tự con đã ghi quyết định trước, như danh sách con; còn lại, và với họ hàng khác nhánh
+ * (Thứ tự con chỉ có nghĩa giữa anh chị em), so ngày sinh. Cùng năm thì so tiếp tháng, ngày; bằng nhau hoặc thiếu thì null, không đoán.
+ */
+export const isOlder = (a: GraphPerson, b: GraphPerson, siblings = false): boolean | null => {
+  if (siblings && a.birth_order !== null && b.birth_order !== null && a.birth_order !== b.birth_order) return a.birth_order < b.birth_order;
+  const comparison = knownBirthComparison(a, b);
+  return comparison === null || comparison === 0 ? null : comparison < 0;
+};
+
 const siblingTerm = (target: GraphPerson, viewer: GraphPerson): string => {
-  const older = isOlder(target, viewer);
+  const older = isOlder(target, viewer, true);
   if (target.gender === 'nam') return older === false ? 'Em trai' : older === true ? 'Anh trai' : 'Anh/Em trai';
   if (target.gender === 'nu') return older === false ? 'Em gái' : older === true ? 'Chị gái' : 'Chị/Em gái';
   return older === false ? 'Em' : older === true ? 'Anh/Chị' : 'Anh/Chị/Em';

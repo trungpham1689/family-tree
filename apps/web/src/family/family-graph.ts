@@ -79,6 +79,17 @@ export const compareSiblings = (a: GraphPerson, b: GraphPerson): number =>
   (a.birth_order ?? LAST) - (b.birth_order ?? LAST) || compareBirthDate(a, b) || byName(a.full_name, b.full_name);
 
 /**
+ * Kế hoạch ghi Thứ tự con khi thêm con mới (không ghi Thứ tự con): `ordered` là thứ tự đúng theo ngày sinh; `needsWrite` = false chỉ khi database
+ * đã xếp đúng sẵn. Database gán "lớn nhất + 1", nên chỉ đúng khi con mới sinh sau cùng VÀ mọi anh chị em đều đã có Thứ tự con; nếu có anh chị em
+ * chưa ghi Thứ tự (ví dụ nhập Excel để trống cột này) thì con mới nhận Thứ tự 1 và đứng trên cả anh chị lớn hơn, cần ghi lại cả nhóm.
+ */
+export const childOrderPlan = (siblings: readonly GraphPerson[], added: GraphPerson): { ordered: string[]; needsWrite: boolean } => {
+  const ordered = orderWithNewChild(siblings, added);
+  const databaseIsRight = ordered[ordered.length - 1] === added.id && siblings.every((sibling) => sibling.birth_order !== null);
+  return { ordered, needsWrite: !databaseIsRight };
+};
+
+/**
  * Con mới thêm (không ghi Thứ tự con) vào đúng chỗ theo ngày sinh giữa các anh chị em đã có, giữ nguyên thứ tự của họ:
  * đứng trước người đầu tiên sinh sau nó. Chưa biết năm sinh thì ở cuối. `siblings` đã theo thứ tự hiện có, chưa gồm `added`.
  */

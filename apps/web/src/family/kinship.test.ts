@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildFamilyGraph, type GraphPerson } from './family-graph';
-import { relationTerm } from './kinship';
+import { isOlder, relationTerm } from './kinship';
 
 const person = (id: string, extra: Partial<GraphPerson> = {}): GraphPerson => ({
   id,
@@ -110,5 +110,53 @@ describe('relationTerm', () => {
 
   it('không có quan hệ nào tìm được', () => {
     expect(relationTerm(sample(), 'to', 'nguoi-la')).toBeNull();
+  });
+});
+
+describe('isOlder: sinh trước là lớn hơn', () => {
+  const born = (year: number | null, month: number | null = null, day: number | null = null, order: number | null = null) =>
+    person('x', { birth_year: year, birth_month: month, birth_day: day, birth_order: order });
+
+  it('so năm, rồi tháng, rồi ngày', () => {
+    expect(isOlder(born(1950), born(1955))).toBe(true);
+    expect(isOlder(born(1955), born(1950))).toBe(false);
+    expect(isOlder(born(1950, 3), born(1950, 8))).toBe(true);
+    expect(isOlder(born(1950, 8, 2), born(1950, 8, 1))).toBe(false);
+    expect(isOlder(born(1950, 8, 1), born(1950, 8, 2))).toBe(true);
+  });
+
+  it('cùng năm mà thiếu tháng/ngày, hoặc trùng hẳn: chưa biết, không đoán là em', () => {
+    expect(isOlder(born(1950), born(1950))).toBeNull();
+    expect(isOlder(born(1950, 3), born(1950))).toBeNull();
+    expect(isOlder(born(1950, 3), born(1950, 3))).toBeNull();
+    expect(isOlder(born(1950, 3, 4), born(1950, 3))).toBeNull();
+    expect(isOlder(born(null), born(1950))).toBeNull();
+  });
+
+  it('Thứ tự con chỉ có nghĩa giữa anh chị em: họ hàng khác nhánh bỏ qua, anh chị em thì Thứ tự đã ghi quyết định trước', () => {
+    expect(isOlder(born(null, null, null, 1), born(null, null, null, 3))).toBeNull();
+    expect(isOlder(born(null, null, null, 1), born(null, null, null, 3), true)).toBe(true);
+    expect(isOlder(born(null, null, null, 3), born(null, null, null, 1), true)).toBe(false);
+    // Thứ tự đã ghi (người dùng kéo thả) thắng năm sinh.
+    expect(isOlder(born(1960, null, null, 1), born(1950, null, null, 2), true)).toBe(true);
+    // Chỉ một bên có Thứ tự: so ngày sinh.
+    expect(isOlder(born(1950, null, null, 2), born(1960), true)).toBe(true);
+  });
+
+  it('xưng hô anh/em cùng năm sinh khác tháng; cùng năm thiếu tháng thì chưa rõ', () => {
+    const graph = buildFamilyGraph({
+      persons: [
+        person('cha'),
+        person('a', { birth_year: 1950, birth_month: 2 }),
+        person('b', { birth_year: 1950, birth_month: 9 }),
+        person('c', { birth_year: 1950 }),
+      ],
+      parentLinks: ['a', 'b', 'c'].map((child_id) => ({ child_id, parent_id: 'cha', kind: 'ruot' })),
+      unions: [],
+      positions: [],
+    });
+    expect(relationTerm(graph, 'b', 'a')).toBe('Anh trai'); // a sinh tháng 2, trước b
+    expect(relationTerm(graph, 'a', 'b')).toBe('Em trai');
+    expect(relationTerm(graph, 'a', 'c')).toBe('Anh/Em trai'); // c chỉ biết năm: chưa rõ
   });
 });

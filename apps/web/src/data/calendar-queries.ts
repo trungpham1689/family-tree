@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from './use-mutation';
 import { HEADER_STALE_MS, effects, queryKeys, useMutationWithEffects } from './query-keys';
 import { useAuth } from '../auth/auth-context';
 import { disableCalendarFeed, getCalendarFeedToken, rotateCalendarFeed } from './calendar-feed';

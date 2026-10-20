@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildFamilyGraph, compareBirthDate, orderWithNewChild, type GraphPerson } from './family-graph';
+import { buildFamilyGraph, childOrderPlan, compareBirthDate, orderWithNewChild, type GraphPerson } from './family-graph';
 
 const person = (id: string, extra: Partial<GraphPerson> = {}): GraphPerson => ({
   id,
@@ -207,5 +207,29 @@ describe('orderWithNewChild', () => {
   it('anh chị em chưa biết năm sinh không chặn đường chèn; không có anh chị em thì chỉ có con mới', () => {
     expect(orderWithNewChild([kid('x', null), kid('c', 2000)], kid('n', 1999))).toEqual(['x', 'n', 'c']);
     expect(orderWithNewChild([], kid('n', 1999))).toEqual(['n']);
+  });
+});
+
+describe('childOrderPlan: có cần ghi lại Thứ tự con sau khi thêm con không', () => {
+  const kid = (id: string, year: number | null, order: number | null) => person(id, { birth_year: year, birth_order: order });
+
+  it('con mới sinh sau cùng và mọi anh chị em đã có Thứ tự: database đã xếp đúng (lớn nhất + 1), không cần ghi', () => {
+    const plan = childOrderPlan([kid('a', 1990, 1), kid('b', 1992, 2)], kid('n', 2000, null));
+    expect(plan).toEqual({ ordered: ['a', 'b', 'n'], needsWrite: false });
+  });
+
+  it('anh chị em chưa ghi Thứ tự (nhập Excel để trống): con mới sinh sau cùng vẫn phải ghi lại, nếu không nhận Thứ tự 1 và đứng đầu', () => {
+    const plan = childOrderPlan([kid('a', 1990, null), kid('b', 1992, null)], kid('n', 2000, null));
+    expect(plan.ordered).toEqual(['a', 'b', 'n']);
+    expect(plan.needsWrite).toBe(true);
+  });
+
+  it('con mới sinh trước anh chị em: ghi lại, con mới đứng đầu', () => {
+    const plan = childOrderPlan([kid('a', 1990, 1), kid('b', 1992, 2)], kid('n', 1985, null));
+    expect(plan).toEqual({ ordered: ['n', 'a', 'b'], needsWrite: true });
+  });
+
+  it('con đầu tiên (chưa có anh chị em): không cần ghi', () => {
+    expect(childOrderPlan([], kid('n', 2000, null))).toEqual({ ordered: ['n'], needsWrite: false });
   });
 });

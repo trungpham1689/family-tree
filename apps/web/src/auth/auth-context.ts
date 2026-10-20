@@ -9,6 +9,8 @@ export type AuthState =
 export type AuthContextValue = {
   state: AuthState;
   signOut: () => Promise<void>;
+  /** Đang đăng xuất: nút đăng xuất phải khoá để không gọi nhiều lần. */
+  signingOut: boolean;
 };
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

@@ -338,6 +338,7 @@ const EventForm = ({
 
   const submit = async (formEvent: FormEvent) => {
     formEvent.preventDefault();
+    if (busy) return; // đang lưu: bỏ qua lần gửi thêm (Enter, bấm liên tiếp)
     const result = parseEventForm(values);
     if (!result.ok) {
       setErrors(result.errors);

@@ -7,7 +7,7 @@ const ITEM = 'block min-h-11 w-full px-4 text-left hover:bg-paper';
 
 /** Ảnh đại diện chữ cái đầu của tên (hoặc email); bấm mở menu "Cá nhân" / "Đăng xuất". Bấm ra ngoài hoặc Esc thì đóng. */
 export const AccountMenu = () => {
-  const { state, signOut } = useAuth();
+  const { state, signOut, signingOut } = useAuth();
   const user = state.status === 'signed-in' ? state.session.user : undefined;
   const email = user?.email;
   const [open, setOpen] = useState(false);
@@ -61,8 +61,8 @@ export const AccountMenu = () => {
           >
             Cá nhân
           </button>
-          <button type="button" role="menuitem" className={`${ITEM} text-danger`} onClick={signOut}>
-            Đăng xuất
+          <button type="button" role="menuitem" className={`${ITEM} text-danger`} disabled={signingOut} onClick={signOut}>
+            {signingOut ? 'Đang đăng xuất…' : 'Đăng xuất'}
           </button>
         </div>
       )}

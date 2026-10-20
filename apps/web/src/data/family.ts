@@ -1,6 +1,6 @@
 import { fetchAll } from '../lib/fetch-all';
 import { supabase } from '../lib/supabase';
-import { compareSiblings, orderWithNewChild, type ParentLinkKind, type UnionStatus } from '../family/family-graph';
+import { childOrderPlan, compareSiblings, type ParentLinkKind, type UnionStatus } from '../family/family-graph';
 import type { PersonFields } from '../people/person-form';
 import type { Row } from './database.types';
 import { failOn } from './trees';
@@ -62,9 +62,8 @@ const placeByBirthDate = async (parentId: string, childId: string): Promise<void
     const added = children.find((child) => child.id === childId);
     if (!added) return;
     const siblings = children.filter((child) => child.id !== childId).sort(compareSiblings);
-    const ordered = orderWithNewChild(siblings, added);
-    // Chỗ cuối là chỗ database đã xếp sẵn.
-    if (ordered[ordered.length - 1] !== childId) await reorderChildren(ordered);
+    const { ordered, needsWrite } = childOrderPlan(siblings, added);
+    if (needsWrite) await reorderChildren(ordered);
   } catch {
     // xem chú thích trên
   }

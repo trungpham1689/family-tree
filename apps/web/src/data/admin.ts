@@ -1,4 +1,5 @@
-import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useMutation } from './use-mutation';
 import { authErrorMessage } from '../auth/auth-error-message';
 import { supabase } from '../lib/supabase';
 import { HEADER_STALE_MS, effects, queryKeys, useAccountId, useMutationWithEffects } from './query-keys';

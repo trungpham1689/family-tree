@@ -1,5 +1,6 @@
 import { queryKeys } from './query-keys';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from './use-mutation';
 import { loadPhaDoConfig, savePhaDoConfig } from './pha-do';
 
 // ---------------------------------------------------------------------------

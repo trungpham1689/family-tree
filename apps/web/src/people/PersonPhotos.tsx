@@ -94,6 +94,8 @@ const PhotoCard = ({ treeId, personId, photo, canEdit }: { treeId: string; perso
   const updateCaption = useUpdatePhotoCaption(treeId, personId);
   const remove = useRemovePhoto(treeId, personId);
   const [caption, setCaption] = useState(photo.caption ?? '');
+  // Đặt đại diện, sửa chú thích, xoá cùng tác động một ảnh: đang gọi cái nào thì khoá các nút còn lại.
+  const busy = setAvatar.isPending || updateCaption.isPending || remove.isPending;
 
   return (
     <li className="space-y-1.5">
@@ -106,9 +108,10 @@ const PhotoCard = ({ treeId, personId, photo, canEdit }: { treeId: string; perso
           placeholder="Chú thích…"
           className="w-full rounded-lg border border-line bg-surface px-2 py-1 text-sm"
           value={caption}
+          readOnly={remove.isPending}
           onChange={(event) => setCaption(event.target.value)}
           onBlur={() => {
-            if (caption !== (photo.caption ?? '')) updateCaption.mutate({ photoId: photo.id, caption: caption.trim() || null });
+            if (!busy && caption !== (photo.caption ?? '')) updateCaption.mutate({ photoId: photo.id, caption: caption.trim() || null });
           }}
         />
       ) : (
@@ -122,7 +125,7 @@ const PhotoCard = ({ treeId, personId, photo, canEdit }: { treeId: string; perso
             <button
               type="button"
               className="font-semibold text-son hover:underline disabled:text-ink-muted"
-              disabled={setAvatar.isPending}
+              disabled={busy}
               onClick={() => setAvatar.mutate(photo.id)}
             >
               Đặt làm đại diện
@@ -131,7 +134,7 @@ const PhotoCard = ({ treeId, personId, photo, canEdit }: { treeId: string; perso
           <button
             type="button"
             className="text-danger hover:underline disabled:text-ink-muted"
-            disabled={remove.isPending}
+            disabled={busy}
             onClick={() => remove.mutate({ photoId: photo.id, path: photo.storage_path })}
           >
             Xoá

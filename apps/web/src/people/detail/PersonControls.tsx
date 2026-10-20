@@ -49,6 +49,8 @@ export const PendingDeleteBanner = ({
 }) => {
   const approve = useApproveDeletePerson(treeId);
   const reject = useRejectDeletePerson(treeId);
+  // Đồng ý và từ chối là hai thao tác trái nhau trên cùng yêu cầu: đang gọi cái nào thì khoá cả hai.
+  const busy = approve.isPending || reject.isPending;
 
   return (
     <div className="mt-6 rounded-xl bg-kim-soft px-4 py-3">
@@ -59,10 +61,10 @@ export const PendingDeleteBanner = ({
       </p>
       {rights.reviewDeletion && (
         <div className="mt-2 flex gap-2">
-          <Button variant="secondary" disabled={reject.isPending} onClick={() => reject.mutate(person.id)}>
+          <Button variant="secondary" disabled={busy} onClick={() => reject.mutate(person.id)}>
             Từ chối
           </Button>
-          <Button variant="danger" disabled={approve.isPending} onClick={() => approve.mutate(person.id)}>
+          <Button variant="danger" disabled={busy} onClick={() => approve.mutate(person.id)}>
             Đồng ý xoá
           </Button>
         </div>

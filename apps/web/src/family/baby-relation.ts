@@ -48,17 +48,13 @@ const siblingQualifier = (graph: FamilyGraph<GraphPerson>, aId: string, bId: str
   return shared.every((p) => p.gender === 'nam') ? ' (cùng ba khác mẹ)' : shared.every((p) => p.gender === 'nu') ? ' (cùng mẹ khác ba)' : '';
 };
 
-/** Họ hàng khác nhánh: Thứ tự con chỉ so được giữa anh chị em cùng cha mẹ, nên chỉ dựa vào năm sinh. */
-const olderByYear = (a: GraphPerson, b: GraphPerson): boolean | null =>
-  a.birth_year !== null && b.birth_year !== null && a.birth_year !== b.birth_year ? a.birth_year < b.birth_year : null;
-
 /** Từ gốc của cách gọi anh chị em của một bậc tiền bối `elder` (cha, mẹ, ông, bà…): bác, chú, cô, cậu, dì. */
 const collateralWord = (elder: GraphPerson, person: GraphPerson, elderSide: 'noi' | 'ngoai', siblings: boolean): string => {
   const male = person.gender === 'nam';
   const female = person.gender === 'nu';
   const fatherLine = elder.gender === 'nam' || (elder.gender === null && elderSide === 'noi');
   if (fatherLine) {
-    const older = siblings ? isOlder(person, elder) : olderByYear(person, elder);
+    const older = isOlder(person, elder, siblings);
     if (older === true) return 'bác';
     if (female) return older === false ? 'cô' : 'cô/bác';
     return older === false ? 'chú' : male ? 'bác/chú' : 'cô/bác/chú';
@@ -77,7 +73,7 @@ const PREFIX: Record<number, (male: boolean | null) => string> = {
 const capitalize = (text: string) => text.replace(/(^|\/)\p{L}/gu, (match) => match.toUpperCase());
 
 const phrase = (person: GraphPerson, elder: GraphPerson | null): string => {
-  const older = elder ? isOlder(person, elder) : null;
+  const older = elder ? isOlder(person, elder, true) : null;
   if (person.gender === 'nam') return older === true ? 'anh trai' : older === false ? 'em trai' : 'anh/em trai';
   if (person.gender === 'nu') return older === true ? 'chị gái' : older === false ? 'em gái' : 'chị/em gái';
   return 'anh/chị/em';
