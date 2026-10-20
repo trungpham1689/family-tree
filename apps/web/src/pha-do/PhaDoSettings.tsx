@@ -1,19 +1,123 @@
-import { useState } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import type { Person } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
+import { OUTSIDE_OPTIONS, outsideLabel } from '../family/outside-generations';
 import { personLabel } from '../people/person-label';
 import { PersonPicker } from '../people/PersonPicker';
 import {
+  CUSTOM_CM_MAX,
+  CUSTOM_CM_MIN,
+  EXTRA_LINE_LABELS,
   FONT_FAMILY_LABELS,
-  FONT_SCALE_OPTIONS,
+  FONT_PX_MAX,
+  FONT_PX_MIN,
   PAPER_SIZES,
+  pageSizeMm,
+  type ExtraLine,
   type PaperName,
   type PhaDoConfig,
   type PhaDoFontFamily,
 } from './config';
 import { DEFAULT_DECORATION, defaultTitle, FRAME_LABELS, layoutDecoration, type Decoration, type FrameStyle } from './decoration';
+import { DEFAULT_MEMBER_COLORS } from './render';
 import { drawingToSvg } from './svg';
 import { Select, TextField } from '../ui/fields';
+
+/** Ba nhóm thiết lập của thanh bên: mỗi lúc chỉ hiện một nhóm để thanh bên ngắn gọn. */
+export type SettingsTab = 'content' | 'decoration' | 'paper';
+
+const TABS: { id: SettingsTab; label: string; icon: string }[] = [
+  { id: 'content', label: 'Nội dung', icon: 'M4 5h12M4 10h12M4 15h8' },
+  { id: 'decoration', label: 'Trang trí', icon: 'M10 2.5l2.2 4.9 5.3.5-4 3.6 1.2 5.3L10 14l-4.7 2.8 1.2-5.3-4-3.6 5.3-.5z' },
+  { id: 'paper', label: 'Khổ giấy & chữ', icon: 'M5 2.5h7l4 4v11H5zM12 2.5v4h4' },
+];
+
+export const SettingsTabs = ({ tab, onChange }: { tab: SettingsTab; onChange: (tab: SettingsTab) => void }) => (
+  <div role="tablist" aria-label="Nhóm thiết lập" className="flex border-b border-line bg-paper/60">
+    {TABS.map((item) => {
+      const on = tab === item.id;
+      return (
+        <button
+          key={item.id}
+          type="button"
+          role="tab"
+          id={`pha-do-tab-${item.id}`}
+          aria-selected={on}
+          aria-controls="pha-do-panel"
+          onClick={() => onChange(item.id)}
+          className={`flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2 text-sm ${
+            on ? 'font-bold text-son shadow-[inset_0_-3px_0_var(--color-son)]' : 'font-medium text-ink-muted hover:text-ink'
+          }`}
+        >
+          <svg aria-hidden="true" viewBox="0 0 20 20" className="size-5 fill-none stroke-current" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d={item.icon} />
+          </svg>
+          <span className="max-w-full truncate">{item.label}</span>
+        </button>
+      );
+    })}
+  </div>
+);
+
+const SectionLabel = ({ children, aside }: { children: ReactNode; aside?: ReactNode }) => (
+  <p className="mb-2 flex items-baseline justify-between gap-2 text-xs font-bold uppercase tracking-wider text-ink-muted">
+    <span>{children}</span>
+    {aside && <span className="font-medium normal-case tracking-normal">{aside}</span>}
+  </p>
+);
+
+const Note = ({ children }: { children: ReactNode }) => <p className="mt-2 text-sm text-ink-muted">{children}</p>;
+
+/** Thanh chọn một trong vài mục, các mục chia đều chiều ngang. */
+const Segmented = <T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: readonly { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) => (
+  <div role="radiogroup" aria-label={label} className="flex gap-1 rounded-xl bg-line/50 p-1">
+    {options.map((option) => {
+      const on = option.value === value;
+      return (
+        <button
+          key={option.value}
+          type="button"
+          role="radio"
+          aria-checked={on}
+          onClick={() => onChange(option.value)}
+          className={`min-h-10 min-w-0 flex-1 rounded-lg px-1.5 text-sm ${on ? 'bg-surface font-bold text-son shadow-sm' : 'font-medium text-ink hover:bg-surface/60'}`}
+        >
+          {option.label}
+        </button>
+      );
+    })}
+  </div>
+);
+
+/** Nút bật/tắt dạng viên thuốc. */
+const Chip = ({ on, disabled, onClick, children }: { on: boolean; disabled?: boolean; onClick: () => void; children: ReactNode }) => (
+  <button
+    type="button"
+    aria-pressed={on}
+    disabled={disabled}
+    onClick={onClick}
+    className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border-[1.5px] px-4 text-sm ${
+      on ? 'border-son bg-son/7 font-semibold text-son' : 'border-line bg-surface font-medium'
+    } disabled:cursor-not-allowed disabled:text-ink-muted/60`}
+  >
+    {on && (
+      <svg aria-hidden="true" viewBox="0 0 20 20" className="size-4 fill-none stroke-current" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 10.5l4 4 8-9" />
+      </svg>
+    )}
+    {children}
+  </button>
+);
 
 const THUMB_PAGE = { width: 297, height: 420 };
 const thumbnails = new Map<FrameStyle, string>();
@@ -29,53 +133,164 @@ const frameThumbnail = (frame: FrameStyle) => {
 };
 const shortLabel = (frame: FrameStyle) => FRAME_LABELS[frame].split(' (')[0]!;
 
-/** Chọn kiểu khung: mặc định chỉ một dòng (ảnh + tên kiểu đang chọn); bấm mở lưới ảnh xem trước 4 cột, chọn xong tự thu lại. Không cuộn ngang. */
+/** Chọn kiểu khung: cả 12 ảnh xem trước luôn hiện (6 cột), bấm một lần là chọn; tên kiểu đang chọn nằm cạnh tiêu đề. */
 const FramePicker = ({ frame, onChange }: { frame: FrameStyle; onChange: (frame: FrameStyle) => void }) => {
-  const [open, setOpen] = useState(false);
   const styles = Object.keys(FRAME_LABELS) as FrameStyle[];
   return (
-    <div>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-        className={`flex min-h-16 w-full items-center gap-3 border px-3 py-2 text-left ${open ? 'rounded-t-xl border-son bg-son/5' : 'rounded-xl border-line'}`}
-      >
-        <img src={frameThumbnail(frame)} alt="" width={40} height={56} className="h-14 w-10 shrink-0 border border-line bg-white object-cover" />
-        <span className="min-w-0 flex-1">
-          <span className="block font-semibold text-son">{shortLabel(frame)}</span>
-          <span className="block text-sm text-ink-muted">{open ? 'Chọn một kiểu bên dưới' : `${styles.length} kiểu khung · bấm để đổi`}</span>
+    <section>
+      <SectionLabel aside={<span className="font-semibold text-son">{shortLabel(frame)}</span>}>Kiểu khung</SectionLabel>
+      <div role="radiogroup" aria-label="Kiểu khung" className="grid grid-cols-6 gap-2">
+        {styles.map((style) => (
+          <label
+            key={style}
+            title={FRAME_LABELS[style]}
+            className={`block min-w-0 cursor-pointer rounded-md has-focus-visible:outline-3 has-focus-visible:outline-kim ${
+              frame === style ? 'ring-2 ring-son ring-offset-2' : 'opacity-90 hover:opacity-100'
+            }`}
+          >
+            <input type="radio" name="frame-style" className="sr-only" aria-label={FRAME_LABELS[style]} checked={frame === style} onChange={() => onChange(style)} />
+            <img src={frameThumbnail(style)} alt="" className="block aspect-[3/4] w-full rounded-sm border border-line bg-white object-cover" />
+          </label>
+        ))}
+      </div>
+    </section>
+  );
+};
+
+const NUMBER_CONTROL = 'min-h-12 w-full rounded-xl border border-line bg-surface px-4 tabular-nums disabled:bg-paper disabled:text-ink-muted';
+
+/**
+ * Ô nhập số có đơn vị. Đang gõ thì giữ nguyên chữ người dùng gõ (không bóp về min/max giữa chừng nên gõ "150" không bị
+ * đổi thành "10" ngay ở phím "1"); chỉ báo ra ngoài khi là số hợp lệ trong khoảng; rời ô thì kẹp vào khoảng. Không đang gõ thì
+ * luôn hiện giá trị hiện hành, nên giá trị đổi từ nơi khác (ví dụ khổ giấy tự tính) hiện ra ngay.
+ */
+const NumberField = ({
+  label,
+  unit,
+  value,
+  min,
+  max,
+  step = 1,
+  compact = false,
+  disabled = false,
+  ariaLabel,
+  onChange,
+}: {
+  label: string;
+  unit: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  /** Gọn, nhãn cùng hàng với ô nhập (dùng cạnh dòng chữ mà nó điều khiển). */
+  compact?: boolean;
+  disabled?: boolean;
+  /** Tên đọc cho trình đọc màn hình khi nhãn nhìn thấy quá ngắn (nhiều ô cùng nhãn "Cỡ chữ"). */
+  ariaLabel?: string;
+  onChange: (value: number) => void;
+}) => {
+  const id = useId();
+  const [draft, setDraft] = useState<string | null>(null);
+  const inRange = (text: string) => {
+    const parsed = Number(text);
+    return text.trim() !== '' && Number.isFinite(parsed) && parsed >= min && parsed <= max ? parsed : null;
+  };
+  return (
+    <div className={compact ? 'flex items-center gap-2' : 'min-w-0'}>
+      <label htmlFor={id} className={compact ? 'shrink-0 text-sm text-ink-muted' : 'mb-1 block text-sm text-ink-muted'}>
+        {label}
+      </label>
+      <div className="relative min-w-0">
+        <input
+          id={id}
+          type="number"
+          inputMode="decimal"
+          min={min}
+          max={max}
+          step={step}
+          disabled={disabled}
+          {...(ariaLabel ? { 'aria-label': ariaLabel } : {})}
+          className={compact ? 'min-h-10 w-24 rounded-lg border border-line bg-surface pl-3 pr-8 tabular-nums' : `${NUMBER_CONTROL} pr-11`}
+          value={draft ?? String(value)}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            const parsed = inRange(event.target.value);
+            if (parsed !== null) onChange(parsed);
+          }}
+          onBlur={() => {
+            const parsed = Number(draft);
+            if (draft !== null && draft.trim() !== '' && Number.isFinite(parsed)) onChange(Math.min(max, Math.max(min, parsed)));
+            setDraft(null);
+          }}
+        />
+        <span aria-hidden="true" className={`pointer-events-none absolute inset-y-0 flex items-center text-sm text-ink-muted ${compact ? 'right-2' : 'right-3'}`}>
+          {unit}
         </span>
-        <svg aria-hidden="true" viewBox="0 0 20 20" className={`size-4 shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`}>
-          <path d="M5 7.5l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-      {open && (
-        <div role="radiogroup" aria-label="Kiểu khung" className="grid grid-cols-4 gap-2 rounded-b-xl border border-t-0 border-line p-2 pt-3">
-          {styles.map((style) => (
-            <label
-              key={style}
-              title={FRAME_LABELS[style]}
-              className={`flex min-w-0 cursor-pointer flex-col items-center gap-1.5 rounded-xl border px-0.5 py-1.5 text-center has-focus-visible:outline-3 has-focus-visible:outline-kim ${
-                frame === style ? 'border-son bg-son/5 font-semibold text-son' : 'border-line'
-              }`}
-            >
-              <input
-                type="radio"
-                name="frame-style"
-                className="sr-only"
-                checked={frame === style}
-                onChange={() => {
-                  onChange(style);
-                  setOpen(false);
-                }}
-              />
-              <img src={frameThumbnail(style)} alt="" width={52} height={74} className="h-[74px] w-[52px] border border-line bg-white object-cover" />
-              <span className="w-full text-[11px] leading-tight [overflow-wrap:anywhere]">{shortLabel(style)}</span>
-            </label>
-          ))}
-        </div>
-      )}
+      </div>
+    </div>
+  );
+};
+
+const SizeField = ({
+  label = 'Cỡ chữ',
+  ariaLabel,
+  compact,
+  value,
+  onChange,
+}: {
+  label?: string;
+  ariaLabel?: string;
+  compact?: boolean;
+  value: number;
+  onChange: (px: number) => void;
+}) => (
+  <NumberField
+    label={label}
+    unit="px"
+    min={FONT_PX_MIN}
+    max={FONT_PX_MAX}
+    value={value}
+    onChange={onChange}
+    {...(compact !== undefined ? { compact } : {})}
+    {...(ariaLabel ? { ariaLabel } : {})}
+  />
+);
+
+/** Một dòng chữ trang trí: tên ở trái, cỡ chữ của chính nó ở phải cùng hàng, ô chữ đầy chiều ngang bên dưới. */
+const TextWithSize = ({
+  label,
+  placeholder,
+  maxLength,
+  text,
+  onText,
+  size,
+  onSize,
+}: {
+  label: string;
+  placeholder: string;
+  maxLength: number;
+  text: string;
+  onText: (text: string) => void;
+  size: number;
+  onSize: (px: number) => void;
+}) => {
+  const id = useId();
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-3">
+        <label htmlFor={id} className="font-medium">
+          {label}
+        </label>
+        <SizeField compact ariaLabel={`Cỡ chữ ${label.toLowerCase()}`} value={size} onChange={onSize} />
+      </div>
+      <input
+        id={id}
+        className="min-h-12 w-full rounded-xl border border-line bg-surface px-4"
+        placeholder={placeholder}
+        maxLength={maxLength}
+        value={text}
+        onChange={(event) => onText(event.target.value)}
+      />
     </div>
   );
 };
@@ -89,42 +304,57 @@ export const DecorationSettings = ({
   decoration: Decoration;
   onChange: (patch: Partial<Decoration>) => void;
 }) => (
-  <fieldset className="min-w-0 space-y-3">
-    <legend className="mb-1 font-medium">Trang trí</legend>
+  <div className="min-w-0 space-y-6">
     <FramePicker frame={decoration.frame} onChange={(frame) => onChange({ frame })} />
-    <TextField
-      label="Tiêu đề"
-      placeholder={defaultTitle(treeName)}
-      maxLength={120}
-      value={decoration.title}
-      onChange={(event) => onChange({ title: event.target.value })}
-    />
-    <TextField
-      label="Phụ đề"
-      placeholder="Kính dâng tổ tiên – năm 2026"
-      maxLength={200}
-      value={decoration.subtitle}
-      onChange={(event) => onChange({ subtitle: event.target.value })}
-    />
-    <TextField
-      label="Câu đối – vế bên trái"
-      placeholder="Uống nước nhớ nguồn"
-      maxLength={200}
-      value={decoration.coupletLeft}
-      onChange={(event) => onChange({ coupletLeft: event.target.value })}
-    />
-    <TextField
-      label="Câu đối – vế bên phải"
-      placeholder="Ăn quả nhớ kẻ trồng cây"
-      maxLength={200}
-      value={decoration.coupletRight}
-      onChange={(event) => onChange({ coupletRight: event.target.value })}
-    />
-    <p className="text-sm text-ink-muted">Câu đối viết dọc, mỗi chữ một dòng, hai bên Phả đồ.</p>
-  </fieldset>
+
+    <section className="space-y-4">
+      <SectionLabel>Chữ trang trí</SectionLabel>
+      <TextWithSize
+        label="Tiêu đề"
+        placeholder={defaultTitle(treeName)}
+        maxLength={120}
+        text={decoration.title}
+        onText={(title) => onChange({ title })}
+        size={decoration.titleSize}
+        onSize={(titleSize) => onChange({ titleSize })}
+      />
+      <TextWithSize
+        label="Phụ đề"
+        placeholder="Kính dâng tổ tiên – năm 2026"
+        maxLength={200}
+        text={decoration.subtitle}
+        onText={(subtitle) => onChange({ subtitle })}
+        size={decoration.subtitleSize}
+        onSize={(subtitleSize) => onChange({ subtitleSize })}
+      />
+      <fieldset className="min-w-0 space-y-3 rounded-xl border border-line p-3">
+        <legend className="sr-only">Câu đối</legend>
+        <div className="flex items-center justify-between gap-3">
+          <p className="font-medium">Câu đối</p>
+          <SizeField compact ariaLabel="Cỡ chữ câu đối" value={decoration.coupletSize} onChange={(coupletSize) => onChange({ coupletSize })} />
+        </div>
+        <TextField
+          label="Vế bên trái"
+          placeholder="Uống nước nhớ nguồn"
+          maxLength={200}
+          value={decoration.coupletLeft}
+          onChange={(event) => onChange({ coupletLeft: event.target.value })}
+        />
+        <TextField
+          label="Vế bên phải"
+          placeholder="Ăn quả nhớ kẻ trồng cây"
+          maxLength={200}
+          value={decoration.coupletRight}
+          onChange={(event) => onChange({ coupletRight: event.target.value })}
+        />
+        <p className="text-sm text-ink-muted">Viết dọc, mỗi chữ một dòng, hai bên Phả đồ.</p>
+      </fieldset>
+      <Note>Cỡ chữ (px) tính trên trang có cạnh ngắn 1000 px, tự co giãn theo khổ giấy nên đổi khổ giấy vẫn giữ đúng tỉ lệ. Chữ vẫn tự co lại nếu không đủ chỗ.</Note>
+    </section>
+  </div>
 );
 
-export const ScopeSettings = ({
+const ScopeSettings = ({
   graph,
   config,
   onChange,
@@ -137,29 +367,29 @@ export const ScopeSettings = ({
   const branchRoots = progenitor ? graph.childrenOf(progenitor.id).map(({ person }) => person) : [];
   const scope = config.scope;
 
-  const option = (kind: PhaDoConfig['scope']['kind'], label: string, onPick: () => void) => (
-    <label
-      className={`flex min-h-12 cursor-pointer items-center rounded-xl border px-4 ${
-        scope.kind === kind ? 'border-son bg-son/5 font-semibold text-son' : 'border-line'
-      }`}
-    >
-      <input type="radio" className="sr-only" checked={scope.kind === kind} onChange={onPick} />
-      {label}
-    </label>
-  );
-
   return (
-    <fieldset className="min-w-0 space-y-2">
-      <legend className="mb-1 font-medium">Phạm vi in</legend>
-      {option('all', 'Cả gia phả', () => onChange({ scope: { kind: 'all' } }))}
-      {option('branch', 'Một Chi', () => {
-        const first = branchRoots[0];
-        if (first) onChange({ scope: { kind: 'branch', personId: first.id } });
-      })}
+    <section>
+      <SectionLabel>Phạm vi in</SectionLabel>
+      <Segmented
+        label="Phạm vi in"
+        value={scope.kind}
+        options={[
+          { value: 'all', label: 'Cả gia phả' },
+          { value: 'branch', label: 'Một Chi' },
+          { value: 'from-person', label: 'Từ một người' },
+        ]}
+        onChange={(kind) => {
+          if (kind === 'all') onChange({ scope: { kind: 'all' } });
+          else if (kind === 'branch') {
+            const first = branchRoots[0];
+            if (first) onChange({ scope: { kind: 'branch', personId: first.id } });
+          } else onChange({ scope: { kind: 'from-person', personId: progenitor?.id ?? '', depth: 3 } });
+        }}
+      />
       {scope.kind === 'branch' && (
         <Select
           aria-label="Chọn Chi"
-          className="w-full"
+          className="mt-3 w-full"
           value={scope.personId}
           onChange={(event) => onChange({ scope: { kind: 'branch', personId: event.target.value } })}
         >
@@ -170,17 +400,10 @@ export const ScopeSettings = ({
           ))}
         </Select>
       )}
-      {option('from-person', 'Từ một người xuống N đời', () =>
-        onChange({ scope: { kind: 'from-person', personId: progenitor?.id ?? '', depth: 3 } }),
-      )}
       {scope.kind === 'from-person' && (
-        <div className="space-y-3 rounded-xl border border-line p-3">
+        <div className="mt-3 space-y-3 rounded-xl border border-line p-3">
           <p className="font-medium">{graph.person(scope.personId) ? personLabel(graph, scope.personId) : 'Chưa chọn người'}</p>
-          <PersonPicker
-            graph={graph}
-            label="Đổi người"
-            onPick={(personId) => onChange({ scope: { ...scope, personId } })}
-          />
+          <PersonPicker graph={graph} label="Đổi người" onPick={(personId) => onChange({ scope: { ...scope, personId } })} />
           <TextField
             label="Số đời bên dưới"
             type="number"
@@ -194,108 +417,272 @@ export const ScopeSettings = ({
           />
         </div>
       )}
-    </fieldset>
+    </section>
   );
 };
 
-export const PaperSettings = ({ config, onChange }: { config: PhaDoConfig; onChange: (patch: Partial<PhaDoConfig>) => void }) => (
-  <fieldset className="min-w-0 space-y-2">
-    <legend className="mb-1 font-medium">Khổ giấy</legend>
-    <Select
-      aria-label="Khổ giấy"
-      className="w-full"
-      value={config.paper}
-      onChange={(event) => onChange({ paper: event.target.value as PaperName })}
-    >
-      {(Object.keys(PAPER_SIZES) as (keyof typeof PAPER_SIZES)[]).map((name) => (
-        <option key={name} value={name}>
-          {name} ({PAPER_SIZES[name].width / 10} × {PAPER_SIZES[name].height / 10} cm)
-        </option>
-      ))}
-      <option value="custom">Tự nhập kích thước</option>
-    </Select>
-    {config.paper === 'custom' && (
-      <div className="grid grid-cols-2 gap-3">
-        <TextField
-          label="Rộng (cm)"
-          type="number"
-          min={10}
-          max={500}
-          value={config.customWidthCm}
-          onChange={(event) => onChange({ customWidthCm: Math.min(500, Math.max(10, Number(event.target.value) || 10)) })}
-        />
-        <TextField
-          label="Cao (cm)"
-          type="number"
-          min={10}
-          max={500}
-          value={config.customHeightCm}
-          onChange={(event) => onChange({ customHeightCm: Math.min(500, Math.max(10, Number(event.target.value) || 10)) })}
-        />
-      </div>
-    )}
-    <div className="flex gap-2">
-      {(['landscape', 'portrait'] as const).map((orientation) => (
-        <label
-          key={orientation}
-          className={`flex min-h-12 flex-1 cursor-pointer items-center justify-center rounded-xl border px-3 ${
-            config.orientation === orientation ? 'border-son bg-son/5 font-semibold text-son' : 'border-line'
-          }`}
-        >
-          <input
-            type="radio"
-            className="sr-only"
-            checked={config.orientation === orientation}
-            onChange={() => onChange({ orientation })}
-          />
-          {orientation === 'landscape' ? 'Ngang' : 'Dọc'}
-        </label>
-      ))}
-    </div>
-  </fieldset>
-);
+/** Tab "Nội dung": phạm vi in, Cháu ngoại, và những gì hiện trong mỗi ô. */
+export const ContentSettings = ({
+  graph,
+  config,
+  onChange,
+}: {
+  graph: FamilyGraph<Person>;
+  config: PhaDoConfig;
+  onChange: (patch: Partial<PhaDoConfig>) => void;
+}) => {
+  const full = config.extraLines.length >= 2;
+  const toggleLine = (line: ExtraLine) =>
+    onChange({ extraLines: config.extraLines.includes(line) ? config.extraLines.filter((item) => item !== line) : [...config.extraLines, line] });
+  return (
+    <div className="min-w-0 space-y-6">
+      <ScopeSettings graph={graph} config={config} onChange={onChange} />
 
-const FONT_SCALE_LABELS: Record<(typeof FONT_SCALE_OPTIONS)[number], string> = {
-  0.75: 'Nhỏ',
-  1: 'Vừa',
-  1.3: 'Lớn',
-  1.6: 'Rất lớn',
+      <section>
+        <label htmlFor="pha-do-outside">
+          <SectionLabel>Cháu ngoại</SectionLabel>
+        </label>
+        <Select
+          id="pha-do-outside"
+          className="w-full"
+          value={config.outsideGenerations}
+          onChange={(event) => onChange({ outsideGenerations: Number(event.target.value) })}
+        >
+          {OUTSIDE_OPTIONS.map((n) => (
+            <option key={n} value={n}>
+              {outsideLabel(n)}
+            </option>
+          ))}
+        </Select>
+      </section>
+
+      <section>
+        <SectionLabel aside={`Chữ: ${config.extraLines.length}/2 dòng`}>Trong mỗi ô</SectionLabel>
+        <div className="flex flex-wrap gap-2">
+          <Chip on={config.showAvatars} onClick={() => onChange({ showAvatars: !config.showAvatars })}>
+            Ảnh đại diện
+          </Chip>
+          {(Object.keys(EXTRA_LINE_LABELS) as ExtraLine[]).map((line) => {
+            const on = config.extraLines.includes(line);
+            return (
+              <Chip key={line} on={on} disabled={!on && full} onClick={() => toggleLine(line)}>
+                {EXTRA_LINE_LABELS[line]}
+              </Chip>
+            );
+          })}
+        </div>
+        <Note>Luôn có tên và năm sinh – mất. Thêm tối đa 2 dòng chữ.</Note>
+      </section>
+    </div>
+  );
 };
 
-export const FontSettings = ({ config, onChange }: { config: PhaDoConfig; onChange: (patch: Partial<PhaDoConfig>) => void }) => (
-  <fieldset className="min-w-0 space-y-2 border-t border-line pt-3">
-    <legend className="mb-1 font-medium">Cỡ chữ</legend>
-    <div className="grid grid-cols-4 gap-2">
-      {FONT_SCALE_OPTIONS.map((scale) => (
-        <label
-          key={scale}
-          className={`flex min-h-11 cursor-pointer items-center justify-center rounded-xl border px-1 text-center text-sm ${
-            config.fontScale === scale ? 'border-son bg-son/5 font-semibold text-son' : 'border-line'
-          }`}
-        >
-          <input type="radio" className="sr-only" checked={config.fontScale === scale} onChange={() => onChange({ fontScale: scale })} />
-          {FONT_SCALE_LABELS[scale]}
-        </label>
-      ))}
-    </div>
-    <p className="text-sm text-ink-muted">Chữ vẫn tự co lại nếu không đủ chỗ trên khổ giấy đã chọn.</p>
+type PaperChoice = 'auto' | PaperName;
+const PAPER_CHOICES: { value: PaperChoice; label: string }[] = [
+  { value: 'auto', label: 'Tự động' },
+  ...(Object.keys(PAPER_SIZES) as (keyof typeof PAPER_SIZES)[]).map((name) => ({ value: name, label: name })),
+  { value: 'custom', label: 'Tự nhập' },
+];
 
-    <label className="block pt-2">
-      <span className="mb-1 block font-medium">Phông chữ</span>
-      <Select
-        className="w-full"
-        value={config.fontFamily}
-        onChange={(event) => onChange({ fontFamily: event.target.value as PhaDoFontFamily })}
-      >
-        {(Object.keys(FONT_FAMILY_LABELS) as PhaDoFontFamily[]).map((family) => (
-          <option key={family} value={family}>
-            {FONT_FAMILY_LABELS[family]}
-          </option>
-        ))}
-      </Select>
-      <span className="mt-1 block text-sm text-ink-muted">
-        Bản xuất PDF/PNG dùng đúng phông đã chọn ở đây (riêng "Chữ hệ thống" không có file để nhúng, xuất tạm bằng Noto Serif).
-      </span>
-    </label>
-  </fieldset>
+const round1 = (value: number) => Math.round(value * 10) / 10;
+
+export const PaperSettings = ({
+  config,
+  onChange,
+  onAuto,
+  onOrientationChange,
+}: {
+  config: PhaDoConfig;
+  /** Người dùng chọn khổ/kích thước cụ thể (giữ khổ đó, cỡ chữ tự chỉnh theo). */
+  onChange: (patch: Partial<PhaDoConfig>) => void;
+  /** Bật khổ tự động: khổ tự co giãn theo nội dung. */
+  onAuto: () => void;
+  onOrientationChange: (orientation: PhaDoConfig['orientation']) => void;
+}) => {
+  const choice: PaperChoice = config.autoPaper ? 'auto' : config.paper;
+  const page = pageSizeMm(config);
+  const editable = choice === 'custom';
+  return (
+    <section>
+      <SectionLabel>Khổ giấy</SectionLabel>
+      <div role="radiogroup" aria-label="Khổ giấy" className="grid grid-cols-3 gap-2">
+        {PAPER_CHOICES.map((option) => {
+          const on = option.value === choice;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => {
+                if (option.value === 'auto') onAuto();
+                else if (option.value === 'custom') onChange({ paper: 'custom', customWidthCm: round1(page.width / 10), customHeightCm: round1(page.height / 10) });
+                else onChange({ paper: option.value });
+              }}
+              className={`min-h-11 rounded-xl border-[1.5px] text-sm ${on ? 'border-son bg-son/7 font-bold text-son' : 'border-line bg-surface font-medium'}`}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-3 flex items-end gap-2">
+        <NumberField
+          label="Rộng"
+          unit="cm"
+          min={CUSTOM_CM_MIN}
+          max={CUSTOM_CM_MAX}
+          step={0.1}
+          disabled={!editable}
+          value={editable ? config.customWidthCm : round1(page.width / 10)}
+          onChange={(customWidthCm) => onChange({ customWidthCm })}
+        />
+        <span aria-hidden="true" className="pb-3 text-ink-muted">
+          ×
+        </span>
+        <NumberField
+          label="Cao"
+          unit="cm"
+          min={CUSTOM_CM_MIN}
+          max={CUSTOM_CM_MAX}
+          step={0.1}
+          disabled={!editable}
+          value={editable ? config.customHeightCm : round1(page.height / 10)}
+          onChange={(customHeightCm) => onChange({ customHeightCm })}
+        />
+      </div>
+      <div className="mt-3">
+        <Segmented
+          label="Hướng giấy"
+          value={config.orientation}
+          options={[
+            { value: 'landscape', label: 'Ngang' },
+            { value: 'portrait', label: 'Dọc' },
+          ]}
+          onChange={onOrientationChange}
+        />
+      </div>
+      <Note>
+        {choice === 'auto'
+          ? 'Khổ giấy tự co giãn theo nội dung (người, ô, khung, tiêu đề, câu đối…): đổi gì, mọi thứ vẫn vừa khít khung. Chọn một khổ hoặc "Tự nhập" để cố định.'
+          : 'Khổ cố định: khi nội dung đổi, cỡ chữ tự chỉnh cho vừa khổ này. Chọn "Tự động" để khổ giấy tự co giãn theo nội dung.'}
+      </Note>
+    </section>
+  );
+};
+
+/** Chọn một màu; "Gốc" trả về màu như trước khi tuỳ chỉnh (null). */
+const ColorField = ({
+  label,
+  value,
+  fallback,
+  onChange,
+}: {
+  label: string;
+  value: string | null;
+  fallback: string;
+  onChange: (color: string | null) => void;
+}) => {
+  const id = useId();
+  return (
+    <div className="flex min-h-12 min-w-0 items-center gap-2 rounded-xl border border-line bg-surface pl-1.5 pr-2">
+      <input
+        id={id}
+        type="color"
+        className="size-9 shrink-0 cursor-pointer rounded-md border-0 bg-transparent p-0"
+        value={value ?? fallback}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <label htmlFor={id} className="min-w-0 flex-1 text-sm font-semibold">
+        {label}
+      </label>
+      {value !== null && (
+        <button type="button" aria-label={`Về ${label.toLowerCase()} mặc định`} className="min-h-9 shrink-0 px-1 text-sm text-son underline" onClick={() => onChange(null)}>
+          Gốc
+        </button>
+      )}
+    </div>
+  );
+};
+
+export const FontSettings = ({
+  config,
+  namePx,
+  onChange,
+  onMemberFontChange,
+}: {
+  config: PhaDoConfig;
+  /** Cỡ chữ tên thực tế sau khi co cho vừa khổ giấy (null nếu chưa có bản vẽ). */
+  namePx: number | null;
+  onChange: (patch: Partial<PhaDoConfig>) => void;
+  /** Đổi cỡ chữ ô; khổ giấy tự co giãn. */
+  onMemberFontChange: (px: number) => void;
+}) => (
+  <section>
+    <SectionLabel>Chữ trong ô thành viên</SectionLabel>
+    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-3">
+      <SizeField label="Cỡ chữ" ariaLabel="Cỡ chữ tên trong ô thành viên" value={config.memberFontPx} onChange={onMemberFontChange} />
+      <div>
+        <label htmlFor="pha-do-font-family" className="mb-1 block text-sm text-ink-muted">
+          Phông chữ
+        </label>
+        <Select
+          id="pha-do-font-family"
+          className="w-full"
+          value={config.fontFamily}
+          onChange={(event) => onChange({ fontFamily: event.target.value as PhaDoFontFamily })}
+        >
+          {(Object.keys(FONT_FAMILY_LABELS) as PhaDoFontFamily[]).map((family) => (
+            <option key={family} value={family}>
+              {FONT_FAMILY_LABELS[family]}
+            </option>
+          ))}
+        </Select>
+      </div>
+    </div>
+    <div className="mt-3 grid grid-cols-2 gap-3">
+      <ColorField
+        label="Màu chữ"
+        value={config.memberTextColor}
+        fallback={DEFAULT_MEMBER_COLORS.text}
+        onChange={(memberTextColor) => onChange({ memberTextColor })}
+      />
+      <ColorField
+        label="Màu nền"
+        value={config.memberFillColor}
+        fallback={DEFAULT_MEMBER_COLORS.fill}
+        onChange={(memberFillColor) => onChange({ memberFillColor })}
+      />
+    </div>
+    <Note>
+      {namePx !== null && namePx < config.memberFontPx - 0.05
+        ? `Chữ tên đang co lại còn khoảng ${namePx.toFixed(1)} px vì không đủ chỗ trên khổ giấy này. Hãy in một Chi, hoặc giảm cỡ chữ.`
+        : 'Đổi cỡ chữ thì khổ giấy tự co giãn cho vừa khít. Viền ô vẫn theo giới tính; nền ô Dâu/Rể mặc định hơi ngả kem.'}
+    </Note>
+    <p className="mt-1 text-sm text-ink-muted">Bản xuất PDF/PNG dùng đúng phông đã chọn (riêng "Chữ hệ thống" xuất bằng Noto Serif).</p>
+  </section>
+);
+
+/** Tab "Khổ giấy & chữ". */
+export const PaperTab = ({
+  config,
+  namePx,
+  onPaper,
+  onAuto,
+  onOrientationChange,
+  onChange,
+  onMemberFontChange,
+}: {
+  config: PhaDoConfig;
+  namePx: number | null;
+  onPaper: (patch: Partial<PhaDoConfig>) => void;
+  onAuto: () => void;
+  onOrientationChange: (orientation: PhaDoConfig['orientation']) => void;
+  onChange: (patch: Partial<PhaDoConfig>) => void;
+  onMemberFontChange: (px: number) => void;
+}) => (
+  <div className="min-w-0 space-y-6">
+    <PaperSettings config={config} onChange={onPaper} onAuto={onAuto} onOrientationChange={onOrientationChange} />
+    <FontSettings config={config} namePx={namePx} onChange={onChange} onMemberFontChange={onMemberFontChange} />
+  </div>
 );

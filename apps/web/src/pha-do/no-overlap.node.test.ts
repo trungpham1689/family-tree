@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { buildFamilyGraph } from '../family/family-graph';
 import { blankPerson } from '../test-support/person';
 import { defaultPhaDoConfig, type PhaDoConfig } from './config';
-import { FRAME_LABELS, type Decoration, type FrameStyle } from './decoration';
+import { DEFAULT_DECORATION, FRAME_LABELS, type Decoration, type FrameStyle } from './decoration';
 import { PT_PER_MM, type DrawItem, type DrawRect, type DrawText } from './drawing';
 import { renderPhaDo } from './render';
 
@@ -52,12 +52,15 @@ const graph = buildFamilyGraph({
   positions: [],
 });
 
-const standard = { title: '', subtitle: '', coupletLeft: 'Uống nước nhớ nguồn', coupletRight: 'Ăn quả nhớ kẻ trồng cây' };
+const standard = { ...DEFAULT_DECORATION, title: '', subtitle: '', coupletLeft: 'Uống nước nhớ nguồn', coupletRight: 'Ăn quả nhớ kẻ trồng cây' };
 const decorations: Decoration[] = [
   ...(Object.keys(FRAME_LABELS) as FrameStyle[]).map((frame) => ({ ...standard, frame })),
-  { frame: 'hoang-gia', title: 'Gia phả dòng họ Nguyễn Hoàng Thiên Phương Thảo Nguyên ở Nghệ An', subtitle: 'Kính dâng tổ tiên – năm 2026, nhân dịp trùng tu nhà thờ họ', coupletLeft: 'Công đức tổ tông muôn đời sáng', coupletRight: 'Phúc ấm con cháu vạn thuở bền' },
-  { frame: 'thanh-nha', title: 'Họ Phạm', subtitle: '', coupletLeft: 'Nguyễn Nghiêng Nghiệp', coupletRight: 'Khuyến Khuyên Quyền Trường' },
-  { frame: 'none', title: 'Họ Phạm', subtitle: 'x', coupletLeft: 'Trường tồn', coupletRight: 'Thịnh vượng' },
+  { ...DEFAULT_DECORATION, frame: 'hoang-gia', title: 'Gia phả dòng họ Nguyễn Hoàng Thiên Phương Thảo Nguyên ở Nghệ An', subtitle: 'Kính dâng tổ tiên – năm 2026, nhân dịp trùng tu nhà thờ họ', coupletLeft: 'Công đức tổ tông muôn đời sáng', coupletRight: 'Phúc ấm con cháu vạn thuở bền' },
+  { ...DEFAULT_DECORATION, frame: 'thanh-nha', title: 'Họ Phạm', subtitle: '', coupletLeft: 'Nguyễn Nghiêng Nghiệp', coupletRight: 'Khuyến Khuyên Quyền Trường' },
+  { ...DEFAULT_DECORATION, frame: 'none', title: 'Họ Phạm', subtitle: 'x', coupletLeft: 'Trường tồn', coupletRight: 'Thịnh vượng' },
+  // Cỡ chữ người dùng đặt rất to/rất nhỏ: chữ vẫn tự co cho vừa, không chồng.
+  { ...standard, frame: 'son-kim', title: 'Họ Phạm', subtitle: 'Kính dâng tổ tiên', titleSize: 400, subtitleSize: 400, coupletSize: 400 },
+  { ...standard, frame: 'hoanh-phi', title: 'Họ Phạm', subtitle: 'Kính dâng tổ tiên', titleSize: 4, subtitleSize: 4, coupletSize: 4 },
 ];
 const papers: Partial<PhaDoConfig>[] = [
   { paper: 'A3', orientation: 'portrait' },

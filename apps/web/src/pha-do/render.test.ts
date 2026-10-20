@@ -2,8 +2,11 @@ import { randomFamily } from '@gia-pha/tree-layout';
 import { describe, expect, it } from 'vitest';
 import { blankPerson } from '../test-support/person';
 import { buildFamilyGraph } from '../family/family-graph';
-import { defaultPhaDoConfig, pageSizeMm, readPhaDoConfig, type PhaDoConfig } from './config';
-import { MIN_READABLE_PT, renderPhaDo } from './render';
+import { defaultPhaDoConfig, hasStoredMemberFont, pageSizeMm, readPhaDoConfig, type PhaDoConfig } from './config';
+import { FRAME_LABELS, layoutDecoration, type FrameStyle } from './decoration';
+import { PT_PER_MM, type DrawItem } from './drawing';
+import { autoMemberFontPx, fitPaperToFont } from './auto-fit';
+import { MIN_READABLE_PX, renderPhaDo } from './render';
 import { drawingToSvg } from './svg';
 
 /**
@@ -162,8 +165,8 @@ describe('seam C: Phả đồ', () => {
   });
 });
 
-const bigFamily = () => {
-  const family = randomFamily(99, 800);
+const bigFamily = (size = 800) => {
+  const family = randomFamily(99, size);
   return buildFamilyGraph({
     persons: family.persons.map((person) =>
       blankPerson({ id: person.id, full_name: person.full_name, gender: person.gender, birth_year: person.birth_year, is_progenitor: person.id === family.rootId }),
@@ -178,8 +181,10 @@ describe('seam C: cảnh báo chữ quá nhỏ', () => {
   it('ép 800 người vào khổ A3 thì cảnh báo; gia phả nhỏ trên A0 thì không', () => {
     const big = renderPhaDo(bigFamily(), { ...base, paper: 'A3', outsideGenerations: 5 });
     expect(big.personCount).toBeGreaterThan(700);
-    expect(big.namePt).toBeLessThan(MIN_READABLE_PT);
+    expect(big.namePx).toBeLessThan(MIN_READABLE_PX);
     expect(big.warning).toMatch(/khó đọc/);
+    expect(big.warning).toMatch(/ px,/);
+    expect(big.warning).not.toMatch(/\bpt\b/);
 
     expect(renderPhaDo(sample(), { ...base, paper: 'A0' }).warning).toBeNull();
   });
@@ -191,12 +196,12 @@ describe('seam C: cảnh báo chữ quá nhỏ', () => {
       {
         ...base,
         paper: 'A1',
-        decoration: { frame: 'son-kim', title: '', subtitle: 'Kính dâng tổ tiên – năm 2026', coupletLeft: 'Uống nước nhớ nguồn', coupletRight: 'Ăn quả nhớ kẻ trồng cây' },
+        decoration: { ...base.decoration, frame: 'son-kim', subtitle: 'Kính dâng tổ tiên – năm 2026', coupletLeft: 'Uống nước nhớ nguồn', coupletRight: 'Ăn quả nhớ kẻ trồng cây' },
       },
       'Họ Phạm',
     );
-    expect(decorated.namePt).toBeLessThan(plain.namePt);
-    expect(decorated.warning !== null).toBe(decorated.namePt < MIN_READABLE_PT);
+    expect(decorated.namePx).toBeLessThan(plain.namePx);
+    expect(decorated.warning !== null).toBe(decorated.namePx < MIN_READABLE_PX);
   });
 });
 
@@ -237,7 +242,7 @@ describe('trang trí', () => {
       {
         ...base,
         paper: 'A2',
-        decoration: { frame, title: '', subtitle: 'Kính dâng tổ tiên – năm 2026', coupletLeft: 'Uống nước nhớ nguồn', coupletRight: 'Ăn quả nhớ kẻ trồng cây' },
+        decoration: { ...base.decoration, frame, subtitle: 'Kính dâng tổ tiên – năm 2026', coupletLeft: 'Uống nước nhớ nguồn', coupletRight: 'Ăn quả nhớ kẻ trồng cây' },
       },
       'họ Phạm',
     );
@@ -270,5 +275,268 @@ describe('trang trí', () => {
       expect(box.x + box.width).toBeLessThan(drawing.width);
       expect(box.y + box.height).toBeLessThan(drawing.height);
     }
+  });
+});
+
+describe('cỡ chữ tuỳ chỉnh', () => {
+  const textOf = (config: PhaDoConfig, text: string, tree = 'họ Phạm') => {
+    const item = renderPhaDo(sample(), config, tree).drawing.items.find((it) => it.type === 'text' && it.text === text);
+    if (item?.type !== 'text') throw new Error(`Không thấy "${text}"`);
+    return item;
+  };
+  const titled = { ...base, paper: 'A1' as const, decoration: { ...base.decoration, subtitle: 'Phụ đề', coupletLeft: 'Uống', coupletRight: 'Ăn' } };
+  const withSize = (patch: Partial<PhaDoConfig['decoration']>) => ({ ...titled, decoration: { ...titled.decoration, ...patch } });
+
+  it('mặc định tên 14 px khi cây vừa trang', () => {
+    expect(renderPhaDo(sample(), { ...base, paper: 'A1' }).namePx).toBeCloseTo(14, 5);
+  });
+
+  it('cỡ chữ ô: lớn hơn thì chữ tên to hơn, nhưng không vượt cỡ vừa khổ giấy', () => {
+    const small = renderPhaDo(sample(), { ...base, memberFontPx: 10 });
+    const large = renderPhaDo(sample(), { ...base, memberFontPx: 30 });
+    expect(large.namePx).toBeGreaterThan(small.namePx);
+    const capped = renderPhaDo(bigFamily(), { ...base, paper: 'A3', memberFontPx: 400 });
+    expect(capped.namePx).toBeLessThan(400);
+    expect(capped.namePx).toBeGreaterThan(0);
+  });
+
+  it('tiêu đề, phụ đề, câu đối đổi cỡ độc lập', () => {
+    expect(textOf(withSize({ titleSize: 100 }), 'Gia phả họ Phạm').sizePt).toBeGreaterThan(textOf(withSize({ titleSize: 50 }), 'Gia phả họ Phạm').sizePt);
+    expect(textOf(withSize({ subtitleSize: 80 }), 'Phụ đề').sizePt).toBeGreaterThan(textOf(withSize({ subtitleSize: 40 }), 'Phụ đề').sizePt);
+    expect(textOf(withSize({ coupletSize: 60 }), 'Uống').sizePt).toBeGreaterThan(textOf(withSize({ coupletSize: 30 }), 'Uống').sizePt);
+    // đổi cỡ phụ đề không động tới tiêu đề
+    expect(textOf(withSize({ subtitleSize: 80 }), 'Gia phả họ Phạm').sizePt).toBe(textOf(withSize({ subtitleSize: 40 }), 'Gia phả họ Phạm').sizePt);
+  });
+
+  it('cỡ trang trí tính trên trang cạnh ngắn 1000 px: 100 px trên A1 = 1/10 cạnh ngắn 594 mm', () => {
+    expect(textOf(withSize({ subtitleSize: 100 }), 'Phụ đề').sizePt).toBeCloseTo(59.4 * PT_PER_MM, 3);
+  });
+
+  it('mặc định trang trí 50 / 30 / 30', () => {
+    expect([base.decoration.titleSize, base.decoration.subtitleSize, base.decoration.coupletSize]).toEqual([50, 30, 30]);
+  });
+
+  it('đọc lại cấu hình: cỡ chữ ngoài khoảng thì về mặc định', () => {
+    const read = readPhaDoConfig({ memberFontPx: 9999, decoration: { titleSize: 1, subtitleSize: 50 } }, 1);
+    expect(read.memberFontPx).toBe(14);
+    expect(read.decoration.titleSize).toBe(50);
+    expect(read.decoration.subtitleSize).toBe(50);
+  });
+});
+
+/**
+ * Cùng tỉ lệ khổ giấy, gấp đôi kích thước → mọi phần tử (toạ độ, nét, cỡ chữ, chấm, đường đứt…) phải gấp đôi đúng.
+ * Phần tử nào còn cỡ cố định (mm/pt) sẽ lộ ra ở đây.
+ */
+describe('tỉ lệ theo khổ giấy', () => {
+  const geometry = (item: DrawItem): number[] => {
+    switch (item.type) {
+      case 'rect':
+        return [item.x, item.y, item.width, item.height, item.radius, item.strokeWidth, ...(item.dash ?? [])];
+      case 'line':
+        return [...item.points.flat(), item.strokeWidth];
+      case 'text':
+        return [item.x, item.y, item.sizePt];
+      case 'image':
+        return [item.x, item.y, item.width, item.height, item.round?.borderWidth ?? 0];
+    }
+  };
+  const render = (frame: FrameStyle, widthCm: number, heightCm: number) =>
+    renderPhaDo(
+      sample(),
+      {
+        ...base,
+        paper: 'custom',
+        customWidthCm: widthCm,
+        customHeightCm: heightCm,
+        // Cỡ chữ ô lớn để bị khổ giấy giới hạn (không chạm trần) → mọi thứ co giãn tuyến tính theo khổ.
+        memberFontPx: 300,
+        showAvatars: true,
+        extraLines: ['gio', 'que'],
+        decoration: { ...base.decoration, frame, subtitle: 'Kính dâng tổ tiên – năm 2026', coupletLeft: 'Uống nước nhớ nguồn', coupletRight: 'Ăn quả nhớ kẻ trồng cây' },
+      },
+      'họ Phạm',
+      new Map([['con-a', 'data:image/png;base64,AAA']]),
+    );
+
+  it.each(Object.keys(FRAME_LABELS) as FrameStyle[])('khung %s: khổ gấp đôi thì mọi thứ gấp đôi', (frame) => {
+    const small = render(frame, 50, 35);
+    const large = render(frame, 100, 70);
+    expect(large.drawing.items).toHaveLength(small.drawing.items.length);
+    large.drawing.items.forEach((item, index) => {
+      const a = geometry(small.drawing.items[index]!);
+      const b = geometry(item);
+      expect(b).toHaveLength(a.length);
+      b.forEach((value, i) => expect(value).toBeCloseTo(a[i]! * 2, 6));
+    });
+    expect(large.namePx).toBeCloseTo(small.namePx * 2, 6);
+  });
+});
+
+describe('khổ giấy tự co giãn cho vừa khít', () => {
+  // 60 người: đủ đông để khổ giấy cỡ vài mét, vẫn trong giới hạn 500 cm ở mọi cỡ chữ thử.
+  const family = bigFamily(60);
+  const decorated = (frame: FrameStyle, extra: Partial<PhaDoConfig> = {}): PhaDoConfig => ({
+    ...base,
+    ...extra,
+    decoration: {
+      ...base.decoration,
+      frame,
+      subtitle: 'Kính dâng tổ tiên – năm 2026',
+      coupletLeft: 'Uống nước nhớ nguồn',
+      coupletRight: 'Ăn quả nhớ kẻ trồng cây',
+    },
+  });
+  const nodeBoxes = (config: PhaDoConfig, graph = sample()) =>
+    renderPhaDo(graph, config, 'họ Phạm').drawing.items.filter(
+      (item): item is Extract<DrawItem, { type: 'rect' }> => item.type === 'rect' && item.radius > 0 && (item.fill === '#ffffff' || item.fill === '#fbf8f3'),
+    );
+
+  it('cỡ chữ ô đạt đúng cỡ yêu cầu, khổ tự nhập, trong 10–500 cm', () => {
+    for (const memberFontPx of [6, 10, 20]) {
+      const fitted = fitPaperToFont(family, decorated('son-kim', { memberFontPx, outsideGenerations: 5 }), 'họ Phạm');
+      expect(fitted.paper).toBe('custom');
+      const after = renderPhaDo(family, fitted, 'họ Phạm');
+      expect(after.namePx).toBeCloseTo(memberFontPx, 1);
+      expect(after.fitNamePx).toBeGreaterThanOrEqual(memberFontPx - 0.01);
+      expect(after.fitNamePx).toBeLessThan(memberFontPx * 1.01);
+    }
+  });
+
+  it('càng nhiều người / chữ càng to thì khổ càng lớn; chữ nhỏ hơn thì khổ thu lại', () => {
+    const area = (config: PhaDoConfig, graph = family) => {
+      const page = pageSizeMm(fitPaperToFont(graph, config, 'họ Phạm'));
+      return page.width * page.height;
+    };
+    const config = decorated('son-kim', { outsideGenerations: 5 });
+    expect(area({ ...config, memberFontPx: 20 })).toBeGreaterThan(area({ ...config, memberFontPx: 10 }) * 3.5);
+    expect(area(decorated('son-kim', { outsideGenerations: 5, memberFontPx: 14 }))).toBeGreaterThan(
+      area(decorated('son-kim', { memberFontPx: 14 }), sample()) * 3,
+    );
+  });
+
+  it.each(Object.keys(FRAME_LABELS) as FrameStyle[])('khung %s: mọi ô nằm trong vùng cây, sát khít một chiều, chữ trang trí không bị co', (frame) => {
+    const config = fitPaperToFont(sample(), decorated(frame, { memberFontPx: 20 }), 'họ Phạm');
+    const page = pageSizeMm(config);
+    const deco = layoutDecoration(page, config.decoration, 'họ Phạm');
+    expect(deco.fit).toBeGreaterThanOrEqual(0.999);
+    const boxes = nodeBoxes(config);
+    const left = Math.min(...boxes.map((box) => box.x));
+    const right = Math.max(...boxes.map((box) => box.x + box.width));
+    const top = Math.min(...boxes.map((box) => box.y));
+    const bottom = Math.max(...boxes.map((box) => box.y + box.height));
+    const { content } = deco;
+    // Khoảng sai số: làm tròn 0,1 cm của khổ giấy và nét viền ô.
+    const eps = Math.max(page.width, page.height) * 0.004 + 1;
+    expect(left).toBeGreaterThanOrEqual(content.x - eps);
+    expect(right).toBeLessThanOrEqual(content.x + content.width + eps);
+    expect(top).toBeGreaterThanOrEqual(content.y - eps);
+    expect(bottom).toBeLessThanOrEqual(content.y + content.height + eps);
+    // Vừa khít: tỉ lệ khung được chọn theo cây nên cây phủ gần hết vùng cây ở cả hai chiều.
+    const fillX = (right - left) / content.width;
+    const fillY = (bottom - top) / (content.height - 8 * (Math.min(page.width, page.height) / 594));
+    expect(Math.max(fillX, fillY)).toBeGreaterThan(0.97);
+    expect(Math.min(fillX, fillY)).toBeGreaterThan(0.8);
+  });
+
+  it('tiêu đề dài, câu đối dài: khổ giấy đủ rộng/cao để không chữ nào bị co', () => {
+    const config = fitPaperToFont(
+      sample(),
+      {
+        ...decorated('hoang-gia', { memberFontPx: 14 }),
+        decoration: {
+          ...base.decoration,
+          frame: 'hoang-gia',
+          title: 'Gia phả dòng họ Nguyễn Hoàng Thiên Phương Thảo Nguyên ở Nghệ An',
+          subtitle: 'Kính dâng tổ tiên – năm 2026, nhân dịp trùng tu nhà thờ họ',
+          coupletLeft: 'Công đức tổ tông muôn đời sáng rạng ngời',
+          coupletRight: 'Phúc ấm con cháu vạn thuở bền lâu',
+        },
+      },
+      'họ Phạm',
+    );
+    expect(layoutDecoration(pageSizeMm(config), config.decoration, 'họ Phạm').fit).toBeGreaterThanOrEqual(0.999);
+  });
+
+  it('giữ hướng giấy: ngang thì rộng ≥ cao, dọc thì cao ≥ rộng', () => {
+    const landscape = pageSizeMm(fitPaperToFont(sample(), decorated('son-kim', { memberFontPx: 14, orientation: 'landscape' }), 'họ Phạm'));
+    const portrait = pageSizeMm(fitPaperToFont(sample(), decorated('son-kim', { memberFontPx: 14, orientation: 'portrait' }), 'họ Phạm'));
+    expect(landscape.width).toBeGreaterThanOrEqual(landscape.height);
+    expect(portrait.height).toBeGreaterThanOrEqual(portrait.width);
+  });
+
+  it('chặn trong khoảng khổ tự nhập 10–500 cm', () => {
+    const big = pageSizeMm(fitPaperToFont(family, decorated('son-kim', { memberFontPx: 300 }), 'họ Phạm'));
+    expect(Math.max(big.width, big.height)).toBeLessThanOrEqual(5000);
+    const small = pageSizeMm(fitPaperToFont(sample(), decorated('none', { memberFontPx: 4 }), 'họ Phạm'));
+    expect(Math.min(small.width, small.height)).toBeGreaterThanOrEqual(100);
+  });
+
+  it('gốc không còn: giữ nguyên cấu hình', () => {
+    const config = { ...base, scope: { kind: 'branch' as const, personId: 'da-xoa' } };
+    expect(fitPaperToFont(sample(), config)).toEqual(config);
+  });
+
+  it('autoPaper: mặc định tắt, đọc lại từ cấu hình đã lưu', () => {
+    expect(base.autoPaper).toBe(false);
+    expect(readPhaDoConfig({ autoPaper: true }, 1).autoPaper).toBe(true);
+    expect(readPhaDoConfig({ autoPaper: 'yes' }, 1).autoPaper).toBe(false);
+  });
+});
+
+describe('cỡ chữ ô mặc định lúc mở lần đầu', () => {
+  it('bằng cỡ chữ đang hiện trên khổ mặc định (làm tròn xuống): nhập lại đúng số đó thì khổ giấy giữ nguyên', () => {
+    const initial = defaultPhaDoConfig(1);
+    const px = autoMemberFontPx(sample(), initial);
+    // Cây nhỏ: chữ chạm trần cũ 28 pt = 37,33 px.
+    expect(px).toBe(37);
+    const first = renderPhaDo(sample(), { ...initial, memberFontPx: px });
+    expect(first.namePx).toBeCloseTo(px, 5);
+    // Cây đông: chữ bị khổ giấy giới hạn, mặc định là cỡ thực đang hiện.
+    const config = { ...initial, outsideGenerations: 5 };
+    const crowded = autoMemberFontPx(bigFamily(40), config);
+    expect(crowded).toBe(Math.floor(renderPhaDo(bigFamily(40), { ...config, memberFontPx: 300 }).namePx));
+    expect(crowded).toBeGreaterThanOrEqual(4);
+    expect(crowded).toBeLessThan(37);
+  });
+
+  it('chỉ lấy cỡ chữ lưu sẵn khi là số', () => {
+    expect(hasStoredMemberFont({ memberFontPx: 20 })).toBe(true);
+    expect(hasStoredMemberFont({ fontScale: 1 })).toBe(false);
+    expect(hasStoredMemberFont({ memberFontPx: '20' })).toBe(false);
+    expect(hasStoredMemberFont(null)).toBe(false);
+  });
+});
+
+describe('màu ô thành viên', () => {
+  const nodeRects = (config: PhaDoConfig) =>
+    renderPhaDo(sample(), config).drawing.items.filter(
+      (item): item is Extract<DrawItem, { type: 'rect' }> => item.type === 'rect' && item.radius > 0 && item.width > 20 && item.stroke !== item.fill,
+    );
+  const personTexts = (config: PhaDoConfig) =>
+    renderPhaDo(sample(), config).drawing.items.filter(
+      (item): item is Extract<DrawItem, { type: 'text' }> => item.type === 'text' && item.align !== 'start',
+    );
+
+  it('mặc định như trước: chữ đen/xám, nền trắng, Dâu/Rể nền kem', () => {
+    expect(base.memberTextColor).toBeNull();
+    expect(base.memberFillColor).toBeNull();
+    expect(new Set(nodeRects(base).map((rect) => rect.fill))).toEqual(new Set(['#ffffff', '#fbf8f3']));
+    const colors = new Set(personTexts(base).map((text) => text.color));
+    expect(colors).toEqual(new Set(['#1f1a17', '#5c534c']));
+  });
+
+  it('đặt màu nền và màu chữ: mọi ô, mọi dòng chữ trong ô dùng màu đó; viền giữ theo giới tính', () => {
+    const config = { ...base, memberFillColor: '#ffeecc', memberTextColor: '#003366' };
+    const rects = nodeRects(config);
+    expect(rects.length).toBeGreaterThan(0);
+    expect(rects.every((rect) => rect.fill === '#ffeecc')).toBe(true);
+    expect(new Set(rects.map((rect) => rect.stroke))).toEqual(new Set(['#b8892b', '#8a1c1c']));
+    expect(personTexts(config).every((text) => text.color === '#003366')).toBe(true);
+  });
+
+  it('đọc lại cấu hình: chỉ nhận #rrggbb', () => {
+    expect(readPhaDoConfig({ memberFillColor: '#AABBCC', memberTextColor: '#123456' }, 1)).toMatchObject({ memberFillColor: '#aabbcc', memberTextColor: '#123456' });
+    expect(readPhaDoConfig({ memberFillColor: 'red', memberTextColor: '#12' }, 1)).toMatchObject({ memberFillColor: null, memberTextColor: null });
   });
 });

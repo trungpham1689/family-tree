@@ -5,12 +5,10 @@ import { lifespanText } from '../people/person-display';
 import { pageSizeMm, type ExtraLine, type PhaDoConfig } from './config';
 import { layoutDecoration } from './decoration';
 import { fitSize, truncateToFit } from './glyph-widths';
-import { PT_PER_MM, type Drawing, type DrawItem } from './drawing';
+import { MM_PER_PX, paperScale, PT_PER_MM, type Drawing, type DrawItem } from './drawing';
 
-/** Dưới cỡ này (pt) chữ in ra khó đọc với người lớn tuổi. */
-export const MIN_READABLE_PT = 6;
-/** Không phóng chữ quá to khi gia phả ít người. */
-const MAX_NAME_PT = 28;
+/** Dưới cỡ này (px) chữ in ra khó đọc với người lớn tuổi. */
+export const MIN_READABLE_PX = 8;
 
 // Kích thước trong hệ toạ độ bố cục (đơn vị trừu tượng, cùng tỉ lệ với cỡ chữ bên dưới).
 const BOX_WIDTH = 168;
@@ -25,16 +23,19 @@ const BOX_PADDING = 10;
 const MIN_LINE_RATIO = 0.55;
 const AVATAR_SIZE = 52;
 const AVATAR_GAP = 6;
-/** Dải chú giải (giới tính, đã mất) dưới cùng vùng cây, tính bằng mm trên trang. */
+/** Dải chú giải (giới tính, đã mất) dưới cùng vùng cây, tính bằng mm trên khổ A1; khổ khác co giãn theo `paperScale`. */
 const LEGEND_HEIGHT = 8;
 
+/** Màu mặc định của chữ (tên) và nền ô thành viên; ô Dâu/Rể nền hơi ngả kem. */
+export const DEFAULT_MEMBER_COLORS = { text: '#1f1a17', fill: '#ffffff' };
+
 const COLORS = {
-  ink: '#1f1a17',
+  ink: DEFAULT_MEMBER_COLORS.text,
   muted: '#5c534c',
   son: '#8a1c1c',
   kim: '#b8892b',
   line: '#5c534c',
-  box: '#ffffff',
+  box: DEFAULT_MEMBER_COLORS.fill,
   spouseBox: '#fbf8f3',
   // Viền theo giới tính — nhận ra ngay không cần đọc chữ.
   genderUnknown: '#a39a8f',
@@ -43,8 +44,10 @@ const COLORS = {
 export type PhaDoResult = {
   drawing: Drawing;
   personCount: number;
-  /** Cỡ chữ tên khi in ra (pt). */
-  namePt: number;
+  /** Cỡ chữ tên thực tế quy ra px CSS (nhỏ hơn cỡ đã chọn nếu phải co lại cho vừa khổ giấy). */
+  namePx: number;
+  /** Cỡ chữ tên (px) mà khổ giấy hiện tại vừa khít cây; lớn hơn `namePx` khi cây ít người nên chữ chạm cỡ đã chọn trước. */
+  fitNamePx: number;
   warning: string | null;
   /** Gốc của phạm vi không còn tồn tại (ví dụ Người đã bị xoá). */
   missingRoot: boolean;
@@ -77,25 +80,29 @@ const extraText = (line: ExtraLine, person: Person, generation: number | null): 
  * thuộc độ dài chữ của từng mục (ước lượng độ rộng theo ký tự vốn không đều giữa các nhãn).
  */
 const LEGEND_COL_WIDTH = 32;
-const legend = (area: { x: number; y: number; width: number; height: number }): DrawItem[] => {
-  const y = area.y + area.height - LEGEND_HEIGHT / 2;
-  const swatch = 3.5;
+const LEGEND_TEXT_PT = 9;
+const legend = (area: { x: number; y: number; width: number; height: number }, k: number): DrawItem[] => {
+  const y = area.y + area.height - (LEGEND_HEIGHT * k) / 2;
+  const swatch = 3.5 * k;
+  const labelGap = 2 * k;
+  const sizePt = LEGEND_TEXT_PT * k;
   let col = 0;
-  const nextX = () => area.x + col++ * LEGEND_COL_WIDTH;
+  const nextX = () => area.x + col++ * LEGEND_COL_WIDTH * k;
+  const label = (x: number, text: string): DrawItem => ({ type: 'text', x, y, text, sizePt, bold: false, color: COLORS.muted, align: 'start' });
   const items: DrawItem[] = [];
 
-  for (const [color, label] of [
+  for (const [color, text] of [
     [COLORS.kim, 'Nam'],
     [COLORS.son, 'Nữ'],
   ] as const) {
     const x = nextX();
     items.push(
-      { type: 'rect', x, y: y - swatch / 2, width: swatch, height: swatch, radius: 1, fill: color, stroke: color, strokeWidth: 0 },
-      { type: 'text', x: x + swatch + 2, y, text: label, sizePt: 9, bold: false, color: COLORS.muted, align: 'start' },
+      { type: 'rect', x, y: y - swatch / 2, width: swatch, height: swatch, radius: k, fill: color, stroke: color, strokeWidth: 0 },
+      label(x + swatch + labelGap, text),
     );
   }
 
-  items.push({ type: 'text', x: nextX(), y, text: '† Đã mất', sizePt: 9, bold: false, color: COLORS.muted, align: 'start' });
+  items.push(label(nextX(), '† Đã mất'));
 
   const dauReX = nextX();
   items.push(
@@ -105,19 +112,19 @@ const legend = (area: { x: number; y: number; width: number; height: number }): 
       y: y - swatch / 2,
       width: swatch,
       height: swatch,
-      radius: 1,
+      radius: k,
       fill: 'none',
       stroke: COLORS.muted,
-      strokeWidth: 0.6,
-      dash: [1.2, 0.8],
+      strokeWidth: 0.6 * k,
+      dash: [1.2 * k, 0.8 * k],
     },
-    { type: 'text', x: dauReX + swatch + 2, y, text: 'Dâu/Rể (viền đứt)', sizePt: 9, bold: false, color: COLORS.muted, align: 'start' },
+    label(dauReX + swatch + labelGap, 'Dâu/Rể (viền đứt)'),
   );
 
-  const adoptedX = nextX() + LEGEND_COL_WIDTH * 0.8;
+  const adoptedX = nextX() + LEGEND_COL_WIDTH * k * 0.8;
   items.push(
     { type: 'rect', x: adoptedX, y: y - swatch / 2, width: swatch, height: swatch, radius: swatch / 2, fill: COLORS.genderUnknown, stroke: COLORS.genderUnknown, strokeWidth: 0 },
-    { type: 'text', x: adoptedX + swatch + 2, y, text: 'Con nuôi', sizePt: 9, bold: false, color: COLORS.muted, align: 'start' },
+    label(adoptedX + swatch + labelGap, 'Con nuôi'),
   );
   return items;
 };
@@ -133,6 +140,28 @@ const rootOf = (graph: FamilyGraph<Person>, config: PhaDoConfig): { rootId: stri
   }
 };
 
+/** Xếp cây (đơn vị bố cục trừu tượng) theo phạm vi, số đời Cháu ngoại, dòng thêm và ảnh trong ô của cấu hình. */
+export const treeLayout = (graph: FamilyGraph<Person>, config: PhaDoConfig, rootId: string, maxDepth?: number) => {
+  const extras = config.extraLines.slice(0, 2);
+  const boxHeight = BASE_BOX_HEIGHT + extras.length * EXTRA_LINE_HEIGHT + (config.showAvatars ? AVATAR_SIZE + AVATAR_GAP : 0);
+  return layoutTree(graph, {
+    rootId,
+    ...(maxDepth !== undefined ? { maxDepth } : {}),
+    includeChild: outsideGenerationsFilter(config.outsideGenerations),
+    box: { width: BOX_WIDTH, height: boxHeight },
+  });
+};
+
+/** Gốc và độ sâu của phạm vi in; `null` nếu gốc không còn trong gia phả. */
+export const scopeRoot = (graph: FamilyGraph<Person>, config: PhaDoConfig): { rootId: string; maxDepth?: number } | null => {
+  const { rootId, maxDepth } = rootOf(graph, config);
+  return rootId && graph.person(rootId) ? { rootId, ...(maxDepth !== undefined ? { maxDepth } : {}) } : null;
+};
+
+/** Cỡ chữ tên trong bố cục (đơn vị bố cục) và dải chú giải, để tính khổ giấy vừa cây. */
+export const LAYOUT_NAME_SIZE = NAME_SIZE;
+export const legendHeightMm = (page: { width: number; height: number }) => LEGEND_HEIGHT * paperScale(page);
+
 /** Dựng bản vẽ Phả đồ theo cấu hình: chọn phạm vi, xếp cây, co giãn vừa khổ giấy, kèm cảnh báo chữ nhỏ. */
 export const renderPhaDo = (
   graph: FamilyGraph<Person>,
@@ -142,28 +171,23 @@ export const renderPhaDo = (
 ): PhaDoResult => {
   const page = pageSizeMm(config);
   const { rootId, maxDepth } = rootOf(graph, config);
-  const empty = { drawing: { ...page, items: [] }, personCount: 0, namePt: 0, warning: null };
+  const empty = { drawing: { ...page, items: [] }, personCount: 0, namePx: 0, fitNamePx: 0, warning: null };
   if (!rootId || !graph.person(rootId)) return { ...empty, missingRoot: true };
 
   const extras = config.extraLines.slice(0, 2);
-  const boxHeight = BASE_BOX_HEIGHT + extras.length * EXTRA_LINE_HEIGHT + (config.showAvatars ? AVATAR_SIZE + AVATAR_GAP : 0);
-  const layout = layoutTree(graph, {
-    rootId,
-    ...(maxDepth !== undefined ? { maxDepth } : {}),
-    includeChild: outsideGenerationsFilter(config.outsideGenerations),
-    box: { width: BOX_WIDTH, height: boxHeight },
-  });
+  const layout = treeLayout(graph, config, rootId, maxDepth);
 
   const decoration = layoutDecoration(page, config.decoration, treeName);
   const area = decoration.content;
   const availableWidth = area.width;
   // Dành một dải mỏng dưới cùng vùng cây cho chú giải — trong vùng "content" nên chắc chắn không
   // đụng khung/hoạ tiết trang trí (những thứ đó nằm ngoài vùng này theo layoutDecoration).
-  const availableHeight = area.height - LEGEND_HEIGHT;
+  const k = paperScale(page);
+  const availableHeight = area.height - LEGEND_HEIGHT * k;
   const fitScale = Math.min(availableWidth / layout.width, availableHeight / layout.height);
-  const maxNamePt = MAX_NAME_PT * (config.fontScale || 1);
-  const scale = Math.min(fitScale, maxNamePt / (NAME_SIZE * PT_PER_MM));
-  const namePt = NAME_SIZE * scale * PT_PER_MM;
+  const scale = Math.min(fitScale, (config.memberFontPx * MM_PER_PX) / NAME_SIZE);
+  const namePx = (NAME_SIZE * scale) / MM_PER_PX;
+  const fitNamePx = (NAME_SIZE * fitScale) / MM_PER_PX;
 
   // Căn giữa cây trong vùng còn trống.
   const offsetX = area.x + (availableWidth - layout.width * scale) / 2;
@@ -194,7 +218,7 @@ export const renderPhaDo = (
       width: node.width * scale,
       height: node.height * scale,
       radius: 8 * scale,
-      fill: isSpouse ? COLORS.spouseBox : COLORS.box,
+      fill: config.memberFillColor ?? (isSpouse ? COLORS.spouseBox : COLORS.box),
       stroke: genderColor,
       strokeWidth: 2 * scale,
       // Dâu/Rể: kết hôn vào họ, không nối máu mủ — viền đứt để phân biệt với Đinh.
@@ -244,23 +268,23 @@ export const renderPhaDo = (
     }
     for (const line of nameLines) {
       const { text, size } = fitLine(line, NAME_SIZE, !isSpouse, node.width - BOX_PADDING);
-      items.push({ type: 'text', x: centerX, y: my(cursor + NAME_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, bold: !isSpouse, color: COLORS.ink });
+      items.push({ type: 'text', x: centerX, y: my(cursor + NAME_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, bold: !isSpouse, color: config.memberTextColor ?? COLORS.ink });
       cursor += NAME_SIZE + lineGap;
     }
     for (const line of detailLines) {
       const { text, size } = fitLine(line, SMALL_SIZE, false, node.width - BOX_PADDING);
-      items.push({ type: 'text', x: centerX, y: my(cursor + SMALL_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, bold: false, color: COLORS.muted });
+      items.push({ type: 'text', x: centerX, y: my(cursor + SMALL_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, bold: false, color: config.memberTextColor ?? COLORS.muted });
       cursor += SMALL_SIZE + lineGap;
     }
   }
 
   const personCount = new Set(layout.nodes.map((node) => node.personId)).size;
   const warning =
-    namePt < MIN_READABLE_PT
-      ? `Chữ in ra chỉ khoảng ${namePt.toFixed(1)} pt, rất khó đọc. Hãy chọn khổ giấy lớn hơn (A0 hoặc tự nhập) hoặc in tách theo từng Chi.`
+    namePx < MIN_READABLE_PX
+      ? `Chữ in ra chỉ khoảng ${namePx.toFixed(1)} px, rất khó đọc. Hãy chọn khổ giấy lớn hơn (A0 hoặc tự nhập) hoặc in tách theo từng Chi.`
       : null;
 
-  items.push(...legend(area));
+  items.push(...legend(area, k));
   items.push(...decoration.above);
-  return { drawing: { ...page, items }, personCount, namePt, warning, missingRoot: false };
+  return { drawing: { ...page, items }, personCount, namePx, fitNamePx, warning, missingRoot: false };
 };

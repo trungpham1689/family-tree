@@ -332,12 +332,12 @@ await step('mời Biên tập viên bằng email; họ thấy gia phả với đ
 
 await step('Phả đồ: xem trước, xuất PDF và PNG', async () => {
   await page.goto(`${treeUrl}/pha-do`);
-  await page.locator('summary', { hasText: 'Trang trí' }).click();
-  await page.getByLabel('Phụ đề').fill('Kính dâng tổ tiên – năm 2026');
-  await page.getByLabel('Câu đối – vế bên trái').fill('Uống nước nhớ nguồn');
-  await page.getByLabel('Câu đối – vế bên phải').fill('Ăn quả nhớ kẻ trồng cây');
-  await page.getByText('Khổ giấy & chữ').click();
-  await page.getByLabel('Khổ giấy').selectOption('A2');
+  await page.getByRole('tab', { name: 'Trang trí' }).click();
+  await page.getByLabel('Phụ đề', { exact: true }).fill('Kính dâng tổ tiên – năm 2026');
+  await page.getByLabel('Vế bên trái').fill('Uống nước nhớ nguồn');
+  await page.getByLabel('Vế bên phải').fill('Ăn quả nhớ kẻ trồng cây');
+  await page.getByRole('tab', { name: 'Khổ giấy & chữ' }).click();
+  await page.getByRole('radio', { name: 'A2', exact: true }).click();
   await page.waitForTimeout(500);
   await shot('30-pha-do');
   const [pdf] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /Xuất PDF/ }).click()]);
@@ -358,11 +358,12 @@ await step('lưu cấu hình Phả đồ và mở lại', async () => {
   await page.getByRole('button', { name: /Lưu cấu hình/ }).click();
   await page.getByRole('button', { name: 'Đã lưu cấu hình' }).waitFor();
   await page.reload();
+  await page.getByRole('tab', { name: 'Trang trí' }).click();
   // Cấu hình đã lưu được nạp bất đồng bộ sau khi trang hiện.
   await page
     .waitForFunction(() => [...document.querySelectorAll('input')].some((input) => input.value === 'Kính dâng tổ tiên – năm 2026'), null, { timeout: 15000 })
     .catch(async () => {
-      throw new Error(`mở lại ra "${await page.getByLabel('Phụ đề').inputValue()}"`);
+      throw new Error(`mở lại ra "${await page.getByLabel('Phụ đề', { exact: true }).inputValue()}"`);
     });
 });
 

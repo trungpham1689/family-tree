@@ -10,26 +10,19 @@ import {
 } from '../data/tree-queries';
 import type { Person, TreeWithRole } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
-import {
-  EXTRA_LINE_LABELS,
-  FONT_FAMILY_CSS,
-  readPhaDoConfig,
-  type ExtraLine,
-  type PhaDoConfig,
-} from '../pha-do/config';
+import { FONT_FAMILY_CSS, hasStoredMemberFont, readPhaDoConfig, type PhaDoConfig } from '../pha-do/config';
 import { DESKTOP_LIMITS, IOS_LIMITS, isAppleMobile, planPng } from '../pha-do/png';
+import { autoMemberFontPx, fitPaperToFont } from '../pha-do/auto-fit';
 import { renderPhaDo } from '../pha-do/render';
 import { drawingToSvg } from '../pha-do/svg';
 import { TreeTabs } from '../tree/TreeTabs';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
-import { Collapsible } from '../ui/Collapsible';
-import { ErrorBanner, Select } from '../ui/fields';
+import { ErrorBanner } from '../ui/fields';
 import { Footer } from '../ui/Footer';
-import { OUTSIDE_OPTIONS, outsideLabel } from '../family/outside-generations';
 import { useTreeExport } from '../export/use-tree-export';
 import { FullPageMessage } from '../ui/FullPageMessage';
-import { DecorationSettings, ScopeSettings, PaperSettings, FontSettings } from '../pha-do/PhaDoSettings';
+import { ContentSettings, DecorationSettings, PaperTab, SettingsTabs, type SettingsTab } from '../pha-do/PhaDoSettings';
 
 /** Thiết kế bản in Phả đồ: phạm vi, khổ giấy, nội dung ô; xem trước đúng như bản in và xuất PDF vector. */
 export const PhaDoPage = () => {
@@ -56,6 +49,7 @@ export const PhaDoPage = () => {
             tree={tree.data}
             graph={family.data}
             initial={readPhaDoConfig(saved.data, tree.data.outside_generations)}
+            fontStored={hasStoredMemberFont(saved.data)}
           />
         )}
       </main>
@@ -66,9 +60,23 @@ export const PhaDoPage = () => {
 
 type Zoom = 'fit' | 1 | 2 | 4;
 
-const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: FamilyGraph<Person>; initial: PhaDoConfig }) => {
-  const [config, setConfig] = useState(initial);
+const PhaDoDesigner = ({
+  tree,
+  graph,
+  initial,
+  fontStored,
+}: {
+  tree: TreeWithRole;
+  graph: FamilyGraph<Person>;
+  initial: PhaDoConfig;
+  /** Cấu hình đã lưu có cỡ chữ ô chưa; chưa thì lấy cỡ chữ đang hiện lúc mở lần đầu. */
+  fontStored: boolean;
+}) => {
+  const [config, setConfig] = useState(() =>
+    fontStored ? initial : { ...initial, memberFontPx: autoMemberFontPx(graph, initial, tree.name) },
+  );
   const [zoom, setZoom] = useState<Zoom>('fit');
+  const [tab, setTab] = useState<SettingsTab>('content');
   const { running: exporting, error: exportError, run: runExport } = useTreeExport(tree.name);
   const save = useSavePhaDoConfig(tree.id);
   const canEdit = canEditTree(tree.role);
@@ -83,101 +91,84 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
     [result.drawing],
   );
   const svg = useMemo(() => drawingToSvg(result.drawing, undefined, FONT_FAMILY_CSS[config.fontFamily]), [result, config.fontFamily]);
-  const update = (patch: Partial<PhaDoConfig>) => setConfig((current) => ({ ...current, ...patch }));
+  /**
+   * Mọi thay đổi liên quan tới hiển thị đều tự co giãn cho vừa khít khung trang trí: khổ giấy tự tính theo nội dung (chế độ tự động),
+   * hoặc, khi người dùng đã chọn một khổ cụ thể, cỡ chữ tự chỉnh cho vừa khổ đó.
+   */
+  const refit = (next: PhaDoConfig): PhaDoConfig =>
+    next.autoPaper
+      ? fitPaperToFont(graph, next, tree.name, avatars.data)
+      : { ...next, memberFontPx: autoMemberFontPx(graph, next, tree.name, avatars.data) };
+  const update = (patch: Partial<PhaDoConfig>) => setConfig((current) => refit({ ...current, ...patch }));
+  /** Người dùng chọn khổ giấy/kích thước cụ thể: giữ khổ đó, cỡ chữ tự chỉnh theo. */
+  const updatePaper = (patch: Partial<PhaDoConfig>) => setConfig((current) => refit({ ...current, ...patch, autoPaper: false }));
+
+  const changeMemberFont = (memberFontPx: number) =>
+    setConfig((current) => fitPaperToFont(graph, { ...current, memberFontPx, autoPaper: true }, tree.name, avatars.data));
 
   const exportPdf = () => runExport('pha-do-pdf', { drawing: result.drawing, fontFamily: config.fontFamily });
   const exportPng = () => runExport('pha-do-png', { drawing: result.drawing, fontFamily: config.fontFamily, plan: pngPlan });
 
+  const setAuto = () => setConfig((current) => fitPaperToFont(graph, { ...current, autoPaper: true }, tree.name, avatars.data));
+  const namePx = result.personCount > 0 ? result.namePx : null;
+
   return (
-    <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
-      <aside className="min-w-0 space-y-3">
-        <Collapsible title="Phạm vi & nội dung" defaultOpen>
-          <ScopeSettings graph={graph} config={config} onChange={update} />
+    <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[24rem_minmax(0,1fr)] lg:items-start">
+      {/* Điện thoại: bản xem trước lên trước, thanh thiết lập ngay bên dưới. */}
+      <aside className="order-2 flex min-w-0 flex-col overflow-hidden rounded-2xl border border-line bg-surface lg:sticky lg:top-4 lg:order-1 lg:max-h-[calc(100dvh-2rem)] lg:min-h-[32rem]">
+        <SettingsTabs tab={tab} onChange={setTab} />
 
-          <label className="block">
-            <span className="mb-1 block font-medium">Hiển thị</span>
-            <Select className="w-full" value={config.outsideGenerations} onChange={(event) => update({ outsideGenerations: Number(event.target.value) })}>
-              {OUTSIDE_OPTIONS.map((n) => (
-                <option key={n} value={n}>
-                  {outsideLabel(n)}
-                </option>
-              ))}
-            </Select>
-          </label>
-
-          <label className="flex min-h-12 items-center gap-3">
-            <input
-              type="checkbox"
-              className="size-5 accent-son"
-              checked={config.showAvatars}
-              onChange={(event) => update({ showAvatars: event.target.checked })}
+        <div role="tabpanel" id="pha-do-panel" aria-labelledby={`pha-do-tab-${tab}`} className="min-h-0 flex-1 overflow-y-auto p-5">
+          {tab === 'content' && <ContentSettings graph={graph} config={config} onChange={update} />}
+          {tab === 'decoration' && (
+            <DecorationSettings treeName={tree.name} decoration={config.decoration} onChange={(patch) => update({ decoration: { ...config.decoration, ...patch } })} />
+          )}
+          {tab === 'paper' && (
+            <PaperTab
+              config={config}
+              namePx={namePx}
+              onPaper={updatePaper}
+              onAuto={setAuto}
+              onOrientationChange={(orientation) => update({ orientation })}
+              onChange={update}
+              onMemberFontChange={changeMemberFont}
             />
-            Hiện ảnh đại diện trong mỗi ô
-          </label>
+          )}
+        </div>
 
-          <fieldset className="min-w-0">
-            <legend className="mb-1 font-medium">Thêm trong mỗi ô (tối đa 2 dòng)</legend>
-            <p className="mb-2 text-sm text-ink-muted">Luôn có tên và năm sinh – mất.</p>
-            {(Object.keys(EXTRA_LINE_LABELS) as ExtraLine[]).map((line) => {
-              const checked = config.extraLines.includes(line);
-              return (
-                <label key={line} className="flex min-h-11 items-center gap-3">
-                  <input
-                    type="checkbox"
-                    className="size-5 accent-son"
-                    checked={checked}
-                    disabled={!checked && config.extraLines.length >= 2}
-                    onChange={() =>
-                      update({ extraLines: checked ? config.extraLines.filter((item) => item !== line) : [...config.extraLines, line] })
-                    }
-                  />
-                  {EXTRA_LINE_LABELS[line]}
-                </label>
-              );
-            })}
-          </fieldset>
-        </Collapsible>
-
-        <Collapsible title="Trang trí">
-          <DecorationSettings treeName={tree.name} decoration={config.decoration} onChange={(patch) => update({ decoration: { ...config.decoration, ...patch } })} />
-        </Collapsible>
-
-        <Collapsible title="Khổ giấy & chữ">
-          <PaperSettings config={config} onChange={update} />
-          <FontSettings config={config} onChange={update} />
-        </Collapsible>
-
-        <div className="space-y-3 rounded-xl border border-line bg-surface p-4">
+        {/* Thanh xuất luôn hiện, bất kể đang ở tab nào. */}
+        <div className="space-y-2 border-t border-line bg-paper/60 px-5 pb-4 pt-3">
+          {exportError && <ErrorBanner>{exportError}</ErrorBanner>}
+          {save.isError && <ErrorBanner>{save.error.message}</ErrorBanner>}
           <Button className="w-full" disabled={exporting !== null || result.personCount === 0} onClick={exportPdf}>
             {exporting === 'pha-do-pdf' ? 'Đang tạo PDF…' : 'Xuất PDF (in ấn)'}
           </Button>
-          <Button variant="secondary" className="w-full" disabled={exporting !== null || result.personCount === 0} onClick={exportPng}>
-            {exporting === 'pha-do-png' ? 'Đang vẽ ảnh PNG…' : `Xuất ảnh PNG (${pngPlan.dpi} dpi)`}
-          </Button>
-          <p className="text-sm text-ink-muted">
-            Ảnh PNG {pngPlan.width} × {pngPlan.height} điểm ảnh.
-            {pngPlan.reduced &&
-              ` Khổ này lớn hơn giới hạn ảnh của trình duyệt nên sẽ xuất ở ${pngPlan.dpi} dpi thay vì 300 dpi; bản PDF vẫn sắc nét ở mọi cỡ.`}
-          </p>
-          {canEdit && (
-            <Button
-              variant="secondary"
-              className="w-full"
-              disabled={save.isPending}
-              onClick={() => save.mutate({ treeId: tree.id, config })}
-            >
-              {save.isPending ? 'Đang lưu…' : save.isSuccess ? 'Đã lưu cấu hình' : 'Lưu cấu hình để in lại'}
+          <div className="flex gap-2">
+            <Button variant="secondary" className="min-w-0 flex-1 px-3" disabled={exporting !== null || result.personCount === 0} onClick={exportPng}>
+              {exporting === 'pha-do-png' ? 'Đang vẽ…' : 'Xuất ảnh PNG'}
             </Button>
-          )}
-          {exportError && <ErrorBanner>{exportError}</ErrorBanner>}
-          {save.isError && <ErrorBanner>{save.error.message}</ErrorBanner>}
+            {canEdit && (
+              <Button
+                variant="secondary"
+                className="min-w-0 flex-1 px-3"
+                disabled={save.isPending}
+                onClick={() => save.mutate({ treeId: tree.id, config })}
+              >
+                {save.isPending ? 'Đang lưu…' : save.isSuccess ? 'Đã lưu cấu hình' : 'Lưu cấu hình'}
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-ink-muted">
+            Ảnh PNG {pngPlan.width} × {pngPlan.height} px ({pngPlan.dpi} dpi).
+            {pngPlan.reduced && ` Khổ này vượt giới hạn ảnh của trình duyệt nên xuất ở ${pngPlan.dpi} dpi thay vì 300 dpi; PDF vẫn sắc nét ở mọi cỡ.`}
+          </p>
         </div>
       </aside>
 
-      <section aria-label="Xem trước bản in" className="min-w-0 space-y-3">
+      <section aria-label="Xem trước bản in" className="order-1 min-w-0 space-y-3 lg:order-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-ink-muted">
-            {result.personCount} người · {result.drawing.width} × {result.drawing.height} mm · chữ tên ~{result.namePt.toFixed(1)} pt
+            {result.personCount} người · {result.drawing.width} × {result.drawing.height} mm · chữ tên ~{result.namePx.toFixed(1)} px
           </p>
           <div className="flex flex-wrap gap-1" role="group" aria-label="Phóng to">
             {(['fit', 1, 2, 4] as const).map((level) => (

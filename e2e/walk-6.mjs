@@ -1,0 +1,182 @@
+// Phả đồ: nhập Rộng/Cao trên 100 cm gõ được; tăng cỡ chữ ô thì khổ giấy tự chuyển "Tự nhập" và Rộng/Cao tự lớn; nhóm Cỡ chữ cạnh ô chữ.
+import { APP, makeStep, openBrowser, reportProblems, SHOTS } from './walk-lib.mjs';
+
+const { browser, page, problems } = await openBrowser();
+const step = makeStep(() => page);
+const assert = (condition, message) => {
+  if (!condition) throw new Error(message);
+};
+
+let treeUrl = '';
+await step('đăng ký, tạo gia phả, thêm Thuỷ tổ và 3 con', async () => {
+  await page.goto(`${APP}/`);
+  await page.waitForURL(/dang-nhap/);
+  await page.getByRole('tab', { name: 'Tạo tài khoản' }).click();
+  await page.getByLabel('Email').fill(`pha-do-${Date.now()}@example.com`);
+  await page.getByLabel('Họ và tên').fill('Người Thử');
+  await page.getByLabel('Ngày sinh').fill('1990-01-01');
+  await page.getByLabel('Số điện thoại').fill('0901234567');
+  await page.locator('input[type=password]').first().fill('matkhau123');
+  await page.getByRole('button', { name: 'Tạo tài khoản' }).last().click();
+  await page.waitForURL(/\/gia-pha$/);
+  await page.getByRole('button', { name: /Tạo gia phả/ }).first().click();
+  await page.getByLabel('Tên gia phả').fill('Họ Phả Đồ');
+  await page.getByRole('dialog').getByRole('button', { name: 'Tạo gia phả' }).click();
+  await page.waitForURL(/\/gia-pha\/[0-9a-f-]{36}$/);
+  treeUrl = page.url();
+  await page.getByRole('button', { name: 'Thêm Thuỷ tổ' }).click();
+  await page.getByRole('dialog').getByLabel('Họ và tên').fill('Cha Tổ');
+  await page.getByRole('dialog').getByRole('button', { name: 'Thêm', exact: true }).click();
+  await page.getByRole('link', { name: /Cha Tổ/ }).first().click();
+  await page.waitForURL(/nguoi/);
+  for (const name of ['Con A', 'Con B', 'Con C']) {
+    await page.getByRole('button', { name: '+ Thêm con' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Họ và tên').fill(name);
+    await dialog.getByRole('button', { name: 'Thêm con', exact: true }).click();
+    await page.getByText(name, { exact: true }).first().waitFor();
+  }
+});
+
+const tab = (name) => page.getByRole('tab', { name }).click();
+const paperChoice = () => page.locator('[role=radiogroup][aria-label="Khổ giấy"] [aria-checked=true]').textContent();
+const choosePaper = (name) => page.getByRole('radio', { name, exact: true }).click();
+const stats = () => page.getByText(/mm · chữ tên/).textContent();
+const memberFont = () => page.getByLabel('Cỡ chữ tên trong ô thành viên');
+
+await step('thanh bên: 3 tab, thanh xuất luôn hiện, mỗi lúc một nhóm', async () => {
+  await page.goto(`${treeUrl}/pha-do`);
+  const group = page.getByRole('tablist', { name: 'Nhóm thiết lập' });
+  await group.waitFor();
+  assert((await group.getByRole('tab').count()) === 3, 'không có đúng 3 tab');
+  assert((await group.getByRole('tab', { selected: true }).textContent()).includes('Nội dung'), 'tab mặc định không phải Nội dung');
+  assert((await page.getByRole('radio', { name: 'Cả gia phả' }).count()) === 1, 'thiếu thanh phạm vi');
+  assert((await page.getByLabel('Tiêu đề', { exact: true }).count()) === 0, 'nhóm Trang trí hiện cùng lúc với Nội dung');
+  for (const name of ['Nội dung', 'Trang trí', 'Khổ giấy & chữ']) {
+    await tab(name);
+    assert(await page.getByRole('button', { name: /Xuất PDF/ }).isVisible(), `thanh xuất mất ở tab ${name}`);
+  }
+});
+
+await step('mở Phả đồ: khổ A1, cỡ chữ ô mặc định là số đang hiện; chọn Tự nhập bắt đầu từ khổ đang dùng', async () => {
+  await tab('Khổ giấy & chữ');
+  // Cây 4 người trên A1 ngang: chữ chạm trần 28 pt = 37,33 px; cỡ chữ mặc định là số đang hiện, làm tròn xuống.
+  assert((await memberFont().inputValue()) === '37', `cỡ chữ ô mặc định ${await memberFont().inputValue()}`);
+  assert((await paperChoice()) === 'A1', `khổ mặc định ${await paperChoice()}`);
+  await choosePaper('Tự nhập');
+  assert((await page.getByLabel('Rộng').inputValue()) === '84.1', `Rộng ${await page.getByLabel('Rộng').inputValue()}`);
+  assert((await page.getByLabel('Cao').inputValue()) === '59.4', `Cao ${await page.getByLabel('Cao').inputValue()}`);
+});
+
+await step('gõ Rộng 150, Cao 120 từng phím: không bị đổi giữa chừng', async () => {
+  for (const [label, value] of [['Rộng', '150'], ['Cao', '120']]) {
+    const field = page.getByLabel(label);
+    await field.click();
+    await field.press('ControlOrMeta+a');
+    await field.pressSequentially(value, { delay: 60 });
+    assert((await field.inputValue()) === value, `${label} đang là "${await field.inputValue()}"`);
+  }
+  await page.getByLabel('Rộng').press('Tab');
+  assert((await page.getByLabel('Rộng').inputValue()) === '150', 'Rộng mất giá trị sau khi rời ô');
+  assert(/150 × 120|1500 × 1200/.test(await stats()), 'xem trước không theo kích thước mới');
+});
+
+await step('gõ ngoài khoảng rồi rời ô thì kẹp vào 10–500', async () => {
+  const field = page.getByLabel('Rộng');
+  await field.press('ControlOrMeta+a');
+  await field.pressSequentially('900');
+  await field.press('Tab');
+  assert((await field.inputValue()) === '500', `Rộng ${await field.inputValue()}`);
+  await field.press('ControlOrMeta+a');
+  await field.pressSequentially('150');
+  await field.press('Tab');
+});
+
+await step('tăng cỡ chữ ô: khổ giấy chuyển Tự động, Rộng/Cao tự lớn theo', async () => {
+  await choosePaper('A3');
+  const field = memberFont();
+  await field.press('ControlOrMeta+a');
+  await field.pressSequentially('300');
+  await field.press('Tab');
+  assert((await paperChoice()) === 'Tự động', `khổ giấy đang ${await paperChoice()}`);
+  const width = Number(await page.getByLabel('Rộng').inputValue());
+  const height = Number(await page.getByLabel('Cao').inputValue());
+  assert(width > 42 && height > 29.7, `Rộng × Cao ${width} × ${height} chưa tăng`);
+  assert(await page.getByLabel('Rộng').isDisabled(), 'Rộng sửa được khi khổ tự động');
+  await shot('pha-do-font-lon');
+});
+
+await step('giảm cỡ chữ ô: khổ giấy tự thu nhỏ vừa khít', async () => {
+  const widthBefore = Number(await page.getByLabel('Rộng').inputValue());
+  const field = memberFont();
+  await field.press('ControlOrMeta+a');
+  await field.pressSequentially('100');
+  await field.press('Tab');
+  const widthAfter = Number(await page.getByLabel('Rộng').inputValue());
+  assert((await paperChoice()) === 'Tự động', 'khổ giấy rời Tự động');
+  assert(widthAfter < widthBefore * 0.5, `Rộng ${widthBefore} → ${widthAfter} chưa thu nhỏ`);
+});
+
+await step('khổ tự động: đổi nội dung (thêm dòng Ngày giỗ) thì khổ giấy tự co giãn theo', async () => {
+  const before = await stats();
+  await tab('Nội dung');
+  await page.getByRole('button', { name: 'Ngày giỗ' }).click();
+  const after = await stats();
+  assert(after !== before, `kích thước không đổi: ${before}`);
+  await page.getByRole('button', { name: 'Ngày giỗ' }).click();
+});
+
+await step('chọn khổ A1 cố định: đổi nội dung thì khổ giữ nguyên', async () => {
+  await tab('Khổ giấy & chữ');
+  await choosePaper('A1');
+  await tab('Nội dung');
+  await page.getByRole('button', { name: 'Đời', exact: true }).click();
+  await tab('Khổ giấy & chữ');
+  assert((await paperChoice()) === 'A1', `khổ giấy đổi thành ${await paperChoice()} dù đã cố định`);
+  await tab('Nội dung');
+  await page.getByRole('button', { name: 'Đời', exact: true }).click();
+});
+
+await step('Nội dung: tối đa 2 dòng chữ, chip còn lại mờ đi', async () => {
+  await page.getByRole('button', { name: 'Ngày giỗ' }).click();
+  await page.getByRole('button', { name: 'Đời', exact: true }).click();
+  assert(await page.getByRole('button', { name: 'Quê quán' }).isDisabled(), 'chip thứ 3 vẫn bấm được');
+  await page.getByRole('button', { name: 'Ngày giỗ' }).click();
+  await page.getByRole('button', { name: 'Đời', exact: true }).click();
+});
+
+await step('màu ô thành viên: đặt rồi về mặc định; thông báo cỡ chữ tính bằng px', async () => {
+  await tab('Khổ giấy & chữ');
+  const text = await stats();
+  assert(/chữ tên ~[\d.]+ px/.test(text) && !/\bpt\b/.test(text), `thông báo: ${text}`);
+  await page.getByLabel('Màu nền').fill('#ffeecc');
+  await page.getByLabel('Màu chữ').fill('#003366');
+  await page.getByRole('button', { name: /Về màu nền mặc định/ }).waitFor();
+  assert((await page.locator('svg rect[fill="#ffeecc"]').count()) > 0, 'xem trước chưa có ô nền #ffeecc');
+  await page.getByRole('button', { name: /Về màu nền mặc định/ }).click();
+  await page.getByRole('button', { name: /Về màu chữ mặc định/ }).click();
+  assert((await page.getByRole('button', { name: /mặc định/ }).count()) === 0, 'chưa về mặc định');
+  assert((await page.locator('svg rect[fill="#ffeecc"]').count()) === 0, 'ô vẫn nền cũ sau khi về mặc định');
+});
+
+await step('Trang trí: cỡ chữ cùng hàng phía trên ô chữ tương ứng, mặc định 50/30/30', async () => {
+  await tab('Trang trí');
+  const input = await page.getByLabel('Tiêu đề', { exact: true }).boundingBox();
+  const size = await page.getByLabel('Cỡ chữ tiêu đề').boundingBox();
+  assert(size.y < input.y && input.y - size.y < 60, 'ô cỡ chữ không ngay trên ô Tiêu đề');
+  assert(Math.abs(size.x + size.width - (input.x + input.width)) < 4, 'ô cỡ chữ không căn mép phải với ô Tiêu đề');
+  const sizes = [];
+  for (const name of ['Cỡ chữ tiêu đề', 'Cỡ chữ phụ đề', 'Cỡ chữ câu đối']) sizes.push(await page.getByLabel(name).inputValue());
+  assert(sizes.join() === '50,30,30', `cỡ mặc định ${sizes.join()}`);
+  assert((await page.getByRole('radio', { name: /Đỏ son/ }).count()) === 1, 'ảnh khung không hiện sẵn');
+  assert((await page.getByRole('radiogroup', { name: 'Kiểu khung' }).getByRole('radio').count()) === 12, 'không đủ 12 kiểu khung');
+  await page.getByRole('radio', { name: /Mộc/ }).check({ force: true });
+  await shot('pha-do-trang-tri');
+});
+
+async function shot(name) {
+  await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
+}
+
+await browser.close();
+reportProblems(problems);

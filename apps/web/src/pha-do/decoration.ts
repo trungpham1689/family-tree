@@ -1,4 +1,4 @@
-import { PT_PER_MM, type DrawItem } from './drawing';
+import { decorationPxToMm, PT_PER_MM, type DrawItem } from './drawing';
 import { fitSize, textWidthEm } from './glyph-widths';
 
 /**
@@ -42,9 +42,22 @@ export type Decoration = {
   subtitle: string;
   coupletLeft: string;
   coupletRight: string;
+  /** Cỡ chữ tối đa (xem `decorationPxToMm`); tiêu đề và câu đối vẫn tự co lại nếu không đủ chỗ. */
+  titleSize: number;
+  subtitleSize: number;
+  coupletSize: number;
 };
 
-export const DEFAULT_DECORATION: Decoration = { frame: 'son-kim', title: '', subtitle: '', coupletLeft: '', coupletRight: '' };
+export const DEFAULT_DECORATION: Decoration = {
+  frame: 'son-kim',
+  title: '',
+  subtitle: '',
+  coupletLeft: '',
+  coupletRight: '',
+  titleSize: 50,
+  subtitleSize: 30,
+  coupletSize: 30,
+};
 
 type Palette = { background: string; outer: string; inner: string; ornament: string; title: string; text: string };
 
@@ -112,9 +125,9 @@ export type DecorationLayout = {
   above: DrawItem[];
   /** Vùng dành cho cây. */
   content: Region;
+  /** Tỉ lệ nhỏ nhất giữa cỡ chữ thực tế và cỡ người dùng đặt của tiêu đề, phụ đề, câu đối (1 = không chữ nào phải co lại). */
+  fit: number;
 };
-
-const BASE_MARGIN = 12;
 
 /** Hoạ tiết hồi văn (móc vuông) ở một góc; `sx`, `sy` là hướng quay vào trong trang. */
 const cornerKey = (cx: number, cy: number, size: number, sx: 1 | -1, sy: 1 | -1, color: string, width: number): DrawItem[] => {
@@ -307,7 +320,7 @@ const frameItems = (page: { width: number; height: number }, style: FrameStyle, 
     stroke: palette.background,
     strokeWidth: 0,
   };
-  if (style === 'none') return { items: [background], inset: BASE_MARGIN };
+  if (style === 'none') return { items: [background], inset: unit * 2 };
   if (SIGNATURE_STYLES.has(style)) return signatureFrame(page, style, unit);
 
   const rect = (inset: number, stroke: string, width: number): DrawItem => ({
@@ -386,21 +399,30 @@ export const layoutDecoration = (page: { width: number; height: number }, decora
   const above: DrawItem[] = [];
 
   let top = inset;
+  let textBottom = top;
+  let fit = 1;
   const title = decoration.title.trim() || defaultTitle(treeName);
   if (title) {
-    const sizeMm = fitSize(title, unit * 7, true, page.width - 2 * inset);
+    const wantedMm = decorationPxToMm(page, decoration.titleSize);
+    const sizeMm = fitSize(title, wantedMm, true, page.width - 2 * inset);
+    fit = Math.min(fit, sizeMm / wantedMm);
     above.push({ type: 'text', x: page.width / 2, y: top + sizeMm * 0.6, text: title, sizePt: sizeMm * PT_PER_MM, bold: true, color: palette.title });
+    textBottom = top + sizeMm * 1.05;
     top += sizeMm * 1.3;
   }
   const subtitle = decoration.subtitle.trim();
   if (subtitle) {
-    const sizeMm = fitSize(subtitle, unit * 3, false, page.width - 2 * inset);
+    const wantedMm = decorationPxToMm(page, decoration.subtitleSize);
+    const sizeMm = fitSize(subtitle, wantedMm, false, page.width - 2 * inset);
+    fit = Math.min(fit, sizeMm / wantedMm);
     above.push({ type: 'text', x: page.width / 2, y: top + sizeMm * 0.6, text: subtitle, sizePt: sizeMm * PT_PER_MM, bold: false, color: palette.text });
+    textBottom = top + sizeMm * 1.05;
     top += sizeMm * 1.4;
   }
   if (SIGNATURE_STYLES.has(decoration.frame) && (title || subtitle)) {
     // Vạch ngăn dưới tiêu đề: gạch – thoi – gạch.
-    const y = top + unit * 0.6;
+    // Chữ tiêu đề/phụ đề nhỏ (người dùng đặt cỡ nhỏ) thì đẩy vạch xuống để thoi không đè lên chữ.
+    const y = Math.max(top + unit * 0.6, textBottom + unit * 1.05);
     const arm = unit * 11;
     const gap = unit * 3;
     above.push(
@@ -408,7 +430,7 @@ export const layoutDecoration = (page: { width: number; height: number }, decora
       strokeItem([[page.width / 2 + gap, y], [page.width / 2 + gap + arm, y]], palette.ornament, unit * 0.2, false),
       diamondItem(page.width / 2, y, unit * 0.8, palette.ornament, unit * 0.5),
     );
-    top += unit * 2.4;
+    top = y + unit * 1.8;
   }
   if (title || subtitle) top += unit * 2;
 
@@ -422,8 +444,10 @@ export const layoutDecoration = (page: { width: number; height: number }, decora
     const widestEm = Math.max(...columns.flat().map((word) => textWidthEm(word, true)));
     const padding = unit * 1.2;
     const maxColumn = page.width * 0.18;
-    let sizeMm = Math.min(unit * 3.85, availableHeight / (longest * 1.45));
+    const wantedMm = decorationPxToMm(page, decoration.coupletSize);
+    let sizeMm = Math.min(wantedMm, availableHeight / (longest * 1.45));
     if (widestEm * sizeMm + padding > maxColumn) sizeMm = (maxColumn - padding) / widestEm;
+    fit = Math.min(fit, Math.max(sizeMm, 0) / wantedMm);
     const columnWidth = Math.max(unit * 7, widestEm * sizeMm + padding);
     const drawColumn = (column: string[], centerX: number) => {
       const blockHeight = column.length * sizeMm * 1.45;
@@ -443,5 +467,6 @@ export const layoutDecoration = (page: { width: number; height: number }, decora
     below,
     above,
     content: { x: left, y: top, width: page.width - left - right, height: page.height - top - inset },
+    fit,
   };
 };

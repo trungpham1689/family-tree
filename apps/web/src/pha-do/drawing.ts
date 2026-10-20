@@ -49,3 +49,18 @@ export type DrawItem = DrawRect | DrawLine | DrawText | DrawImage;
 export type Drawing = { width: number; height: number; items: DrawItem[] };
 
 export const PT_PER_MM = 72 / 25.4;
+
+type PageSize = { width: number; height: number };
+
+/** Chú giải và các chi tiết nhỏ thiết kế trên khổ A1 (cạnh ngắn 594 mm); khổ khác co giãn theo cạnh ngắn. */
+const REFERENCE_SHORT_SIDE_MM = 594;
+export const paperScale = (page: PageSize): number => Math.min(page.width, page.height) / REFERENCE_SHORT_SIDE_MM;
+
+/**
+ * Cỡ chữ trang trí (tiêu đề, phụ đề, câu đối): px trên trang có cạnh ngắn 1000 px, nên đổi khổ giấy thì
+ * chữ, khung, hoạ tiết giữ nguyên tỉ lệ so với trang.
+ */
+export const decorationPxToMm = (page: PageSize, px: number): number => (px * Math.min(page.width, page.height)) / 1000;
+
+/** Cỡ chữ tên trong ô: px CSS thật (96 dpi) trên giấy, không phụ thuộc khổ; khổ giấy tự lớn lên khi cần thêm chỗ. */
+export const MM_PER_PX = 25.4 / 96;

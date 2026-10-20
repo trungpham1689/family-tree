@@ -63,13 +63,28 @@ export type PhaDoConfig = {
   extraLines: ExtraLine[];
   /** Hiện ảnh đại diện trong mỗi ô, với Người đã có ảnh. */
   showAvatars: boolean;
-  /** Hệ số cỡ chữ tối đa (1 = mặc định 28pt); vẫn bị giới hạn theo khổ giấy thật sự chứa được. */
-  fontScale: number;
+  /** Cỡ chữ tên trong ô (px CSS thật trên giấy); đổi cỡ chữ thì khổ giấy tự co giãn cho vừa (xem `fitPaperToFont`). */
+  memberFontPx: number;
   /** Chỉ áp dụng khi xem trước trên trang; bản xuất luôn là NotoSerif. */
   fontFamily: PhaDoFontFamily;
+  /** Khổ giấy tự tính theo nội dung (mọi thay đổi đều co giãn khổ cho vừa khít); tắt khi người dùng chọn khổ giấy cụ thể. */
+  autoPaper: boolean;
+  /** Màu chữ và màu nền ô thành viên (#rrggbb); null = mặc định (chữ đen, nền trắng, ô Dâu/Rể nền kem). */
+  memberTextColor: string | null;
+  memberFillColor: string | null;
 };
 
-export const FONT_SCALE_OPTIONS = [0.75, 1, 1.3, 1.6] as const;
+/** Khoảng cỡ chữ cho phép ở mọi ô nhập cỡ chữ. */
+export const FONT_PX_MIN = 4;
+export const FONT_PX_MAX = 300;
+
+/** Khoảng kích thước khổ tự nhập (cm). */
+export const CUSTOM_CM_MIN = 10;
+export const CUSTOM_CM_MAX = 500;
+
+/** Đã có cỡ chữ ô lưu sẵn chưa; chưa thì trang dùng cỡ chữ đang hiện lúc mở lần đầu (xem `autoMemberFontPx`). */
+export const hasStoredMemberFont = (stored: unknown): boolean =>
+  isRecord(stored) && typeof stored.memberFontPx === 'number' && Number.isFinite(stored.memberFontPx);
 
 export const defaultPhaDoConfig = (outsideGenerations: number): PhaDoConfig => ({
   scope: { kind: 'all' },
@@ -81,8 +96,11 @@ export const defaultPhaDoConfig = (outsideGenerations: number): PhaDoConfig => (
   extraLines: [],
   showAvatars: false,
   decoration: DEFAULT_DECORATION,
-  fontScale: 1,
+  memberFontPx: 14,
   fontFamily: 'noto-serif',
+  autoPaper: false,
+  memberTextColor: null,
+  memberFillColor: null,
 });
 
 /** Kích thước trang (mm) theo khổ và hướng giấy. */
@@ -97,6 +115,8 @@ export const pageSizeMm = (config: Pick<PhaDoConfig, 'paper' | 'customWidthCm' |
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+/** Chỉ nhận #rrggbb; giá trị lạ (hoặc chưa đặt) thì dùng màu mặc định. */
+const hexColor = (value: unknown): string | null => (typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : null);
 const EXTRA_LINES: readonly ExtraLine[] = ['gio', 'doi', 'que'];
 
 /** Đọc cấu hình đã lưu (JSON từ database); giá trị lạ thì dùng mặc định thay vì hỏng trang. */
@@ -126,21 +146,27 @@ export const readPhaDoConfig = (stored: unknown, outsideGenerations: number): Ph
       subtitle: text(decoration.subtitle, 200),
       coupletLeft: text(decoration.coupletLeft, 200),
       coupletRight: text(decoration.coupletRight, 200),
+      titleSize: number(decoration.titleSize, FONT_PX_MIN, FONT_PX_MAX, DEFAULT_DECORATION.titleSize),
+      subtitleSize: number(decoration.subtitleSize, FONT_PX_MIN, FONT_PX_MAX, DEFAULT_DECORATION.subtitleSize),
+      coupletSize: number(decoration.coupletSize, FONT_PX_MIN, FONT_PX_MAX, DEFAULT_DECORATION.coupletSize),
     },
     scope: readScope(),
     outsideGenerations: number(stored.outsideGenerations, 0, 5, fallback.outsideGenerations),
     paper: paper === 'A3' || paper === 'A2' || paper === 'A1' || paper === 'A0' || paper === 'custom' ? paper : fallback.paper,
-    customWidthCm: number(stored.customWidthCm, 10, 500, fallback.customWidthCm),
-    customHeightCm: number(stored.customHeightCm, 10, 500, fallback.customHeightCm),
+    customWidthCm: number(stored.customWidthCm, CUSTOM_CM_MIN, CUSTOM_CM_MAX, fallback.customWidthCm),
+    customHeightCm: number(stored.customHeightCm, CUSTOM_CM_MIN, CUSTOM_CM_MAX, fallback.customHeightCm),
     orientation: stored.orientation === 'portrait' ? 'portrait' : 'landscape',
     extraLines: Array.isArray(stored.extraLines)
       ? [...new Set(stored.extraLines.filter((line): line is ExtraLine => EXTRA_LINES.includes(line as ExtraLine)))].slice(0, 2)
       : [],
     showAvatars: stored.showAvatars === true,
-    fontScale: number(stored.fontScale, 0.5, 2, fallback.fontScale),
+    memberFontPx: number(stored.memberFontPx, FONT_PX_MIN, FONT_PX_MAX, fallback.memberFontPx),
     fontFamily:
       stored.fontFamily === 'noto-serif' || stored.fontFamily === 'be-vietnam-pro' || stored.fontFamily === 'system'
         ? stored.fontFamily
         : fallback.fontFamily,
+    autoPaper: stored.autoPaper === true,
+    memberTextColor: hexColor(stored.memberTextColor),
+    memberFillColor: hexColor(stored.memberFillColor),
   };
 };
