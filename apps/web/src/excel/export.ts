@@ -7,6 +7,7 @@ import type { SheetData } from 'write-excel-file/universal';
 import type { Row } from '../data/database.types';
 import { compareSiblings } from '../family/family-graph';
 import { PERSON_FIELD_KEYS } from '../people/person-form';
+import { fieldText, TEXT_FIELDS } from '../people/profile-fields';
 import { COLUMNS, type RawRow } from './columns';
 import { GUIDE_SHEET, DATA_SHEET, templateSheets } from './template';
 
@@ -173,22 +174,8 @@ export const familyToRows = (data: ExportData): RawRow[] => {
       spouseOrder: refs.map((ref) => ref.order).join(', '),
       spouseStatus: refs.some((ref) => ref.status !== 'con') ? refs.map((ref) => STATUS_TEXT[ref.status] ?? 'Còn').join(', ') : '',
       marriageDate: refs.some((ref) => ref.marriage !== '-') ? refs.map((ref) => ref.marriage).join(', ') : '',
-      commonName: person.common_name ?? '',
-      tabooName: person.taboo_name ?? '',
-      courtesyName: person.courtesy_name ?? '',
-      hanName: person.han_name ?? '',
       birthDate: dateText(person.birth_precision, person.birth_year, person.birth_month, person.birth_day, person.birth_approx),
       birthCalendar: calendarText(person.birth_calendar, person.birth_leap, person.birth_year),
-      birthPlace: person.birth_place ?? '',
-      hometown: person.hometown ?? '',
-      residence: person.residence ?? '',
-      occupation: person.occupation ?? '',
-      education: person.education ?? '',
-      title: person.title ?? '',
-      phone: person.phone ?? '',
-      email: person.email ?? '',
-      biography: person.biography ?? '',
-      roleNote: person.role_note ?? '',
       deceased: person.is_deceased ? 'Có' : '',
       deathDate: dateText(person.death_precision, person.death_year, person.death_month, person.death_day, person.death_approx),
       deathCalendar: calendarText(person.death_calendar, person.death_leap, person.death_year),
@@ -196,10 +183,8 @@ export const familyToRows = (data: ExportData): RawRow[] => {
         person.anniversary_manual && person.anniversary_day !== null && person.anniversary_month !== null
           ? `${person.anniversary_day}/${person.anniversary_month}`
           : '',
-      burialPlace: person.burial_place ?? '',
-      burialMapUrl: person.burial_map_url ?? '',
-      worshipPlace: person.worship_place ?? '',
       worshipKeeperCode: person.worship_keeper_id ? (code.get(person.worship_keeper_id) ?? '') : '',
+      ...Object.fromEntries(TEXT_FIELDS.map((field) => [field.key, fieldText(person, field.key)])),
       hiddenFromPublic: person.hidden_from_public ? 'Có' : '',
       foundsBranch: person.founds_branch ? 'Có' : '',
     };

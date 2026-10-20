@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { EVENT_MATRIX, PERSON_MATRIX } from './permission-matrix';
 import { canEditEvent, canEditTree, isTreeOwner, personPermissions } from './permissions';
 
 const person = (extra: Partial<{ pending_delete_by: string | null }> = {}) => ({ pending_delete_by: null, ...extra });
@@ -42,5 +43,18 @@ describe('canEditEvent (khớp RLS tree_events)', () => {
     expect(canEditEvent('editor', 'bt2', { created_by: 'bt1' })).toBe(false);
     expect(canEditEvent('viewer', 'bt1', { created_by: 'bt1' })).toBe(false);
     expect(canEditEvent('editor', null, { created_by: null })).toBe(false);
+  });
+});
+
+describe('bảng quyền chung với database (permission-matrix)', () => {
+  const role = (actor: string) => (actor === 'none' ? undefined : (actor as 'owner' | 'editor' | 'viewer'));
+
+  // Quyền trên Người không phụ thuộc ai tạo (cột `creator` chỉ để database dựng đúng ngữ cảnh).
+  it.each(PERSON_MATRIX)('Người: $actor, do $creator tạo', ({ actor, edit, deleteNow, requestDelete }) => {
+    expect(personPermissions(role(actor), 'me', { pending_delete_by: null })).toMatchObject({ edit, deleteNow, requestDelete });
+  });
+
+  it.each(EVENT_MATRIX)('Sự kiện: $actor, do $creator tạo', ({ actor, creator, edit }) => {
+    expect(canEditEvent(role(actor), 'me', { created_by: creator === 'self' ? 'me' : 'someone' })).toBe(edit);
   });
 });

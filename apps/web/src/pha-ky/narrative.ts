@@ -2,6 +2,7 @@ import type { Person } from '../data/trees';
 import type { FamilyGraph, PersonKind } from '../family/family-graph';
 import { birthOrderLabel } from '../family/labels';
 import { ageAtDeath, deathAgeLabel, lifespanText } from '../people/person-display';
+import { fieldLabel, fieldText, type TextFieldKey } from '../people/profile-fields';
 
 /**
  * Phả ký: văn bản tường thuật từng Người theo Đời, khác Phả đồ (sơ đồ hình).
@@ -36,12 +37,12 @@ export const NARRATIVE_FIELDS = [
   { id: 'parents', label: 'Cha mẹ' },
   { id: 'role', label: 'Chức vụ & vai vế' },
   { id: 'order', label: 'Thứ tự con' },
-  { id: 'birthPlace', label: 'Nơi sinh' },
-  { id: 'hometown', label: 'Nguyên quán' },
-  { id: 'residence', label: 'Nơi ở' },
+  { id: 'birthPlace', label: fieldLabel('birthPlace') },
+  { id: 'hometown', label: fieldLabel('hometown') },
+  { id: 'residence', label: fieldLabel('residence') },
   { id: 'marriage', label: 'Hôn nhân' },
-  { id: 'occupation', label: 'Nghề nghiệp' },
-  { id: 'education', label: 'Học vấn' },
+  { id: 'occupation', label: fieldLabel('occupation') },
+  { id: 'education', label: fieldLabel('education') },
   { id: 'death', label: 'Hưởng thọ' },
   { id: 'burial', label: 'An táng' },
   { id: 'worship', label: 'Thờ phụng' },
@@ -53,6 +54,9 @@ export const ALL_NARRATIVE_FIELDS: readonly NarrativeField[] = NARRATIVE_FIELDS.
 export const DEFAULT_NARRATIVE_FIELDS: readonly NarrativeField[] = ['names', 'parents', 'role'];
 
 const MARRIAGE_STATUS_NOTE: Record<string, string> = { ly_hon: ' (đã ly hôn)', goa: ' (góa)' };
+
+/** Câu "Nhãn: giá trị." cho một trường hồ sơ (nhãn Phả ký lấy từ `profile-fields.ts`). */
+const labelledField = (person: Person, key: TextFieldKey): string[] => labelled(fieldLabel(key, 'narrative'), fieldText(person, key));
 
 const personNarrative = (
   graph: FamilyGraph<Person>,
@@ -66,7 +70,7 @@ const personNarrative = (
   if (fields.has('names')) {
     const commonName = cleanFreeText(person.common_name);
     if (commonName) sentences.push(`Còn gọi là ${commonName}.`);
-    sentences.push(...labelled('Tên tự / hiệu', person.courtesy_name));
+    sentences.push(...labelledField(person, 'courtesyName'));
   }
 
   if (placement.kind === 'thuy_to') {
@@ -79,8 +83,8 @@ const personNarrative = (
     }
   }
 
-  if (fields.has('birthPlace')) sentences.push(...labelled('Nơi sinh', person.birth_place));
-  if (fields.has('hometown')) sentences.push(...labelled('Nguyên quán', person.hometown));
+  if (fields.has('birthPlace')) sentences.push(...labelledField(person, 'birthPlace'));
+  if (fields.has('hometown')) sentences.push(...labelledField(person, 'hometown'));
   if (fields.has('residence') && cleanFreeText(person.residence) && (!fields.has('hometown') || cleanFreeText(person.residence) !== cleanFreeText(person.hometown))) {
     sentences.push(`Sinh sống tại ${cleanFreeText(person.residence)}.`);
   }
@@ -91,11 +95,11 @@ const personNarrative = (
   }
 
   if (fields.has('role')) {
-    sentences.push(...labelled('Chức vụ / danh hiệu', person.title));
-    sentences.push(...labelled('Vai vế', person.role_note));
+    sentences.push(...labelledField(person, 'title'));
+    sentences.push(...labelledField(person, 'roleNote'));
   }
-  if (fields.has('occupation')) sentences.push(...labelled('Nghề nghiệp', person.occupation));
-  if (fields.has('education')) sentences.push(...labelled('Học vấn', person.education));
+  if (fields.has('occupation')) sentences.push(...labelledField(person, 'occupation'));
+  if (fields.has('education')) sentences.push(...labelledField(person, 'education'));
 
   if (person.is_deceased) {
     if (fields.has('death')) {

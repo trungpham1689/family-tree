@@ -1,5 +1,5 @@
 import { canEditTree } from '../data/permissions';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams } from 'react-router';
 import {
   useFamily,
@@ -10,9 +10,9 @@ import {
 } from '../data/tree-queries';
 import type { Person, TreeWithRole } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
-import { FONT_FAMILY_CSS, hasStoredMemberFont, readPhaDoConfig, type PhaDoConfig } from '../pha-do/config';
+import { FONT_FAMILY_CSS, readPhaDoConfig, type PhaDoConfig } from '../pha-do/config';
 import { DESKTOP_LIMITS, IOS_LIMITS, isAppleMobile, planPng } from '../pha-do/png';
-import { applyConfigChange, autoMemberFontPx, fitPaperToFont } from '../pha-do/auto-fit';
+import { usePhaDoDesign } from '../pha-do/use-design';
 import { renderPhaDo } from '../pha-do/render';
 import { drawingToSvg } from '../pha-do/svg';
 import { TreeTabs } from '../tree/TreeTabs';
@@ -49,7 +49,6 @@ export const PhaDoPage = () => {
             tree={tree.data}
             graph={family.data}
             initial={readPhaDoConfig(saved.data, tree.data.outside_generations)}
-            fontStored={hasStoredMemberFont(saved.data)}
           />
         )}
       </main>
@@ -60,21 +59,8 @@ export const PhaDoPage = () => {
 
 type Zoom = 'fit' | 1 | 2 | 4;
 
-const PhaDoDesigner = ({
-  tree,
-  graph,
-  initial,
-  fontStored,
-}: {
-  tree: TreeWithRole;
-  graph: FamilyGraph<Person>;
-  initial: PhaDoConfig;
-  /** Cấu hình đã lưu có cỡ chữ ô chưa; chưa thì lấy cỡ chữ đang hiện lúc mở lần đầu. */
-  fontStored: boolean;
-}) => {
-  const [config, setConfig] = useState(() =>
-    fontStored ? initial : { ...initial, memberFontPx: autoMemberFontPx(graph, initial, tree.name) },
-  );
+const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: FamilyGraph<Person>; initial: PhaDoConfig }) => {
+  const { config, change } = usePhaDoDesign({ graph, treeName: tree.name }, initial);
   const [zoom, setZoom] = useState<Zoom>('fit');
   const [tab, setTab] = useState<SettingsTab>('content');
   const { running: exporting, error: exportError, run: runExport } = useTreeExport(tree.name);
@@ -91,37 +77,9 @@ const PhaDoDesigner = ({
     [result.drawing],
   );
   const svg = useMemo(() => drawingToSvg(result.drawing, undefined, FONT_FAMILY_CSS[config.fontFamily]), [result, config.fontFamily]);
-  /**
-   * Mọi thay đổi liên quan tới hiển thị đều tự co giãn cho vừa khít khung trang trí: khổ giấy tự tính theo nội dung (chế độ tự động),
-   * hoặc, khi người dùng đã chọn một khổ cụ thể, cỡ chữ tự chỉnh cho vừa khổ đó.
-   */
-  const refit = (next: PhaDoConfig): PhaDoConfig =>
-    next.autoPaper
-      ? fitPaperToFont(graph, next, tree.name, avatars.data)
-      : { ...next, memberFontPx: autoMemberFontPx(graph, next, tree.name, avatars.data) };
-  // Gõ chữ trang trí từng phím: hiện chữ ngay, chờ ngừng gõ rồi mới co giãn lại (tính khổ giấy khá tốn với cây lớn).
-  const latest = useRef({ config, refit });
-  useEffect(() => {
-    latest.current = { config, refit };
-  });
-  const refitTimer = useRef<number | undefined>(undefined);
-  useEffect(() => () => window.clearTimeout(refitTimer.current), []);
-  const update = (patch: Partial<PhaDoConfig>) => {
-    window.clearTimeout(refitTimer.current);
-    const { next, deferred } = applyConfigChange(config, patch, refit);
-    setConfig(next);
-    if (deferred) refitTimer.current = window.setTimeout(() => setConfig(latest.current.refit(latest.current.config)), 300);
-  };
-  /** Người dùng chọn khổ giấy/kích thước cụ thể: giữ khổ đó, cỡ chữ tự chỉnh theo. */
-  const updatePaper = (patch: Partial<PhaDoConfig>) => setConfig(refit({ ...config, ...patch, autoPaper: false }));
-
-  const changeMemberFont = (memberFontPx: number) =>
-    setConfig(fitPaperToFont(graph, { ...config, memberFontPx, autoPaper: true }, tree.name, avatars.data));
-
   const exportPdf = () => runExport('pha-do-pdf', { drawing: result.drawing, fontFamily: config.fontFamily });
   const exportPng = () => runExport('pha-do-png', { drawing: result.drawing, fontFamily: config.fontFamily, plan: pngPlan });
 
-  const setAuto = () => setConfig(fitPaperToFont(graph, { ...config, autoPaper: true }, tree.name, avatars.data));
   const namePx = result.personCount > 0 ? result.namePx : null;
 
   return (
@@ -131,19 +89,19 @@ const PhaDoDesigner = ({
         <SettingsTabs tab={tab} onChange={setTab} />
 
         <div role="tabpanel" id="pha-do-panel" aria-labelledby={`pha-do-tab-${tab}`} className="min-h-0 flex-1 overflow-y-auto p-5">
-          {tab === 'content' && <ContentSettings graph={graph} config={config} onChange={update} />}
+          {tab === 'content' && <ContentSettings graph={graph} config={config} onChange={(patch) => change({ kind: 'content', patch })} />}
           {tab === 'decoration' && (
-            <DecorationSettings treeName={tree.name} decoration={config.decoration} onChange={(patch) => update({ decoration: { ...config.decoration, ...patch } })} />
+            <DecorationSettings treeName={tree.name} decoration={config.decoration} onChange={(patch) => change({ kind: 'content', patch: { decoration: { ...config.decoration, ...patch } } })} />
           )}
           {tab === 'paper' && (
             <PaperTab
               config={config}
               namePx={namePx}
-              onPaper={updatePaper}
-              onAuto={setAuto}
-              onOrientationChange={(orientation) => update({ orientation })}
-              onChange={update}
-              onMemberFontChange={changeMemberFont}
+              onPaper={(patch) => change({ kind: 'paper', patch })}
+              onAuto={() => change({ kind: 'auto' })}
+              onOrientationChange={(orientation) => change({ kind: 'content', patch: { orientation } })}
+              onChange={(patch) => change({ kind: 'content', patch })}
+              onMemberFontChange={(px) => change({ kind: 'font', px })}
             />
           )}
         </div>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams } from 'react-router';
 import type { Person } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
-import { relationTerm } from '../family/kinship';
+import { describeRelation, type Relation } from '../family/kinship';
 import { NameCheckPanel } from '../family/NameCheckPanel';
 import { PersonPicker } from '../people/PersonPicker';
 import { personLabel } from '../people/person-label';
@@ -45,8 +45,8 @@ const LookupBody = ({ treeId, graph }: { treeId: string; graph: FamilyGraph<Pers
 const KinshipBody = ({ graph }: { graph: FamilyGraph<Person> }) => {
   const [aId, setAId] = useState<string | null>(null);
   const [bId, setBId] = useState<string | null>(null);
-  const aToB = aId && bId ? relationTerm(graph, aId, bId) : null;
-  const bToA = aId && bId ? relationTerm(graph, bId, aId) : null;
+  const aToB = aId && bId ? describeRelation(graph, aId, bId) : null;
+  const bToA = aId && bId ? describeRelation(graph, bId, aId) : null;
 
   return (
     <>
@@ -59,8 +59,8 @@ const KinshipBody = ({ graph }: { graph: FamilyGraph<Person> }) => {
 
         {aId && bId && (
           <section className="space-y-3 rounded-2xl border border-line bg-surface p-5">
-            <ResultLine subject={personLabel(graph, aId)} term={bToA} object={personLabel(graph, bId)} />
-            <ResultLine subject={personLabel(graph, bId)} term={aToB} object={personLabel(graph, aId)} />
+            <ResultLine subject={personLabel(graph, aId)} relation={bToA} object={personLabel(graph, bId)} />
+            <ResultLine subject={personLabel(graph, bId)} relation={aToB} object={personLabel(graph, aId)} />
           </section>
         )}
       </div>
@@ -97,9 +97,10 @@ const PersonChooser = ({
   return <PersonPicker graph={graph} label={label} onPick={onPick} />;
 };
 
-const ResultLine = ({ subject, term, object }: { subject: string; term: string | null; object: string }) => (
+const ResultLine = ({ subject, relation, object }: { subject: string; relation: Relation | null; object: string }) => (
   <p>
     <strong>{subject}</strong> gọi <strong>{object}</strong> là{' '}
-    {term ? <span className="font-semibold text-son">{term}</span> : <span className="text-ink-muted">không rõ quan hệ</span>}.
+    {relation ? <span className="font-semibold text-son">{relation.term}</span> : <span className="text-ink-muted">không rõ quan hệ</span>}.
+    {relation?.via && <span className="text-ink-muted"> ({relation.via})</span>}
   </p>
 );

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildFamilyGraph, type GraphPerson } from './family-graph';
-import { isOlder, relationTerm } from './kinship';
+import { describeRelation, isOlder } from './kinship';
 
 const person = (id: string, extra: Partial<GraphPerson> = {}): GraphPerson => ({
   id,
@@ -59,7 +59,9 @@ const sample = () =>
     ],
   });
 
-describe('relationTerm', () => {
+const relationTerm = (graph: Parameters<typeof describeRelation>[0], from: string, to: string) => describeRelation(graph, from, to)?.term ?? null;
+
+describe('describeRelation', () => {
   it('chính mình', () => {
     expect(relationTerm(sample(), 'to', 'to')).toBe('Chính là người này');
   });
@@ -82,16 +84,16 @@ describe('relationTerm', () => {
 
   it('anh chị em ruột theo năm sinh', () => {
     const graph = sample();
-    expect(relationTerm(graph, 'con-trai', 'con-gai')).toBe('Em gái');
-    expect(relationTerm(graph, 'con-gai', 'con-trai')).toBe('Anh trai');
+    expect(relationTerm(graph, 'con-trai', 'con-gai')).toBe('Em gái ruột');
+    expect(relationTerm(graph, 'con-gai', 'con-trai')).toBe('Anh ruột');
   });
 
   it('chú/cô bên nội, cậu/dì bên ngoại', () => {
     const graph = sample();
     // chau-noi gọi con-gai (em gái của cha) là Cô.
-    expect(relationTerm(graph, 'chau-noi', 'con-gai')).toBe('Cô');
+    expect(relationTerm(graph, 'chau-noi', 'con-gai')).toBe('Cô ruột');
     // chau-ngoai gọi con-trai (anh trai của mẹ) là Cậu.
-    expect(relationTerm(graph, 'chau-ngoai', 'con-trai')).toBe('Cậu');
+    expect(relationTerm(graph, 'chau-ngoai', 'con-trai')).toBe('Cậu ruột');
     // Chiều ngược lại: cháu trai/gái.
     expect(relationTerm(graph, 'con-gai', 'chau-noi')).toBe('Cháu trai');
   });
@@ -106,6 +108,19 @@ describe('relationTerm', () => {
     const graph = sample();
     expect(relationTerm(graph, 'con-trai', 'dau-a')).toBe('Vợ cả');
     expect(relationTerm(graph, 'dau-a', 'con-trai')).toBe('Chồng');
+  });
+
+  it('vợ/chồng của họ hàng: mợ, thím, dượng; con dâu', () => {
+    const graph = sample();
+    // chau-ngoai gọi dau-a (vợ của cậu con-trai) là Mợ; to gọi dau-a là Vợ của con trai.
+    expect(relationTerm(graph, 'chau-ngoai', 'dau-a')).toBe('Mợ');
+    expect(relationTerm(graph, 'to', 'dau-a')).toBe('Vợ của con trai');
+  });
+
+  it('có giải thích đường nối cho họ hàng', () => {
+    const graph = sample();
+    expect(describeRelation(graph, 'chau-noi', 'con-gai')?.via).toBe('em gái của Cha (con-trai)');
+    expect(describeRelation(graph, 'chau-noi', 'chau-ngoai')?.via).toBe('chung Ông nội to');
   });
 
   it('không có quan hệ nào tìm được', () => {
@@ -155,8 +170,8 @@ describe('isOlder: sinh trước là lớn hơn', () => {
       unions: [],
       positions: [],
     });
-    expect(relationTerm(graph, 'b', 'a')).toBe('Anh trai'); // a sinh tháng 2, trước b
-    expect(relationTerm(graph, 'a', 'b')).toBe('Em trai');
-    expect(relationTerm(graph, 'a', 'c')).toBe('Anh/Em trai'); // c chỉ biết năm: chưa rõ
+    expect(relationTerm(graph, 'b', 'a')).toBe('Anh ruột'); // a sinh tháng 2, trước b
+    expect(relationTerm(graph, 'a', 'b')).toBe('Em trai ruột');
+    expect(relationTerm(graph, 'a', 'c')).toBe('Anh/Em trai ruột'); // c chỉ biết năm: chưa rõ
   });
 });

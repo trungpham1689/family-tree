@@ -172,6 +172,22 @@ await step('màu ô thành viên: đặt rồi về mặc định; thông báo c
   assert((await page.locator('svg rect[fill="#ffeecc"]').count()) === 0, 'ô vẫn nền cũ sau khi về mặc định');
 });
 
+await step('gõ tiêu đề rồi đổi màu ngay: khổ giấy vẫn tự co giãn khi ngừng gõ (không bị huỷ lần tính hoãn)', async () => {
+  await tab('Khổ giấy & chữ');
+  await choosePaper('Tự động');
+  const before = `${await page.getByLabel('Rộng').inputValue()}×${await page.getByLabel('Cao').inputValue()}`;
+  await tab('Trang trí');
+  await page.getByLabel('Tiêu đề', { exact: true }).fill('Gia phả dòng họ Phạm Văn ở làng Đông, huyện Thanh Chương, tỉnh Nghệ An, nhiều đời tiếp nối');
+  await tab('Khổ giấy & chữ');
+  await page.getByLabel('Màu nền').fill('#ffeecc'); // đổi màu trong lúc lần tính hoãn của tiêu đề còn chờ
+  await page.waitForTimeout(1200);
+  const after = `${await page.getByLabel('Rộng').inputValue()}×${await page.getByLabel('Cao').inputValue()}`;
+  assert(after !== before, `khổ giấy không đổi sau khi gõ tiêu đề dài (${before})`);
+  await page.getByRole('button', { name: /Về màu nền mặc định/ }).click();
+  await tab('Trang trí');
+  await page.getByLabel('Tiêu đề', { exact: true }).fill('');
+});
+
 await step('Trang trí: cỡ chữ cùng hàng phía trên ô chữ tương ứng, mặc định 50/30/30', async () => {
   await tab('Trang trí');
   const input = await page.getByLabel('Tiêu đề', { exact: true }).boundingBox();

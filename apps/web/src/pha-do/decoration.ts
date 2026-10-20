@@ -390,8 +390,8 @@ const words = (text: string) => text.trim().split(/\s+/).filter(Boolean);
 /** "Gia phả <tên>", không lặp "Gia phả" nếu tên đã có sẵn. */
 export const defaultTitle = (treeName: string) => (treeName ? `Gia phả ${treeName}`.replace(/^Gia phả gia phả /i, 'Gia phả ') : '');
 
-/** Bố trí trang trí trên trang; mọi kích thước co giãn theo khổ giấy. */
-export const layoutDecoration = (page: { width: number; height: number }, decoration: Decoration, treeName: string): DecorationLayout => {
+/** Bố trí trang trí trên trang; mọi kích thước co giãn theo khổ giấy. Không có trạng thái: cùng đầu vào cho cùng kết quả (xem `layoutDecoration`, có nhớ). */
+const computeDecoration = (page: { width: number; height: number }, decoration: Decoration, treeName: string): DecorationLayout => {
   // Đơn vị trang trí: ~1/100 cạnh ngắn (A3 ≈ 3 mm, A0 ≈ 8,4 mm).
   const unit = Math.min(page.width, page.height) / 100;
   const palette = PALETTES[decoration.frame];
@@ -469,4 +469,27 @@ export const layoutDecoration = (page: { width: number; height: number }, decora
     content: { x: left, y: top, width: page.width - left - right, height: page.height - top - inset },
     fit,
   };
+};
+
+const DECORATION_CACHE_LIMIT = 64;
+const decorationCache = new Map<string, DecorationLayout>();
+
+/**
+ * `computeDecoration` có nhớ kết quả theo (khổ trang, trang trí, tên gia phả): hàm thuần nên cùng đầu vào cho cùng kết quả, và việc tự co giãn khổ giấy
+ * hỏi lại cùng một trang tham chiếu rất nhiều lần (đổi người, đổi dòng thêm… không đụng tới trang trí). Kết quả được dùng chung: bên gọi chỉ đọc, không sửa
+ * các mảng trả về. Giữ tối đa 64 kết quả gần nhất.
+ */
+export const layoutDecoration = (page: { width: number; height: number }, decoration: Decoration, treeName: string): DecorationLayout => {
+  const key = `${page.width}x${page.height}|${treeName}|${JSON.stringify(decoration)}`;
+  const cached = decorationCache.get(key);
+  if (cached) {
+    // Dùng gần đây nhất thì chuyển xuống cuối để bị loại sau cùng.
+    decorationCache.delete(key);
+    decorationCache.set(key, cached);
+    return cached;
+  }
+  const layout = computeDecoration(page, decoration, treeName);
+  decorationCache.set(key, layout);
+  if (decorationCache.size > DECORATION_CACHE_LIMIT) decorationCache.delete(decorationCache.keys().next().value!);
+  return layout;
 };

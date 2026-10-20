@@ -10,37 +10,21 @@ import {
   type Precision,
   type StoredDate,
 } from './partial-date-input';
+import { TEXT_FIELDS, type TextFieldKey } from './profile-fields';
 
 export type Gender = 'nam' | 'nu';
 
-/** Giá trị thô của form hồ sơ Người (mọi ô là chuỗi hoặc cờ). */
-export type PersonFormValues = {
+/** Giá trị thô của form hồ sơ Người (mọi ô là chuỗi hoặc cờ). Các ô chữ tự do (xem `profile-fields.ts`) đều là chuỗi. */
+export type PersonFormValues = Record<TextFieldKey, string> & {
   fullName: string;
   gender: '' | Gender;
   birthOrder: string;
-  commonName: string;
-  tabooName: string;
-  courtesyName: string;
-  hanName: string;
   birth: DateInput;
-  birthPlace: string;
-  hometown: string;
-  residence: string;
-  occupation: string;
-  education: string;
-  title: string;
-  phone: string;
-  email: string;
-  biography: string;
-  roleNote: string;
   isDeceased: boolean;
   death: DateInput;
   anniversaryManual: boolean;
   anniversaryDay: string;
   anniversaryMonth: string;
-  burialPlace: string;
-  burialMapUrl: string;
-  worshipPlace: string;
   worshipKeeperId: string | null;
 };
 
@@ -95,33 +79,19 @@ export type PersonFormErrors = Partial<Record<keyof PersonFormValues, string>>;
 
 export type PersonFormResult = { ok: true; fields: PersonFields } | { ok: false; errors: PersonFormErrors };
 
+const EMPTY_TEXT = Object.fromEntries(TEXT_FIELDS.map((field) => [field.key, ''])) as Record<TextFieldKey, string>;
+
 export const EMPTY_PERSON_FORM: PersonFormValues = {
+  ...EMPTY_TEXT,
   fullName: '',
   gender: 'nam',
   birthOrder: '',
-  commonName: '',
-  tabooName: '',
-  courtesyName: '',
-  hanName: '',
   birth: { ...EMPTY_DATE_INPUT, precision: 'ngay' },
-  birthPlace: '',
-  hometown: '',
-  residence: '',
-  occupation: '',
-  education: '',
-  title: '',
-  phone: '',
-  email: '',
-  biography: '',
-  roleNote: '',
   isDeceased: false,
   death: EMPTY_DATE_INPUT,
   anniversaryManual: false,
   anniversaryDay: '',
   anniversaryMonth: '',
-  burialPlace: '',
-  burialMapUrl: '',
-  worshipPlace: '',
   worshipKeeperId: null,
 };
 
@@ -146,6 +116,10 @@ export const suggestedAnniversary = (death: DateInput) => {
   const parsed = parseDateInput(death);
   return parsed && typeof parsed !== 'string' ? anniversaryFromDeath(parsed) : null;
 };
+
+/** Các cột chữ tự do (xem `profile-fields.ts`): bỏ khoảng trắng, rỗng thì null; trường chỉ dành cho Người đã mất bị xoá khi chưa đánh dấu đã mất. */
+const textColumns = (values: PersonFormValues, deceased: boolean): Record<string, string | null> =>
+  Object.fromEntries(TEXT_FIELDS.map((field) => [field.column, 'deceasedOnly' in field && field.deceasedOnly && !deceased ? null : text(values[field.key])]));
 
 /** Kiểm tra form và chuyển thành các cột lưu xuống database, kèm các giá trị suy ra. */
 export const parsePersonForm = (values: PersonFormValues): PersonFormResult => {
@@ -203,29 +177,13 @@ export const parsePersonForm = (values: PersonFormValues): PersonFormResult => {
     full_name: fullName,
     gender: values.gender === '' ? null : values.gender,
     birth_order: birthOrder,
-    common_name: text(values.commonName),
-    taboo_name: text(values.tabooName),
-    courtesy_name: text(values.courtesyName),
-    han_name: text(values.hanName),
+    ...textColumns(values, deceased),
     ...storedColumns('birth', birthStored),
-    birth_place: text(values.birthPlace),
-    hometown: text(values.hometown),
-    residence: text(values.residence),
-    occupation: text(values.occupation),
-    education: text(values.education),
-    title: text(values.title),
-    phone: text(values.phone),
-    email,
-    biography: text(values.biography),
-    role_note: text(values.roleNote),
     is_deceased: deceased,
     ...storedColumns('death', deathStored),
     anniversary_day: anniversary?.day ?? null,
     anniversary_month: anniversary?.month ?? null,
     anniversary_manual: deceased && values.anniversaryManual,
-    burial_place: deceased ? text(values.burialPlace) : null,
-    burial_map_url: deceased ? mapUrl : null,
-    worship_place: deceased ? text(values.worshipPlace) : null,
     worship_keeper_id: deceased ? values.worshipKeeperId : null,
   } as PersonFields;
 
@@ -266,31 +224,15 @@ export const storedDeath = (person: Row<'persons'>): StoredDate =>
 
 /** Đổ dữ liệu một Người đã lưu vào form để sửa. */
 export const personToFormValues = (person: Row<'persons'>): PersonFormValues => ({
+  ...(Object.fromEntries(TEXT_FIELDS.map((field) => [field.key, person[field.column] ?? ''])) as Record<TextFieldKey, string>),
   fullName: person.full_name,
   gender: person.gender === 'nam' || person.gender === 'nu' ? person.gender : '',
   birthOrder: person.birth_order?.toString() ?? '',
-  commonName: person.common_name ?? '',
-  tabooName: person.taboo_name ?? '',
-  courtesyName: person.courtesy_name ?? '',
-  hanName: person.han_name ?? '',
   birth: dateInputFromStored(storedBirth(person)),
-  birthPlace: person.birth_place ?? '',
-  hometown: person.hometown ?? '',
-  residence: person.residence ?? '',
-  occupation: person.occupation ?? '',
-  education: person.education ?? '',
-  title: person.title ?? '',
-  phone: person.phone ?? '',
-  email: person.email ?? '',
-  biography: person.biography ?? '',
-  roleNote: person.role_note ?? '',
   isDeceased: person.is_deceased,
   death: dateInputFromStored(storedDeath(person)),
   anniversaryManual: person.anniversary_manual,
   anniversaryDay: person.anniversary_day?.toString() ?? '',
   anniversaryMonth: person.anniversary_month?.toString() ?? '',
-  burialPlace: person.burial_place ?? '',
-  burialMapUrl: person.burial_map_url ?? '',
-  worshipPlace: person.worship_place ?? '',
   worshipKeeperId: person.worship_keeper_id ?? null,
 });

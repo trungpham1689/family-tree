@@ -6,6 +6,7 @@ import { ErrorBanner, TextAreaField, TextField } from '../ui/fields';
 import { findDuplicates } from './duplicate-check';
 import { personLabel } from './person-label';
 import { PersonPicker } from './PersonPicker';
+import { fieldLabel, formFields, TEXT_FIELDS, type ProfileTextField } from './profile-fields';
 import { PartialDateField } from './PartialDateField';
 import {
   parsePersonForm,
@@ -59,11 +60,27 @@ export const PersonForm = ({
   const set = <Key extends keyof PersonFormValues>(key: Key, value: PersonFormValues[Key]) =>
     setValues((current) => ({ ...current, [key]: value }));
 
-  const field = (
-    key: Exclude<keyof PersonFormValues, 'birth' | 'death' | 'isDeceased' | 'anniversaryManual' | 'gender' | 'worshipKeeperId'>,
-    label: string,
-    hint?: string,
-  ) => <TextField label={label} hint={hint} value={values[key]} error={errors[key]} onChange={(event) => set(key, event.target.value)} />;
+  /** Ô nhập của một trường chữ tự do (nhãn, hướng dẫn, ô nhiều dòng đều lấy từ `profile-fields.ts`). */
+  const field = (def: ProfileTextField) =>
+    'multiline' in def && def.multiline ? (
+      <TextAreaField
+        key={def.key}
+        label={fieldLabel(def.key, 'form')}
+        rows={6}
+        maxLength={20000}
+        value={values[def.key]}
+        onChange={(event) => set(def.key, event.target.value)}
+      />
+    ) : (
+      <TextField
+        key={def.key}
+        label={fieldLabel(def.key, 'form')}
+        hint={'hint' in def ? def.hint : undefined}
+        value={values[def.key]}
+        error={errors[def.key]}
+        onChange={(event) => set(def.key, event.target.value)}
+      />
+    );
 
   const suggestion = suggestedAnniversary(values.death);
 
@@ -119,7 +136,15 @@ export const PersonForm = ({
 
       <PartialDateField label="Ngày sinh" value={values.birth} error={errors.birth} onChange={(birth) => set('birth', birth)} />
 
-      {showBirthOrder && field('birthOrder', 'Thứ tự con', '1 là con trưởng. Để trống thì xếp sau các anh chị em đã có.')}
+      {showBirthOrder && (
+        <TextField
+          label="Thứ tự con"
+          hint="1 là con trưởng. Để trống thì xếp sau các anh chị em đã có."
+          value={values.birthOrder}
+          error={errors.birthOrder}
+          onChange={(event) => set('birthOrder', event.target.value)}
+        />
+      )}
 
       <label className="flex min-h-12 items-center gap-3 font-medium">
         <input type="checkbox" className="size-5 accent-son" checked={values.isDeceased} onChange={(event) => set('isDeceased', event.target.checked)} />
@@ -169,9 +194,7 @@ export const PersonForm = ({
             )}
           </div>
 
-          {field('burialPlace', 'Nơi an táng (mộ phần)')}
-          {field('burialMapUrl', 'Link vị trí mộ', 'Mở Google Maps tại vị trí mộ → Chia sẻ → Sao chép đường link rồi dán vào đây.')}
-          {field('worshipPlace', 'Nơi thờ')}
+          {formFields('death').map(field)}
           <WorshipKeeperField
             graph={graph}
             currentPersonId={currentPersonId}
@@ -189,21 +212,11 @@ export const PersonForm = ({
         <div className="space-y-4">
           <section className="space-y-4">
             <h3 className="font-serif text-lg font-bold">Tên gọi khác</h3>
-            {field('commonName', 'Tên thường gọi')}
-            {field('courtesyName', 'Tên tự / tên hiệu')}
+            {formFields('names').map(field)}
           </section>
           <section className="space-y-4">
             <h3 className="font-serif text-lg font-bold">Đời sống</h3>
-            {field('birthPlace', 'Nơi sinh')}
-            {field('hometown', 'Nguyên quán')}
-            {field('residence', 'Nơi ở')}
-            {field('occupation', 'Nghề nghiệp')}
-            {field('education', 'Học vấn')}
-            {field('title', 'Chức vụ / danh hiệu')}
-            {field('roleNote', 'Ghi chú vai vế', 'Ví dụ: Trưởng chi 2, Trưởng tộc')}
-            {field('phone', 'Số điện thoại')}
-            {field('email', 'Email')}
-            <TextAreaField label="Tiểu sử" rows={6} maxLength={20000} value={values.biography} onChange={(event) => set('biography', event.target.value)} />
+            {formFields('life').map(field)}
           </section>
         </div>
       )}
@@ -253,21 +266,7 @@ const WorshipKeeperField = ({ graph, currentPersonId, value, onChange }: Worship
   return <PersonPicker graph={graph} label="Người phụ trách cúng giỗ" onPick={onChange} {...(excluded ? { exclude: excluded } : {})} />;
 };
 
-const DETAIL_KEYS = [
-  'commonName',
-  'tabooName',
-  'courtesyName',
-  'hanName',
-  'birthPlace',
-  'hometown',
-  'residence',
-  'occupation',
-  'education',
-  'title',
-  'phone',
-  'email',
-  'biography',
-  'roleNote',
-] as const;
+/** Các ô của phần "Thêm thông tin" (tên khác, đời sống). Có ô nào đã điền thì mở sẵn phần đó khi sửa. */
+const DETAIL_KEYS = TEXT_FIELDS.filter((field) => field.group !== 'death').map((field) => field.key);
 
 const hasDetails = (values: PersonFormValues): boolean => DETAIL_KEYS.some((key) => values[key].trim() !== '');

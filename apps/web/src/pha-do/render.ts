@@ -2,6 +2,7 @@ import { layoutTree, outsideGenerationsFilter, wrapName } from '@gia-pha/tree-la
 import type { Person } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
 import { lifespanText } from '../people/person-display';
+import { fieldText } from '../people/profile-fields';
 import { pageSizeMm, type ExtraLine, type PhaDoConfig } from './config';
 import { layoutDecoration } from './decoration';
 import { fitSize, textWidthEm, truncateToFit } from './glyph-widths';
@@ -70,7 +71,7 @@ const extraText = (line: ExtraLine, person: Person, generation: number | null): 
     case 'doi':
       return generation !== null ? `Đời ${generation}` : null;
     case 'que':
-      return person.hometown;
+      return fieldText(person, 'hometown') || null;
   }
 };
 
@@ -151,16 +152,32 @@ const rootOf = (graph: FamilyGraph<Person>, config: PhaDoConfig): { rootId: stri
   }
 };
 
-/** Xếp cây (đơn vị bố cục trừu tượng) theo phạm vi, số đời Cháu ngoại, dòng thêm và ảnh trong ô của cấu hình. */
-export const treeLayout = (graph: FamilyGraph<Person>, config: PhaDoConfig, rootId: string, maxDepth?: number) => {
+type TreeLayout = ReturnType<typeof layoutTree>;
+const LAYOUT_CACHE_LIMIT = 6;
+/** Theo từng đồ thị (đồ thị đổi thì bộ nhớ tự bỏ): xếp cây là phần tốn nhất, và đổi màu, chữ trang trí, khổ giấy không làm đổi nó. */
+const layoutCache = new WeakMap<FamilyGraph<Person>, Map<string, TreeLayout>>();
+
+/**
+ * Xếp cây (đơn vị bố cục trừu tượng) theo phạm vi, số đời Cháu ngoại, dòng thêm và ảnh trong ô của cấu hình.
+ * Có nhớ theo (gốc, độ sâu, Cháu ngoại, dòng thêm, ảnh); kết quả dùng chung, bên gọi chỉ đọc.
+ */
+export const treeLayout = (graph: FamilyGraph<Person>, config: PhaDoConfig, rootId: string, maxDepth?: number): TreeLayout => {
   const extras = config.extraLines.slice(0, 2);
+  const key = [rootId, maxDepth ?? '', config.outsideGenerations, extras.join(','), config.showAvatars].join('|');
+  let perGraph = layoutCache.get(graph);
+  if (!perGraph) layoutCache.set(graph, (perGraph = new Map()));
+  const cached = perGraph.get(key);
+  if (cached) return cached;
   const boxHeight = BASE_BOX_HEIGHT + extras.length * EXTRA_LINE_HEIGHT + (config.showAvatars ? AVATAR_SIZE + AVATAR_GAP : 0);
-  return layoutTree(graph, {
+  const layout = layoutTree(graph, {
     rootId,
     ...(maxDepth !== undefined ? { maxDepth } : {}),
     includeChild: outsideGenerationsFilter(config.outsideGenerations),
     box: { width: BOX_WIDTH, height: boxHeight },
   });
+  perGraph.set(key, layout);
+  if (perGraph.size > LAYOUT_CACHE_LIMIT) perGraph.delete(perGraph.keys().next().value!);
+  return layout;
 };
 
 /** Gốc và độ sâu của phạm vi in; `null` nếu gốc không còn trong gia phả. */
@@ -172,6 +189,24 @@ export const scopeRoot = (graph: FamilyGraph<Person>, config: PhaDoConfig): { ro
 /** Cỡ chữ tên trong bố cục (đơn vị bố cục) và dải chú giải, để tính khổ giấy vừa cây. */
 export const LAYOUT_NAME_SIZE = NAME_SIZE;
 export const legendHeightMm = (page: { width: number; height: number }) => LEGEND_HEIGHT * paperScale(page);
+
+/** Tỉ lệ (đơn vị bố cục → mm) lớn nhất để cây nằm gọn trong vùng cây của trang, trừ dải chú giải. Dùng chung cho vẽ và cho việc tính khổ giấy. */
+const fitScaleOf = (layout: { width: number; height: number }, area: { width: number; height: number }, page: { width: number; height: number }): number =>
+  Math.min(area.width / layout.width, (area.height - LEGEND_HEIGHT * paperScale(page)) / layout.height);
+
+/**
+ * Cỡ chữ tên (px) lớn nhất mà khổ giấy của `config` chứa nổi, không dựng bản vẽ (chỉ xếp cây và bố trí trang trí, cả hai có nhớ).
+ * `null` khi không có gì để vẽ (gốc đã xoá, phạm vi rỗng).
+ */
+export const fitNamePxFor = (graph: FamilyGraph<Person>, config: PhaDoConfig, treeName = ''): number | null => {
+  const scope = scopeRoot(graph, config);
+  if (!scope) return null;
+  const layout = treeLayout(graph, config, scope.rootId, scope.maxDepth);
+  if (layout.nodes.length === 0) return null;
+  const page = pageSizeMm(config);
+  const fitScale = fitScaleOf(layout, layoutDecoration(page, config.decoration, treeName).content, page);
+  return (NAME_SIZE * fitScale) / MM_PER_PX;
+};
 
 /** Dựng bản vẽ Phả đồ theo cấu hình: chọn phạm vi, xếp cây, co giãn vừa khổ giấy, kèm cảnh báo chữ nhỏ. */
 export const renderPhaDo = (
@@ -195,7 +230,7 @@ export const renderPhaDo = (
   // đụng khung/hoạ tiết trang trí (những thứ đó nằm ngoài vùng này theo layoutDecoration).
   const k = paperScale(page);
   const availableHeight = area.height - LEGEND_HEIGHT * k;
-  const fitScale = Math.min(availableWidth / layout.width, availableHeight / layout.height);
+  const fitScale = fitScaleOf(layout, area, page);
   const scale = Math.min(fitScale, (config.memberFontPx * MM_PER_PX) / NAME_SIZE);
   const namePx = (NAME_SIZE * scale) / MM_PER_PX;
   const fitNamePx = (NAME_SIZE * fitScale) / MM_PER_PX;

@@ -2,10 +2,10 @@ import { randomFamily } from '@gia-pha/tree-layout';
 import { describe, expect, it } from 'vitest';
 import { blankPerson } from '../test-support/person';
 import { buildFamilyGraph } from '../family/family-graph';
-import { defaultPhaDoConfig, hasStoredMemberFont, pageSizeMm, readPhaDoConfig, type PhaDoConfig } from './config';
+import { defaultPhaDoConfig, pageSizeMm, readPhaDoConfig, type PhaDoConfig } from './config';
 import { FRAME_LABELS, layoutDecoration, type FrameStyle } from './decoration';
 import { PT_PER_MM, type DrawItem } from './drawing';
-import { applyConfigChange, autoMemberFontPx, fitPaperToFont, refitTiming } from './auto-fit';
+import { autoMemberFontPx, fitPaperToFont } from './auto-fit';
 import { legendWidthMm, MIN_READABLE_PX, renderPhaDo } from './render';
 import { drawingToSvg } from './svg';
 
@@ -519,12 +519,6 @@ describe('cỡ chữ ô mặc định lúc mở lần đầu', () => {
     expect(crowded).toBeLessThan(37);
   });
 
-  it('chỉ lấy cỡ chữ lưu sẵn khi là số', () => {
-    expect(hasStoredMemberFont({ memberFontPx: 20 })).toBe(true);
-    expect(hasStoredMemberFont({ fontScale: 1 })).toBe(false);
-    expect(hasStoredMemberFont({ memberFontPx: '20' })).toBe(false);
-    expect(hasStoredMemberFont(null)).toBe(false);
-  });
 });
 
 describe('màu ô thành viên', () => {
@@ -560,19 +554,6 @@ describe('màu ô thành viên', () => {
   });
 });
 
-describe('refitTiming: khi nào co giãn lại', () => {
-  it('màu và phông chữ không đụng bố cục; gõ chữ trang trí thì chờ; còn lại tính ngay', () => {
-    expect(refitTiming(base, { memberFillColor: '#ffffff' })).toBe('none');
-    expect(refitTiming(base, { memberTextColor: null, fontFamily: 'system' })).toBe('none');
-    expect(refitTiming(base, { decoration: { ...base.decoration, title: 'Gia phả họ Phạm' } })).toBe('later');
-    expect(refitTiming(base, { decoration: { ...base.decoration, coupletLeft: 'Uống nước' } })).toBe('later');
-    expect(refitTiming(base, { decoration: { ...base.decoration, frame: 'moc' } })).toBe('now');
-    expect(refitTiming(base, { decoration: { ...base.decoration, titleSize: 80 } })).toBe('now');
-    expect(refitTiming(base, { extraLines: ['gio'] })).toBe('now');
-    expect(refitTiming(base, { memberFillColor: '#fff', showAvatars: true })).toBe('now');
-  });
-});
-
 describe('cỡ chữ ô tự suy và chú giải', () => {
   it('cây rất đông: giữ chữ số thập phân thay vì nâng lên 4 px không chứa nổi; đọc lại từ cấu hình đã lưu được', () => {
     const crowded = { ...defaultPhaDoConfig(5), paper: 'A1' as const };
@@ -591,40 +572,5 @@ describe('cỡ chữ ô tự suy và chú giải', () => {
     const legendLeft = Math.min(...items.filter((i): i is Extract<DrawItem, { type: 'text' }> => i.type === 'text' && i.align === 'start').map((i) => i.x - 5.5));
     expect(legendWidthMm(a1)).toBeGreaterThan(legendRight - legendLeft); // gồm cả chữ cuối
     expect(legendWidthMm({ width: 420, height: 297 })).toBeCloseTo(legendWidthMm(a1) / 2, 6);
-  });
-});
-
-describe('applyConfigChange: áp thay đổi cấu hình', () => {
-  const marker = (config: PhaDoConfig): PhaDoConfig => ({ ...config, memberFontPx: 99 });
-  const run = (patch: Partial<PhaDoConfig>) => {
-    let calls = 0;
-    const result = applyConfigChange(base, patch, (next) => {
-      calls += 1;
-      return marker(next);
-    });
-    return { ...result, calls };
-  };
-
-  it('đổi bố cục: co giãn lại ngay, không chờ', () => {
-    const { next, deferred, calls } = run({ extraLines: ['gio'] });
-    expect(calls).toBe(1);
-    expect(deferred).toBe(false);
-    expect(next.memberFontPx).toBe(99);
-    expect(next.extraLines).toEqual(['gio']);
-  });
-
-  it('đổi màu: không co giãn, không chờ', () => {
-    const { next, deferred, calls } = run({ memberFillColor: '#ffeecc' });
-    expect(calls).toBe(0);
-    expect(deferred).toBe(false);
-    expect(next).toEqual({ ...base, memberFillColor: '#ffeecc' });
-  });
-
-  it('gõ chữ trang trí: hiện chữ ngay nhưng hoãn co giãn', () => {
-    const { next, deferred, calls } = run({ decoration: { ...base.decoration, title: 'Gia phả họ Phạm' } });
-    expect(calls).toBe(0);
-    expect(deferred).toBe(true);
-    expect(next.decoration.title).toBe('Gia phả họ Phạm');
-    expect(next.memberFontPx).toBe(base.memberFontPx);
   });
 });

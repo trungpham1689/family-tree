@@ -1,6 +1,7 @@
 import type { TreeEvent } from '../data/calendar';
 import { describeEvent } from '../events/event-form';
 import { anniversaryText } from '../people/person-display';
+import { fieldLabel } from '../people/profile-fields';
 import { cleanFreeText, type BranchSummary, type NotablePerson, type OriginSummary } from './narrative';
 
 /**
@@ -74,7 +75,7 @@ export const buildFrontSections = (input: {
       progenitorId: origin.progenitorId,
       progenitorName: origin.progenitorName,
       before: 'Dòng họ tôn ',
-      after: ` làm Thuỷ tổ — người đời đầu tiên còn ghi lại được.${hometown ? ` Nguyên quán: ${hometown}.` : ''}`,
+      after: ` làm Thuỷ tổ — người đời đầu tiên còn ghi lại được.${hometown ? ` ${fieldLabel('hometown', 'narrative')}: ${hometown}.` : ''}`,
       facts,
     });
   }

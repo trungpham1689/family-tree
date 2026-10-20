@@ -33,6 +33,7 @@ import {
   type EventFormValues,
   type EventRepeat,
 } from '../events/event-form';
+import { saveEventWithPhotos } from '../events/save-event';
 import { TreeTabs } from '../tree/TreeTabs';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
@@ -308,6 +309,7 @@ const EventForm = ({
   const [pending, setPending] = useState<File[]>([]);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const set = <Key extends keyof EventFormValues>(key: Key, value: EventFormValues[Key]) =>
     setValues((current) => ({ ...current, [key]: value }));
@@ -345,25 +347,27 @@ const EventForm = ({
       return;
     }
     setErrors({});
+    setSaveError(null);
     setUploadError(null);
     setBusy(true);
-    let eventId: string;
     try {
-      eventId = await save.mutateAsync({ treeId, eventId: savedId, fields: result.fields });
-    } catch {
-      setBusy(false); // lỗi lưu sự kiện hiện ở `save.error`
-      return;
-    }
-    setSavedId(eventId);
-    try {
-      for (const file of [...pending]) {
-        await upload.mutateAsync({ treeId, eventId, file });
-        setPending((current) => current.filter((item) => item !== file));
+      const outcome = await saveEventWithPhotos(
+        {
+          saveEvent: (eventId, fields) => save.mutateAsync({ treeId, eventId, fields }),
+          uploadPhoto: (eventId, file) => upload.mutateAsync({ treeId, eventId, file }).then(() => undefined),
+        },
+        { eventId: savedId, fields: result.fields, files: pending },
+      );
+      if (outcome.status === 'event-failed') return setSaveError(outcome.error);
+      setSavedId(outcome.eventId);
+      if (outcome.status === 'saved') {
+        setPending([]);
+        onDone({ title: result.fields.title, year: result.fields.year });
+        return;
       }
-      onDone({ title: result.fields.title, year: result.fields.year });
-    } catch (error) {
       // Sự kiện đã lưu; ảnh chưa tải được giữ lại để bấm Lưu thử lại.
-      setUploadError((error as Error).message);
+      setPending(outcome.remaining);
+      setUploadError(outcome.error);
     } finally {
       setBusy(false);
     }
@@ -509,7 +513,7 @@ const EventForm = ({
         {removePhoto.isError && <ErrorBanner>{removePhoto.error.message}</ErrorBanner>}
       </div>
 
-      {save.isError && <ErrorBanner>{save.error.message}</ErrorBanner>}
+      {saveError && <ErrorBanner>{saveError}</ErrorBanner>}
       {uploadError && <ErrorBanner>Sự kiện đã lưu nhưng chưa tải hết ảnh: {uploadError}</ErrorBanner>}
       <div className="flex justify-end gap-3">
         <Button variant="secondary" onClick={() => onDone()}>

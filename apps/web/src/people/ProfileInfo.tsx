@@ -2,8 +2,21 @@ import type { ReactNode } from 'react';
 import { todayInVietnam } from '../calendar/month-grid';
 import type { Person } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
+import { fieldLabel, fieldsOf, fieldText, type TextFieldKey } from './profile-fields';
 import { ageAtDeath, anniversaryText, currentAge, deathAgeLabel, describeDate } from './person-display';
 import { storedBirth, storedDeath } from './person-form';
+
+/** Các trường chữ của một khối hiện ở trang hồ sơ (bỏ trường ẩn, như tên huý và tiểu sử, vốn có chỗ riêng). */
+const profileFields = (group: 'names' | 'life') => fieldsOf(group).filter((field) => !('profile' in field) || field.profile !== 'hidden');
+
+/** Giá trị một trường chữ ở trang hồ sơ: điện thoại và email là liên kết. */
+const profileValue = (person: Person, key: TextFieldKey): ReactNode => {
+  const value = fieldText(person, key);
+  if (!value) return null;
+  if (key === 'phone') return <a href={`tel:${value.replace(/\s/g, '')}`} className="text-son underline">{value}</a>;
+  if (key === 'email') return <a href={`mailto:${value}`} className="text-son underline">{value}</a>;
+  return value;
+};
 
 /** Hồ sơ một Người: chỉ hiện những mục có thông tin. Dùng cho trang có vai trò và trang công khai. */
 export const ProfileInfo = ({ person, graph }: { person: Person; graph: FamilyGraph<Person> }) => {
@@ -12,21 +25,13 @@ export const ProfileInfo = ({ person, graph }: { person: Person; graph: FamilyGr
   const alive = currentAge(person, today.year);
   const anniversary = person.is_deceased ? anniversaryText({ day: person.anniversary_day, month: person.anniversary_month }, today) : null;
   const worshipKeeper = person.worship_keeper_id ? graph.person(person.worship_keeper_id)?.full_name ?? null : null;
+  const row = (key: TextFieldKey): [string, ReactNode] => [fieldLabel(key, 'profile'), profileValue(person, key)];
   const rows: [string, ReactNode][] = [
-    ['Tên thường gọi', person.common_name],
-    ['Tên tự / hiệu', person.courtesy_name],
+    ...profileFields('names').map((field) => row(field.key)),
     ['Giới tính', person.gender === 'nam' ? 'Nam' : person.gender === 'nu' ? 'Nữ' : null],
     ['Ngày sinh', describeDate(storedBirth(person))],
     ['Tuổi', alive !== null ? `${alive} tuổi` : null],
-    ['Nơi sinh', person.birth_place],
-    ['Nguyên quán', person.hometown],
-    ['Nơi ở', person.residence],
-    ['Nghề nghiệp', person.occupation],
-    ['Học vấn', person.education],
-    ['Chức vụ / danh hiệu', person.title],
-    ['Vai vế', person.role_note],
-    ['Điện thoại', person.phone && <a key="tel" href={`tel:${person.phone.replace(/\s/g, '')}`} className="text-son underline">{person.phone}</a>],
-    ['Email', person.email && <a key="mail" href={`mailto:${person.email}`} className="text-son underline">{person.email}</a>],
+    ...profileFields('life').map((field) => row(field.key)),
   ];
   const deathRows: [string, ReactNode][] = person.is_deceased
     ? [
@@ -34,7 +39,7 @@ export const ProfileInfo = ({ person, graph }: { person: Person; graph: FamilyGr
         [age !== null ? deathAgeLabel(age) : 'Hưởng thọ', age !== null ? `${age} tuổi` : null],
         ['Ngày giỗ', anniversary],
         [
-          'Mộ phần',
+          fieldLabel('burialPlace', 'profile'),
           (person.burial_place || person.burial_map_url) && (
             <span key="burial" className="flex flex-wrap items-center gap-3">
               {person.burial_place}
@@ -51,7 +56,7 @@ export const ProfileInfo = ({ person, graph }: { person: Person; graph: FamilyGr
             </span>
           ),
         ],
-        ['Nơi thờ', person.worship_place],
+        row('worshipPlace'),
         ['Người phụ trách cúng giỗ', worshipKeeper],
       ]
     : [];

@@ -4,6 +4,7 @@
  */
 import { EMPTY_DATE_INPUT, type DateInput } from '../people/partial-date-input';
 import { EMPTY_PERSON_FORM, parsePersonForm, type PersonFields, type PersonFormValues } from '../people/person-form';
+import { TEXT_FIELDS } from '../people/profile-fields';
 import { normalizeName } from '../tree/tree-search';
 import { COLUMNS, HEADER_ALIASES, HEADER_OF, type ColumnKey, type RawRow } from './columns';
 
@@ -367,32 +368,16 @@ const parseRow = (row: number, data: RawRow, code: string, fail: Fail): ParsedRo
 
   const values: PersonFormValues = {
     ...EMPTY_PERSON_FORM,
+    ...Object.fromEntries(TEXT_FIELDS.map((field) => [field.key, data[field.key] ?? ''])),
     fullName: data.fullName ?? '',
     gender: gender ?? '',
     birthOrder: typeof birthOrder === 'number' ? String(birthOrder) : '',
-    commonName: data.commonName ?? '',
-    tabooName: data.tabooName ?? '',
-    courtesyName: data.courtesyName ?? '',
-    hanName: data.hanName ?? '',
     birth,
-    birthPlace: data.birthPlace ?? '',
-    hometown: data.hometown ?? '',
-    residence: data.residence ?? '',
-    occupation: data.occupation ?? '',
-    education: data.education ?? '',
-    title: data.title ?? '',
-    phone: data.phone ?? '',
-    email: data.email ?? '',
-    biography: data.biography ?? '',
-    roleNote: data.roleNote ?? '',
     isDeceased: deceasedFlag === true || death.year !== '' || anniversary.manual,
     death,
     anniversaryManual: anniversary.manual,
     anniversaryDay: anniversary.day,
     anniversaryMonth: anniversary.month,
-    burialPlace: data.burialPlace ?? '',
-    burialMapUrl: data.burialMapUrl ?? '',
-    worshipPlace: data.worshipPlace ?? '',
     // Người phụ trách cúng giỗ giờ là một Người được chọn trong app, không nhập tên tay qua Excel.
     worshipKeeperId: null,
   };

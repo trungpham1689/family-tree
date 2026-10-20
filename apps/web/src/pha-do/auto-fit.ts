@@ -3,7 +3,7 @@ import type { FamilyGraph } from '../family/family-graph';
 import { CUSTOM_CM_MAX, CUSTOM_CM_MIN, FONT_PX_MAX, MEMBER_FONT_PX_MIN, type PhaDoConfig } from './config';
 import { layoutDecoration } from './decoration';
 import { MM_PER_PX } from './drawing';
-import { LAYOUT_NAME_SIZE, legendHeightMm, legendWidthMm, renderPhaDo, scopeRoot, treeLayout } from './render';
+import { fitNamePxFor, LAYOUT_NAME_SIZE, legendHeightMm, legendWidthMm, scopeRoot, treeLayout } from './render';
 
 /** Cỡ chữ tên tối đa trước đây (28 pt ≈ 37 px), dùng làm trần khi tự suy cỡ chữ cho một khổ giấy cố định. */
 const LEGACY_MAX_NAME_PX = 28 / 0.75;
@@ -12,16 +12,12 @@ const LEGACY_MAX_NAME_PX = 28 / 0.75;
  * Khổ cố định: cỡ chữ tên lớn nhất còn vừa khổ đó (làm tròn xuống số nguyên px, tối đa ~37 px như trước đây). Dùng làm cỡ chữ mặc định
  * lúc mở Phả đồ lần đầu và để chỉnh lại cỡ chữ mỗi khi nội dung đổi mà khổ giấy do người dùng chọn.
  */
-export const autoMemberFontPx = (
-  graph: FamilyGraph<Person>,
-  config: PhaDoConfig,
-  treeName = '',
-  avatarUrls?: ReadonlyMap<string, string>,
-): number => {
-  const { namePx, personCount } = renderPhaDo(graph, { ...config, memberFontPx: LEGACY_MAX_NAME_PX }, treeName, avatarUrls);
-  if (personCount === 0) return config.memberFontPx;
+export const autoMemberFontPx = (graph: FamilyGraph<Person>, config: PhaDoConfig, treeName = ''): number => {
+  const fitPx = fitNamePxFor(graph, config, treeName);
+  if (fitPx === null) return config.memberFontPx;
+  const px = Math.min(fitPx, LEGACY_MAX_NAME_PX);
   // Nhỏ hơn 4 px (cây rất đông) thì giữ một chữ số thập phân để số hiện ra đúng với chữ đang vẽ, không nâng lên mức không chứa nổi.
-  const fit = namePx >= 4 ? Math.floor(namePx) : Math.floor(namePx * 10) / 10;
+  const fit = px >= 4 ? Math.floor(px) : Math.floor(px * 10) / 10;
   return Math.min(FONT_PX_MAX, Math.max(MEMBER_FONT_PX_MIN, fit));
 };
 
@@ -43,12 +39,7 @@ const roundUpCm = (mm: number) => Math.ceil(mm / 10 * 10 - 1e-9) / 10;
  * (giữ hướng ngang/dọc người dùng chọn), lấy tỉ lệ cho khổ nhỏ nhất, hơi ưu tiên tỉ lệ khổ A. Mọi kích thước trang trí tỉ lệ theo cạnh ngắn nên
  * mỗi tỉ lệ chỉ cần tính một lần ở trang tham chiếu rồi nhân. Kết quả luôn là khổ "Tự nhập", Rộng/Cao tính bằng cm (làm tròn lên 0,1) trong 10–500 cm.
  */
-export const fitPaperToFont = (
-  graph: FamilyGraph<Person>,
-  config: PhaDoConfig,
-  treeName = '',
-  avatarUrls?: ReadonlyMap<string, string>,
-): PhaDoConfig => {
+export const fitPaperToFont = (graph: FamilyGraph<Person>, config: PhaDoConfig, treeName = ''): PhaDoConfig => {
   const scope = scopeRoot(graph, config);
   if (!scope) return config;
   const layout = treeLayout(graph, config, scope.rootId, scope.maxDepth);
@@ -86,58 +77,41 @@ export const fitPaperToFont = (
   }
   if (!best) return config;
 
-  // Giữ trong khoảng khổ tự nhập mà không đổi tỉ lệ.
-  const clamp = (shortMm: number, aspect: number) =>
-    Math.min((CUSTOM_CM_MAX * 10) / aspect, Math.max(CUSTOM_CM_MIN * 10, shortMm));
-  const build = (shortMm: number, aspect: number): PhaDoConfig => {
-    const short = clamp(shortMm, aspect);
-    const long = Math.min(CUSTOM_CM_MAX, roundUpCm(short * aspect));
-    const shortCm = Math.min(CUSTOM_CM_MAX, roundUpCm(short));
-    return { ...config, paper: 'custom', customWidthCm: landscape ? long : shortCm, customHeightCm: landscape ? shortCm : long };
+  // Khổ tự nhập nằm trong khoảng cho phép, chiều dài theo đúng tỉ lệ đã chọn; số đo làm tròn lên 0,1 cm.
+  const landscapeLong = (shortCm: number) => Math.min(CUSTOM_CM_MAX, roundUpCm(shortCm * 10 * best!.aspect));
+  const buildCm = (shortCm: number): PhaDoConfig => {
+    const short = Math.min(CUSTOM_CM_MAX / best!.aspect, Math.max(CUSTOM_CM_MIN, shortCm));
+    const shortRounded = Math.min(CUSTOM_CM_MAX, Math.round(short * 10) / 10);
+    const long = landscapeLong(shortRounded);
+    return { ...config, paper: 'custom', customWidthCm: landscape ? long : shortRounded, customHeightCm: landscape ? shortRounded : long };
+  };
+  const shortCmOf = (candidate: PhaDoConfig) => (landscape ? candidate.customHeightCm : candidate.customWidthCm);
+  const fitOf = (candidate: PhaDoConfig) => fitNamePxFor(graph, candidate, treeName);
+  const enough = (candidate: PhaDoConfig) => {
+    const fit = fitOf(candidate);
+    return fit === null || fit >= config.memberFontPx - 0.01;
   };
 
-  // Làm tròn 0,1 cm và các phép đo gần đúng có thể lệch chút ít: đo lại bằng bản vẽ thật rồi bù cho tới khi vừa khít.
-  let result = build(best.shortMm, best.aspect);
-  let shortMm = best.shortMm;
+  // 1) Ước lượng ban đầu, rồi đo lại bằng chính phép đo của bản vẽ và bù cho tới khi sát cỡ chữ yêu cầu (chỉ xếp cây và bố trí trang trí, đều có nhớ).
+  let result = buildCm(roundUpCm(best.shortMm) );
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const { fitNamePx, personCount } = renderPhaDo(graph, result, treeName, avatarUrls);
-    if (personCount === 0 || (fitNamePx >= config.memberFontPx - 0.01 && fitNamePx <= config.memberFontPx * 1.01)) break;
-    shortMm *= config.memberFontPx / fitNamePx;
-    const next = build(shortMm, best.aspect);
+    const fit = fitOf(result);
+    if (fit === null || (fit >= config.memberFontPx - 0.01 && fit <= config.memberFontPx * 1.01)) break;
+    const next = buildCm(roundUpCm(shortCmOf(result) * 10 * (config.memberFontPx / fit)));
     if (next.customWidthCm === result.customWidthCm && next.customHeightCm === result.customHeightCm) break;
     result = next;
   }
-  return result;
-};
-
-/**
- * Một thay đổi cấu hình cần co giãn lại khi nào:
- * - `none`: không đụng tới bố cục (màu ô, phông chữ);
- * - `later`: chỉ đổi chữ tiêu đề/phụ đề/câu đối (gõ từng phím), chờ gõ xong mới tính lại;
- * - `now`: mọi thay đổi khác.
- */
-export const refitTiming = (config: PhaDoConfig, patch: Partial<PhaDoConfig>): 'none' | 'later' | 'now' => {
-  const keys = Object.keys(patch) as (keyof PhaDoConfig)[];
-  if (keys.every((key) => key === 'memberTextColor' || key === 'memberFillColor' || key === 'fontFamily')) return 'none';
-  const next = patch.decoration;
-  if (keys.length === 1 && next) {
-    // Chỉ khác ở các chữ (không khác khung, cỡ chữ): so các trường còn lại.
-    const sameLayout = (['frame', 'titleSize', 'subtitleSize', 'coupletSize'] as const).every((key) => next[key] === config.decoration[key]);
-    if (sameLayout) return 'later';
+  // 2) Không bao giờ nhỏ hơn cỡ chữ yêu cầu: làm tròn 0,1 cm có thể dừng ngay dưới mức đó, nên tăng từng 0,1 cm cho tới khi đủ (hoặc chạm trần khổ tự nhập).
+  for (let guard = 0; guard < 40 && !enough(result); guard += 1) {
+    const next = buildCm(shortCmOf(result) + 0.1);
+    if (next.customWidthCm === result.customWidthCm && next.customHeightCm === result.customHeightCm) break;
+    result = next;
   }
-  return 'now';
-};
-
-/**
- * Áp một thay đổi lên cấu hình: tính lại khổ giấy/cỡ chữ ngay (`now`), hoặc giữ nguyên bố cục (`none`), hoặc chờ gõ xong (`later`, `deferred` = true:
- * bên gọi lên lịch gọi `refit` sau một lúc).
- */
-export const applyConfigChange = (
-  config: PhaDoConfig,
-  patch: Partial<PhaDoConfig>,
-  refit: (next: PhaDoConfig) => PhaDoConfig,
-): { next: PhaDoConfig; deferred: boolean } => {
-  const next = { ...config, ...patch };
-  const timing = refitTiming(config, patch);
-  return timing === 'now' ? { next: refit(next), deferred: false } : { next, deferred: timing === 'later' };
+  // 3) Và không rộng hơn mức cần: bớt từng 0,1 cm khi cỡ chữ vẫn đủ.
+  for (let guard = 0; guard < 8; guard += 1) {
+    const next = buildCm(shortCmOf(result) - 0.1);
+    if ((next.customWidthCm === result.customWidthCm && next.customHeightCm === result.customHeightCm) || !enough(next)) break;
+    result = next;
+  }
+  return result;
 };

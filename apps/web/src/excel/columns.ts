@@ -1,6 +1,9 @@
+import { excelColumn, TEXT_FIELDS, type TextFieldKey } from '../people/profile-fields';
+
 /**
  * Các cột của file Excel nhập/xuất Gia phả. Tiêu đề cột là thứ người dùng thấy; khi đọc file,
  * tiêu đề được so khớp không phân biệt dấu, hoa thường, nên cột có thể xếp theo thứ tự bất kỳ.
+ * Cột chữ tự do (tên khác, nơi sinh, nguyên quán…) lấy tiêu đề và hướng dẫn từ `people/profile-fields.ts`.
  */
 export const COLUMNS = [
   { key: 'code', header: 'Mã', guide: 'Bắt buộc. Mã tự đặt cho từng người, không trùng nhau (ví dụ T1, A2, B15). Mã chỉ dùng để nối quan hệ trong file này, không được lưu vào hệ thống: sau khi nhập, mỗi người có id riêng do hệ thống tạo.' },
@@ -31,26 +34,26 @@ export const COLUMNS = [
     header: 'Ngày cưới',
     guide: 'Dương lịch, ghi như Ngày sinh (15/8/1950, 8/1950 hoặc 1950); mỗi người ở cột Mã vợ/chồng một giá trị, cách nhau dấu phẩy, chưa biết thì ghi dấu -.',
   },
-  { key: 'commonName', header: 'Tên thường gọi', guide: '' },
-  { key: 'tabooName', header: 'Tên huý', guide: '' },
-  { key: 'courtesyName', header: 'Tên tự/hiệu', guide: '' },
-  { key: 'hanName', header: 'Tên chữ Hán', guide: '' },
+  excelColumn('commonName'),
+  excelColumn('tabooName'),
+  excelColumn('courtesyName'),
+  excelColumn('hanName'),
   {
     key: 'birthDate',
     header: 'Ngày sinh',
     guide: 'ngày/tháng/năm (15/8/1920), tháng/năm (8/1920) hoặc chỉ năm (1920). Thêm "khoảng" nếu không chắc: khoảng 1890.',
   },
   { key: 'birthCalendar', header: 'Lịch ngày sinh', guide: 'Dương, Âm, hoặc Âm nhuận (tháng nhuận). Để trống là Dương.' },
-  { key: 'birthPlace', header: 'Nơi sinh', guide: '' },
-  { key: 'hometown', header: 'Nguyên quán', guide: '' },
-  { key: 'residence', header: 'Nơi ở', guide: '' },
-  { key: 'occupation', header: 'Nghề nghiệp', guide: '' },
-  { key: 'education', header: 'Học vấn', guide: '' },
-  { key: 'title', header: 'Chức vụ/danh hiệu', guide: '' },
-  { key: 'phone', header: 'Điện thoại', guide: '' },
-  { key: 'email', header: 'Email', guide: '' },
-  { key: 'biography', header: 'Tiểu sử', guide: '' },
-  { key: 'roleNote', header: 'Ghi chú vai vế', guide: '' },
+  excelColumn('birthPlace'),
+  excelColumn('hometown'),
+  excelColumn('residence'),
+  excelColumn('occupation'),
+  excelColumn('education'),
+  excelColumn('title'),
+  excelColumn('phone'),
+  excelColumn('email'),
+  excelColumn('biography'),
+  excelColumn('roleNote'),
   { key: 'deceased', header: 'Đã mất', guide: 'Có hoặc để trống. Có ghi Ngày mất thì tự hiểu là đã mất.' },
   { key: 'deathDate', header: 'Ngày mất', guide: 'Cách ghi giống Ngày sinh.' },
   { key: 'deathCalendar', header: 'Lịch ngày mất', guide: 'Dương, Âm, hoặc Âm nhuận. Để trống là Dương.' },
@@ -59,16 +62,18 @@ export const COLUMNS = [
     header: 'Ngày giỗ (âm)',
     guide: 'ngày/tháng âm lịch, ví dụ 7/8. Để trống thì tự tính từ ngày mất.',
   },
-  { key: 'burialPlace', header: 'Mộ phần', guide: 'Mô tả nơi đặt mộ.' },
-  { key: 'burialMapUrl', header: 'Link vị trí mộ', guide: 'Link Google Maps, bắt đầu bằng https://' },
-  { key: 'worshipPlace', header: 'Nơi thờ', guide: '' },
+  excelColumn('burialPlace'),
+  excelColumn('burialMapUrl'),
+  excelColumn('worshipPlace'),
   { key: 'worshipKeeperCode', header: 'Mã người phụ trách cúng giỗ', guide: 'Mã của người trong file phụ trách cúng giỗ người này.' },
   { key: 'hiddenFromPublic', header: 'Ẩn khỏi link công khai', guide: 'Có hoặc để trống. Người này không hiện trên link chia sẻ công khai.' },
   { key: 'foundsBranch', header: 'Lập chi mới', guide: 'Có hoặc để trống. Đánh dấu người này là tổ của một chi.' },
 ] as const;
 
-/** Tiêu đề cũ vẫn đọc được khi nhập file Excel đã tải từ trước. */
-export const HEADER_ALIASES: readonly (readonly [string, 'hometown'])[] = [['Quê quán', 'hometown']];
+/** Tiêu đề cũ vẫn đọc được khi nhập file Excel đã tải từ trước (khai báo ở `profile-fields.ts`). */
+export const HEADER_ALIASES: readonly (readonly [string, TextFieldKey])[] = TEXT_FIELDS.flatMap((field) =>
+  ('excelAliases' in field ? field.excelAliases : []).map((alias): readonly [string, TextFieldKey] => [alias, field.key]),
+);
 
 export type ColumnKey = (typeof COLUMNS)[number]['key'];
 

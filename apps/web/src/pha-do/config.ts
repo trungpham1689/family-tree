@@ -1,3 +1,4 @@
+import { fieldLabel } from '../people/profile-fields';
 import { DEFAULT_DECORATION, FRAME_LABELS, type Decoration, type FrameStyle } from './decoration';
 
 /** Cấu hình một bản in Phả đồ; lưu theo Gia phả để in lại sau. */
@@ -22,7 +23,7 @@ export type ExtraLine = 'gio' | 'doi' | 'que';
 export const EXTRA_LINE_LABELS: Record<ExtraLine, string> = {
   gio: 'Ngày giỗ',
   doi: 'Đời',
-  que: 'Nguyên quán',
+  que: fieldLabel('hometown'),
 };
 
 /** Vài phông đã nạp sẵn cho cả trang (Google Fonts trong index.html) hoặc phông hệ thống — không cần cài thêm. */
@@ -83,10 +84,6 @@ export const MEMBER_FONT_PX_MIN = 1;
 /** Khoảng kích thước khổ tự nhập (cm). */
 export const CUSTOM_CM_MIN = 10;
 export const CUSTOM_CM_MAX = 500;
-
-/** Đã có cỡ chữ ô lưu sẵn chưa; chưa thì trang dùng cỡ chữ đang hiện lúc mở lần đầu (xem `autoMemberFontPx`). */
-export const hasStoredMemberFont = (stored: unknown): boolean =>
-  isRecord(stored) && typeof stored.memberFontPx === 'number' && Number.isFinite(stored.memberFontPx);
 
 export const defaultPhaDoConfig = (outsideGenerations: number): PhaDoConfig => ({
   scope: { kind: 'all' },
