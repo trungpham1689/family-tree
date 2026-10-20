@@ -184,7 +184,8 @@ await step('service worker đăng ký và xem lại gia phả khi mất mạng',
 
 await step('đăng xuất xoá bộ nhớ đệm offline', async () => {
   await page.goto(`${APP}/gia-pha`);
-  await page.getByRole('button', { name: 'Đăng xuất' }).first().click();
+  await page.getByRole('button', { name: 'Tài khoản' }).click();
+  await page.getByRole('menuitem', { name: 'Đăng xuất' }).click();
   await page.waitForURL(/dang-nhap/);
   const keys = await page.evaluate(async () => {
     const db = await new Promise((resolve, reject) => { const r = indexedDB.open('gia-pha', 1); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error); });

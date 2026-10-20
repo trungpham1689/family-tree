@@ -86,11 +86,6 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
             )}
           </div>
         </div>
-        {isOwner && family.isSuccess && !isEmpty && (
-          <p className="mt-2 text-sm text-ink-muted">
-            Nên bấm “Tải dữ liệu” ở cuối trang (dữ liệu + ảnh) định kỳ để giữ bản sao lưu trên máy — phần mềm chưa có thùng rác để khôi phục.
-          </p>
-        )}
       </header>
 
       <section className="mt-8">
@@ -120,13 +115,13 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
             <TreeStats graph={family.data} />
           </div>
         )}
+        {family.isSuccess && <GenerationList treeId={tree.id} graph={family.data} canEdit={canEdit} />}
         {canEdit && (
-          <div className="mb-8 space-y-6">
+          <div className="my-8 space-y-6">
             {isOwner && <PublicLinkPanel tree={tree} />}
             <MembersPanel tree={tree} />
           </div>
         )}
-        {family.isSuccess && <GenerationList treeId={tree.id} graph={family.data} canEdit={canEdit} />}
         {canEdit && family.isSuccess && !isEmpty && (
           <div className="mt-8 border-t border-line pt-6">
             <Button variant="secondary" onClick={() => setAdding('loose')}>

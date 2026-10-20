@@ -26,7 +26,7 @@ export const MembersPanel = ({ tree }: { tree: TreeWithRole }) => {
     <section aria-labelledby="tai-khoan-co-quyen" className="rounded-2xl border border-line bg-surface p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="tai-khoan-co-quyen" className="font-serif text-2xl font-bold">
-          Tài khoản có quyền
+          Quản trị viên
         </h2>
         {canInvite && !inviting && <Button onClick={() => setInviting(true)}>+ Thêm quản trị</Button>}
       </div>

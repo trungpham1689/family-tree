@@ -88,6 +88,11 @@ await step('gốc cấp rồi gỡ quyền siêu quản trị; dòng của gốc
   if (await mine.getByRole('button', { name: /Thu hồi|Gỡ siêu quản trị/ }).count()) throw new Error('gốc có nút thu hồi/gỡ quyền');
 });
 
+const openMyProfile = async () => {
+  await page.getByRole('button', { name: 'Tài khoản' }).click();
+  await page.getByRole('menuitem', { name: 'Cá nhân' }).click();
+};
+
 await step('quản trị sửa hồ sơ người khác; mọi hộp đóng khi bấm ra ngoài; người dùng sửa hồ sơ của mình', async () => {
   const row = page.getByRole('listitem').filter({ hasText: userEmail });
   await row.getByRole('button', { name: 'Sửa hồ sơ' }).click();
@@ -102,11 +107,11 @@ await step('quản trị sửa hồ sơ người khác; mọi hộp đóng khi b
   await page.mouse.click(5, 5);
   await dialog.waitFor({ state: 'hidden' });
 
-  await page.getByRole('button', { name: 'Hồ sơ', exact: true }).click();
+  await openMyProfile();
   await dialog.getByLabel('Số điện thoại').fill('0911222333');
   await dialog.getByRole('button', { name: 'Lưu' }).click();
   await dialog.waitFor({ state: 'hidden' });
-  await page.getByRole('button', { name: 'Hồ sơ', exact: true }).click();
+  await openMyProfile();
   await page.waitForFunction(() => document.querySelector('dialog[open] input[type=tel]')?.value === '0911222333');
   await page.mouse.click(5, 5);
   await dialog.waitFor({ state: 'hidden' });
