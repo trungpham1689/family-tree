@@ -21,19 +21,20 @@ const CLIENT_HEADERS = {
   'x-content-type-options': 'nosniff',
 };
 
-const NOT_FOUND = new Response('Không tìm thấy lịch.', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+// Tạo trong handler: Workers không cho dựng Response ở global scope.
+const notFound = () => new Response('Không tìm thấy lịch.', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
 
 export const onRequestGet = async ({ request, env, params, waitUntil }: Context): Promise<Response> => {
   const token = (params.token ?? '').replace(/\.ics$/, '');
   const rest = supabaseRest(env);
-  if (!rest || !/^[0-9a-f]{32}$/.test(token)) return NOT_FOUND.clone();
+  if (!rest || !/^[0-9a-f]{32}$/.test(token)) return notFound();
   const edgeCache = typeof caches === 'undefined' ? undefined : (caches as unknown as { default?: Cache }).default;
   const hit = await edgeCache?.match(request.url);
   if (hit) return new Response(hit.body, { headers: CLIENT_HEADERS });
 
   try {
     const { data } = await rest.rpc<unknown>('calendar_feed', { token });
-    if (data === null) return NOT_FOUND.clone();
+    if (data === null) return notFound();
     const source = parseCalendarSource(data);
     if (!source) return new Response('Dữ liệu lịch không đúng định dạng.', { status: 502, headers: { 'content-type': 'text/plain; charset=utf-8' } });
     const body = feedToIcs(source, todayInVietnam());
