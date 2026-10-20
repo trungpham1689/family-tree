@@ -8,7 +8,7 @@ import type { CalendarEvent, CalendarMarriage, CalendarPerson, CalendarSource } 
 
 export const CALENDAR_PERSON_COLUMNS =
   'id, tree_id, full_name, is_deceased, anniversary_day, anniversary_month, birth_solar_date, death_solar_date';
-export const CALENDAR_EVENT_COLUMNS = 'id, tree_id, title, calendar, repeats_yearly, year, month, day, leap, start_time, location';
+export const CALENDAR_EVENT_COLUMNS = 'id, tree_id, title, calendar, repeats_yearly, repeats_monthly, year, month, day, leap, start_time, location';
 export const CALENDAR_MARRIAGE_COLUMNS =
   'id, tree_id, partner_a, marriage_year, marriage_month, marriage_day, status, a:persons!unions_partner_a_fkey(full_name), b:persons!unions_partner_b_fkey(full_name)';
 

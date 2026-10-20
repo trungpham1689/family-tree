@@ -11,6 +11,17 @@ import { FullPageMessage } from '../ui/FullPageMessage';
 type Mode = 'sign-in' | 'sign-up';
 
 const MIN_PASSWORD_LENGTH = 8;
+const MIN_PHONE_DIGITS = 8;
+
+const today = () => new Date().toLocaleDateString('sv-SE');
+
+/** Lỗi của hồ sơ đăng ký, hoặc null nếu hợp lệ. Database kiểm lại bằng trigger; đây để báo lỗi ngay trên form. */
+const profileError = (fullName: string, birthDate: string, phone: string): string | null => {
+  if (fullName.trim() === '') return 'Hãy nhập họ và tên.';
+  if (birthDate === '' || birthDate < '1900-01-01' || birthDate > today()) return 'Ngày sinh không hợp lệ.';
+  if (!/^[0-9+(). -]{8,20}$/.test(phone.trim()) || phone.replace(/\D/g, '').length < MIN_PHONE_DIGITS) return 'Số điện thoại không hợp lệ.';
+  return null;
+};
 
 export const LoginPage = () => {
   const { state } = useAuth();
@@ -21,6 +32,9 @@ export const LoginPage = () => {
   const [forgotPassword, setForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -55,10 +69,18 @@ export const LoginPage = () => {
         if (signInError) setError(authErrorMessage(signInError));
         return;
       }
+      const invalid = profileError(fullName, birthDate, phone);
+      if (invalid) {
+        setError(invalid);
+        return;
+      }
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: `${window.location.origin}${next}` },
+        options: {
+          emailRedirectTo: `${window.location.origin}${next}`,
+          data: { full_name: fullName.trim(), birth_date: birthDate, phone: phone.trim() },
+        },
       });
       if (signUpError) setError(authErrorMessage(signUpError));
       else if (!data.session) setNotice('Đã tạo tài khoản. Hãy mở email xác nhận rồi đăng nhập.');
@@ -156,6 +178,65 @@ export const LoginPage = () => {
             </form>
           ) : (
             <form onSubmit={submit} className="space-y-4">
+              {mode === 'sign-up' && (
+                <>
+                  <label className="block">
+                    <span className="mb-1 block font-medium">
+                      Họ và tên
+                      <span className="text-danger" aria-hidden="true">
+                        {' '}
+                        *
+                      </span>
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      maxLength={120}
+                      autoComplete="name"
+                      value={fullName}
+                      onChange={(event) => setFullName(event.target.value)}
+                      className="min-h-12 w-full rounded-xl border border-line bg-surface px-4"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block font-medium">
+                      Ngày sinh
+                      <span className="text-danger" aria-hidden="true">
+                        {' '}
+                        *
+                      </span>
+                    </span>
+                    <input
+                      type="date"
+                      required
+                      min="1900-01-01"
+                      max={today()}
+                      autoComplete="bday"
+                      value={birthDate}
+                      onChange={(event) => setBirthDate(event.target.value)}
+                      className="min-h-12 w-full rounded-xl border border-line bg-surface px-4"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block font-medium">
+                      Số điện thoại
+                      <span className="text-danger" aria-hidden="true">
+                        {' '}
+                        *
+                      </span>
+                    </span>
+                    <input
+                      type="tel"
+                      required
+                      maxLength={20}
+                      autoComplete="tel"
+                      value={phone}
+                      onChange={(event) => setPhone(event.target.value)}
+                      className="min-h-12 w-full rounded-xl border border-line bg-surface px-4"
+                    />
+                  </label>
+                </>
+              )}
               <label className="block">
                 <span className="mb-1 block font-medium">
                   Email

@@ -20,6 +20,25 @@ describe('planImageJobs', () => {
     ]);
   });
 
+  it('ảnh sự kiện vào thư mục anh-su-kien theo tên sự kiện + số thứ tự', () => {
+    const jobs = planImageJobs(
+      { photo_path: null },
+      [],
+      new Map(),
+      [
+        { id: 'e1', event_id: 'x', storage_path: 't/g1' },
+        { id: 'e2', event_id: 'x', storage_path: 't/g2' },
+        { id: 'e3', event_id: 'zzz', storage_path: 't/g3' },
+      ],
+      new Map([['x', 'Họp họ: đầu xuân']]),
+    );
+    expect(jobs.map((j) => [j.zipBase, j.photoId])).toEqual([
+      ['anh-su-kien/Họp họ đầu xuân-001', 'e1'],
+      ['anh-su-kien/Họp họ đầu xuân-002', 'e2'],
+      ['anh-su-kien/khong-ten-003', 'e3'],
+    ]);
+  });
+
   it('không có ảnh bìa thì không có job bìa', () => {
     expect(planImageJobs({ photo_path: null }, [], new Map())).toEqual([]);
   });
@@ -35,10 +54,12 @@ describe('buildBackupData', () => {
       unions: [],
       events: [],
       photos: [{ id: 'p1' }, { id: 'p2' }],
-      zipPathByPhoto: new Map([['p1', 'anh/x-001.jpg']]),
+      eventPhotos: [{ id: 'e1' }, { id: 'e2' }],
+      zipPathByPhoto: new Map([['p1', 'anh/x-001.jpg'], ['e1', 'anh-su-kien/h-001.jpg']]),
       phaDoConfig: null,
     });
     expect(data).toMatchObject({ dinhDang: BACKUP_FORMAT, phienBan: BACKUP_VERSION, giaPha: { id: 't', photo_file: 'anh/gia-pha.jpg' } });
     expect(data.photos).toEqual([{ id: 'p1', file: 'anh/x-001.jpg' }, { id: 'p2', file: null }]);
+    expect(data.eventPhotos).toEqual([{ id: 'e1', file: 'anh-su-kien/h-001.jpg' }, { id: 'e2', file: null }]);
   });
 });

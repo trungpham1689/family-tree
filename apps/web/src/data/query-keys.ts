@@ -14,6 +14,7 @@ export const queryKeys = {
   members: (treeId: string) => ['trees', treeId, 'members'] as const,
   pendingDeletions: (treeId: string) => ['trees', treeId, 'pending-deletions'] as const,
   events: (treeId: string) => ['trees', treeId, 'events'] as const,
+  eventPhotos: (treeId: string) => ['trees', treeId, 'event-photos'] as const,
   phaDo: (treeId: string) => ['trees', treeId, 'pha-do'] as const,
   /** Không truyền tài khoản thì là tiền tố của mọi bản lịch đã tải. */
   calendar: (accountId?: string) => (accountId === undefined ? (['trees', 'calendar'] as const) : (['trees', 'calendar', accountId] as const)),
@@ -45,7 +46,7 @@ export const effects = {
   /** Gộp người trùng: ảnh, danh sách tắt nhắc giỗ của người bị gộp cũng đổi. */
   merge: (treeId: string): QueryEffect => [...effects.family(treeId), queryKeys.photos(), queryKeys.reminderWatch],
   /** Sự kiện của gia phả cũng nằm trong lịch của mọi tài khoản. */
-  events: (treeId: string): QueryEffect => [queryKeys.events(treeId), queryKeys.calendar()],
+  events: (treeId: string): QueryEffect => [queryKeys.events(treeId), queryKeys.eventPhotos(treeId), queryKeys.calendar()],
   /** Duyệt/thu hồi/cấp quyền: danh sách tài khoản trên trang quản trị đổi theo. */
   admin: (): QueryEffect => [queryKeys.adminAccounts],
   /** Đổi tên, ảnh bìa, số đời cháu ngoại, danh sách gia phả: mọi thứ dưới `trees`. */

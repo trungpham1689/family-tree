@@ -1,14 +1,16 @@
 import { useMemo } from 'react';
 import { useParams } from 'react-router';
 import { todayInVietnam } from '../calendar/month-grid';
+import { firstPhotoOfEvents, useEventPhotoImages, useEventPhotos, useTreeEvents } from '../data/calendar-queries';
 import { useAvatarDataUrl, usePersonAvatars } from '../data/tree-queries';
+import { personLabel } from '../people/person-label';
 import type { Person, TreeWithRole } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
 import { TreePageShell } from '../tree/TreePageShell';
 import { kindLabel } from '../family/labels';
 import { useTreeExport } from '../export/use-tree-export';
 import { branchSummaries, buildNarrative, closingNote, notablePersons, originSummary } from '../pha-ky/narrative';
-import { buildFrontSections, type PhaKySection } from '../pha-ky/sections';
+import { buildFrontSections, phaKyEvents, type PhaKySection } from '../pha-ky/sections';
 import { Button } from '../ui/Button';
 import { ErrorBanner } from '../ui/fields';
 
@@ -32,9 +34,25 @@ const PhaKyBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Per
   const origin = useMemo(() => originSummary(graph), [graph]);
   const branches = useMemo(() => branchSummaries(graph), [graph]);
   const description = tree.description;
+  const treeEvents = useTreeEvents(tree.id);
+  const events = useMemo(
+    () => phaKyEvents(treeEvents.data ?? [], (personId) => (graph.person(personId) ? personLabel(graph, personId) : null)),
+    [treeEvents.data, graph],
+  );
+  // Mỗi sự kiện chỉ lấy ảnh đầu tiên.
+  const eventPhotos = useEventPhotos(tree.id);
+  const coverPhotos = useMemo(() => {
+    const shown = new Set(events.map((event) => event.id));
+    return [...firstPhotoOfEvents(eventPhotos.data ?? []).values()].filter((photo) => shown.has(photo.event_id));
+  }, [events, eventPhotos.data]);
+  const coverImages = useEventPhotoImages(coverPhotos);
+  const eventImages = useMemo(
+    () => new Map(coverPhotos.flatMap((photo) => (coverImages.data?.get(photo.id) ? [[photo.event_id, coverImages.data.get(photo.id)!] as const] : []))),
+    [coverPhotos, coverImages.data],
+  );
   const frontSections = useMemo(
-    () => buildFrontSections({ description, origin, branches, notable, today }),
-    [description, origin, branches, notable, today],
+    () => buildFrontSections({ description, origin, branches, notable, today, events }),
+    [description, origin, branches, notable, today, events],
   );
 
   const cover = useAvatarDataUrl(tree.photo_path);
@@ -46,7 +64,7 @@ const PhaKyBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Per
       generations,
       front: frontSections,
       closing: generations.length > 0 ? closingNote(today) : null,
-      photos: { cover: cover.data, people: avatars.data },
+      photos: { cover: cover.data, people: avatars.data, events: eventImages },
     });
 
   return (
@@ -68,7 +86,7 @@ const PhaKyBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Per
         {cover.data && <img src={cover.data} alt={`Ảnh gia phả ${tree.name}`} className="mx-auto mb-9 max-h-80 border border-line object-cover" />}
 
         {frontSections.map((section, index) => (
-          <FrontSection key={section.kind} section={section} numeral={ROMAN[index] ?? null} />
+          <FrontSection key={section.kind} section={section} numeral={ROMAN[index] ?? null} eventImages={eventImages} />
         ))}
 
         {generations.map((group) => (
@@ -159,7 +177,7 @@ const SectionHeading = ({ numeral, title }: { numeral: string | null; title: str
 const Note = ({ children }: { children: string }) => <p className="mt-1.5 text-sm text-ink-muted">{children}</p>;
 
 /** Một khối trước phần theo Đời, vẽ từ dữ liệu của `buildFrontSections` (cùng nguồn với file PDF). */
-const FrontSection = ({ section, numeral }: { section: PhaKySection; numeral: string | null }) => {
+const FrontSection = ({ section, numeral, eventImages }: { section: PhaKySection; numeral: string | null; eventImages: ReadonlyMap<string, string> }) => {
   const body = (() => {
     switch (section.kind) {
       case 'intro':
@@ -228,6 +246,24 @@ const FrontSection = ({ section, numeral }: { section: PhaKySection; numeral: st
               ))}
             </ul>
           </>
+        );
+      case 'events':
+        return (
+          <ul className="mt-2 divide-y divide-line border-b border-line">
+            {section.items.map((item) => (
+              <li key={item.id} id={item.id} className="grid gap-x-3 py-3 target:bg-kim-soft/40 sm:grid-cols-[1fr_auto]">
+                <div className="min-w-0">
+                  <h3 className="font-serif text-lg font-bold">{item.title}</h3>
+                  <p className="text-sm text-ink-muted">{item.when}</p>
+                  {item.host && <p className="text-sm">Chủ trì: <strong>{item.host}</strong></p>}
+                  {item.description && <p className="mt-1 whitespace-pre-line text-justify text-[15px] leading-relaxed">{item.description}</p>}
+                </div>
+                {eventImages.get(item.id) && (
+                  <img src={eventImages.get(item.id)} alt={item.title} className="mt-2 max-h-28 max-w-40 border border-line object-cover sm:mt-0" />
+                )}
+              </li>
+            ))}
+          </ul>
         );
     }
   })();

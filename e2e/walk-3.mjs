@@ -27,6 +27,9 @@ const signUp = async (p, address) => {
   await p.goto(`${APP}/dang-nhap`);
   await p.getByRole('tab', { name: 'Tạo tài khoản' }).click();
   await p.getByLabel('Email').fill(address);
+  await p.getByLabel('Họ và tên').fill('Người Thử');
+  await p.getByLabel('Ngày sinh').fill('1990-01-01');
+  await p.getByLabel('Số điện thoại').fill('0901234567');
   await p.locator('input[type=password]').first().fill('matkhau123');
   await p.getByRole('button', { name: 'Tạo tài khoản' }).last().click();
   await p.waitForURL(/\/gia-pha$/);

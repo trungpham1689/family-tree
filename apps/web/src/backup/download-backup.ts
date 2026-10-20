@@ -27,17 +27,21 @@ const mapLimited = async <Item>(items: readonly Item[], limit: number, work: (it
 /** Tải mọi dữ liệu + ảnh của Gia phả, đóng thành một file zip và đưa xuống máy người dùng. Trả số ảnh không tải được. */
 export const downloadFullBackup = async (tree: Tree, today: string, onProgress: (progress: BackupProgress) => void): Promise<number> => {
   onProgress({ stage: 'data' });
-  const [family, events, phaDo, photoRows] = await Promise.all([
+  const [family, events, phaDo, photoRows, eventPhotoRows] = await Promise.all([
     loadFamily(tree.id),
     listTreeEvents(tree.id),
     loadPhaDoConfig(tree.id),
     fetchAll((from, to) => supabase.from('person_photos').select('*').eq('tree_id', tree.id).order('created_at').order('id').range(from, to)),
+    fetchAll((from, to) => supabase.from('event_photos').select('*').eq('tree_id', tree.id).order('created_at').order('id').range(from, to)),
   ]);
   if (photoRows.error) throw new Error(photoRows.error.message);
+  if (eventPhotoRows.error) throw new Error(eventPhotoRows.error.message);
   const photos = photoRows.data ?? [];
+  const eventPhotos = eventPhotoRows.data ?? [];
   const personName = new Map(family.persons.map((person) => [person.id, person.full_name]));
 
-  const jobs = planImageJobs(tree, photos, personName);
+  const eventTitle = new Map(events.map((event) => [event.id, event.title]));
+  const jobs = planImageJobs(tree, photos, personName, eventPhotos, eventTitle);
 
   const images: BackupImage[] = [];
   const zipPathByPhoto = new Map<string, string>();
@@ -80,6 +84,7 @@ export const downloadFullBackup = async (tree: Tree, today: string, onProgress: 
       unions: family.unions,
       events,
       photos,
+      eventPhotos,
       zipPathByPhoto,
       phaDoConfig: phaDo,
     }),

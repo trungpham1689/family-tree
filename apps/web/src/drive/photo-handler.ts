@@ -19,7 +19,7 @@ import {
  */
 
 export type PhotoEnv = DriveEnv & EdgeEnv;
-export type PhotoKind = 'member' | 'tree';
+export type PhotoKind = 'member' | 'tree' | 'event';
 
 /** Chặn cứng phía server; trình duyệt đã nén ảnh xuống vài trăm KB nên mức này rất rộng rãi. */
 export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
@@ -31,7 +31,7 @@ const json = (body: unknown, status: number): Response => Response.json(body, { 
 
 const bearer = (request: Request): string | null => /^Bearer (.+)$/.exec(request.headers.get('authorization') ?? '')?.[1] ?? null;
 
-type Rule = { fn: 'can_view_tree' | 'can_edit_tree' | 'is_tree_owner' | 'can_edit_person'; args: Record<string, string> };
+type Rule = { fn: 'can_view_tree' | 'can_edit_tree' | 'is_tree_owner' | 'can_edit_person' | 'can_edit_event'; args: Record<string, string> };
 
 const treeRule = (fn: 'can_view_tree' | 'can_edit_tree' | 'is_tree_owner', treeId: string): Rule => ({ fn, args: { target_tree: treeId } });
 
@@ -51,13 +51,15 @@ const treeName = async (rest: SupabaseRest, jwt: string, treeId: string): Promis
 
 /**
  * Quy tắc xoá một file ảnh, đúng như RLS của dòng dữ liệu trỏ tới file đó:
- * ảnh của Người → `can_edit_person`; ảnh bìa gia phả → Chủ sở hữu; chưa có dòng nào (file mồ côi vừa tải lên,
+ * ảnh của Người → `can_edit_person`; ảnh sự kiện → `can_edit_event`; ảnh bìa gia phả → Chủ sở hữu; chưa có dòng nào (file mồ côi vừa tải lên,
  * trình duyệt đang dọn sau khi lưu dòng lỗi) → Biên tập viên của gia phả.
  */
 const deletionRule = async (rest: SupabaseRest, jwt: string, treeId: string, fileId: string): Promise<Rule> => {
   const path = encodeURIComponent(`${treeId}/${fileId}`);
   const [photo] = await rest.rows<{ person_id: string }>(`person_photos?storage_path=eq.${path}&select=person_id`, jwt);
   if (photo) return { fn: 'can_edit_person', args: { target_person: photo.person_id } };
+  const [eventPhoto] = await rest.rows<{ event_id: string }>(`event_photos?storage_path=eq.${path}&select=event_id`, jwt);
+  if (eventPhoto) return { fn: 'can_edit_event', args: { target_event: eventPhoto.event_id } };
   const cover = await rest.rows<{ id: string }>(`family_trees?id=eq.${treeId}&photo_path=eq.${path}&select=id`, jwt);
   return treeRule(cover.length > 0 ? 'is_tree_owner' : 'can_edit_tree', treeId);
 };
@@ -93,23 +95,31 @@ const failure = (error: unknown): Response =>
     ? json({ error: error.message }, error.status)
     : json({ error: 'Không xử lý được ảnh. Hãy thử lại.' }, 500);
 
-/** POST /api/photos?treeId=…&kind=member|tree[&personId=…] — thân yêu cầu là chính file ảnh. Trả { fileId }. */
+/** POST /api/photos?treeId=…&kind=member|tree|event[&personId=…][&eventId=…] — thân yêu cầu là chính file ảnh. Trả { fileId }. */
 export const handleUpload = async (request: Request, env: PhotoEnv, doFetch: typeof fetch = fetch): Promise<Response> => {
   const url = new URL(request.url);
   const treeId = url.searchParams.get('treeId') ?? '';
   const kind = url.searchParams.get('kind');
   const personId = url.searchParams.get('personId');
-  if (kind !== 'member' && kind !== 'tree') return json({ error: 'Loại ảnh không hợp lệ.' }, 400);
+  const eventId = url.searchParams.get('eventId');
+  if (kind !== 'member' && kind !== 'tree' && kind !== 'event') return json({ error: 'Loại ảnh không hợp lệ.' }, 400);
   if (kind === 'member' && !UUID.test(personId ?? '')) return json({ error: 'Thiếu Người của ảnh.' }, 400);
+  if (kind === 'event' && !UUID.test(eventId ?? '')) return json({ error: 'Thiếu sự kiện của ảnh.' }, 400);
 
-  // Ảnh Người: Chủ sở hữu hoặc Biên tập viên đã tạo Người đó (như RLS bảng person_photos). Ảnh gia phả: chỉ Chủ sở hữu (như RLS family_trees).
+  // Ảnh Người: Chủ sở hữu hoặc Biên tập viên đã tạo Người đó (như RLS bảng person_photos). Ảnh sự kiện: Chủ sở hữu hoặc Biên tập viên
+  // đã tạo sự kiện (như RLS event_photos). Ảnh gia phả: chỉ Chủ sở hữu (như RLS family_trees).
   const denied = await authorize(
     request,
     env,
     treeId,
     kind === 'tree'
       ? treeRule('is_tree_owner', treeId)
-      : async (jwt, rest) => {
+      : kind === 'event'
+        ? async (jwt, rest) => {
+            const [event] = await rest.rows<{ tree_id: string }>(`tree_events?id=eq.${eventId}&select=tree_id`, jwt);
+            return event?.tree_id === treeId ? { fn: 'can_edit_event', args: { target_event: eventId! } } : json({ error: 'Không tìm thấy sự kiện trong gia phả này.' }, 404);
+          }
+        : async (jwt, rest) => {
           const [person] = await rest.rows<{ tree_id: string }>(`persons?id=eq.${personId}&select=tree_id`, jwt);
           // Người phải thuộc đúng gia phả của thư mục sẽ nhận file.
           return person?.tree_id === treeId ? { fn: 'can_edit_person', args: { target_person: personId! } } : json({ error: 'Không tìm thấy Người trong gia phả này.' }, 404);
@@ -134,8 +144,8 @@ export const handleUpload = async (request: Request, env: PhotoEnv, doFetch: typ
     const fileId = await uploadImage(
       token,
       {
-        name: `${kind === 'tree' ? 'gia-pha' : personId}-${crypto.randomUUID()}.${extension}`,
-        parent: kind === 'tree' ? folders.treePhotos : folders.memberPhotos,
+        name: `${kind === 'tree' ? 'gia-pha' : kind === 'event' ? `su-kien-${eventId}` : personId}-${crypto.randomUUID()}.${extension}`,
+        parent: kind === 'tree' ? folders.treePhotos : kind === 'event' ? folders.eventPhotos : folders.memberPhotos,
         treeId,
         mimeType,
         bytes,
@@ -221,6 +231,7 @@ export const handleSweep = async (request: Request, env: PhotoEnv, doFetch: type
     const rest = restOf(env, doFetch);
     const referenced = new Set([
       ...(await rest.all<{ storage_path: string }>(`person_photos?tree_id=eq.${treeId}&select=storage_path&order=id`, jwt)).map((row) => row.storage_path),
+      ...(await rest.all<{ storage_path: string }>(`event_photos?tree_id=eq.${treeId}&select=storage_path&order=id`, jwt)).map((row) => row.storage_path),
       ...(await rest.all<{ photo_path: string | null }>(`family_trees?id=eq.${treeId}&select=photo_path`, jwt)).flatMap((row) => (row.photo_path ? [row.photo_path] : [])),
     ]);
     const token = await getAccessToken(env, doFetch);

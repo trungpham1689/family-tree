@@ -121,6 +121,107 @@ describe('Sự kiện', () => {
   });
 });
 
+describe('sự kiện hằng tháng và năm bắt đầu', () => {
+  const monthly = (extra: Partial<CalendarEvent>) =>
+    source({ events: [event({ repeats_yearly: false, repeats_monthly: true, month: null, ...extra })] });
+
+  it('dương: mỗi tháng một lần, ngày 31 lùi về cuối tháng ngắn', () => {
+    const found = occurrencesBetween(monthly({ day: 31 }), year(2026).from, year(2026).to);
+    expect(found).toHaveLength(12);
+    expect(found[1]!.date).toEqual({ year: 2026, month: 2, day: 28 });
+    expect(found[3]!.date).toEqual({ year: 2026, month: 4, day: 30 });
+  });
+
+  it('dương: khoảng ngắn qua hai năm chỉ lấy ngày nằm trong khoảng', () => {
+    const found = occurrencesBetween(monthly({ day: 15 }), { year: 2026, month: 12, day: 20 }, { year: 2027, month: 2, day: 10 });
+    expect(found.map((o) => o.date)).toEqual([{ year: 2027, month: 1, day: 15 }]);
+  });
+
+  it('âm: mỗi tháng âm một lần vào đúng ngày âm đó', () => {
+    const found = occurrencesBetween(monthly({ calendar: 'am', day: 1 }), year(2026).from, year(2026).to);
+    expect(found.length).toBeGreaterThanOrEqual(12);
+    expect(found.length).toBeLessThanOrEqual(13);
+    for (const o of found) expect(solarToLunar(o.date).day).toBe(1);
+  });
+
+  it('âm: ngày 30 của tháng thiếu rơi vào ngày cuối tháng, mỗi tháng đúng một lần', () => {
+    const found = occurrencesBetween(monthly({ calendar: 'am', day: 30 }), year(2026).from, year(2026).to);
+    expect(found.length).toBeGreaterThanOrEqual(12);
+    const keys = found.map((o) => `${solarToLunar(o.date).year}-${solarToLunar(o.date).month}-${solarToLunar(o.date).leap}`);
+    expect(new Set(keys).size).toBe(found.length);
+  });
+
+  it('có năm bắt đầu thì không hiện trước năm đó (cả hằng tháng lẫn hằng năm)', () => {
+    expect(occurrencesBetween(monthly({ day: 15, year: 2027 }), year(2026).from, year(2026).to)).toEqual([]);
+    expect(occurrencesBetween(monthly({ day: 15, year: 2027 }), year(2027).from, year(2027).to)).toHaveLength(12);
+    const yearly = source({ events: [event({ month: 5, day: 5, year: 2028 })] });
+    expect(occurrencesBetween(yearly, year(2027).from, year(2027).to)).toEqual([]);
+    expect(occurrencesBetween(yearly, year(2028).from, year(2028).to)).toHaveLength(1);
+  });
+});
+
+describe('lịch của sự kiện: chọn âm thì theo ngày âm, chọn dương thì theo ngày dương', () => {
+  const lunarOf = (date: { year: number; month: number; day: number }) => solarToLunar(date);
+  const range = { from: { year: 2024, month: 1, day: 1 }, to: { year: 2027, month: 12, day: 31 } };
+  const found = (e: Partial<CalendarEvent>) => occurrencesBetween(source({ events: [event({ title: 'X', year: 2024, ...e })] }), range.from, range.to);
+
+  it('âm lịch hằng năm: mọi lần đều rơi đúng ngày/tháng âm đó (dương lịch thì khác nhau mỗi năm)', () => {
+    const dates = found({ calendar: 'am', repeats_yearly: true, month: 3, day: 15 }).map((o) => o.date);
+    expect(dates).toHaveLength(4);
+    for (const date of dates) expect(lunarOf(date)).toMatchObject({ month: 3, day: 15, leap: false });
+    expect(new Set(dates.map((d) => `${d.month}-${d.day}`)).size).toBeGreaterThan(1);
+  });
+
+  it('dương lịch hằng năm: mọi lần đều đúng ngày/tháng dương đó (âm lịch thì khác nhau mỗi năm)', () => {
+    const dates = found({ calendar: 'duong', repeats_yearly: true, month: 3, day: 15 }).map((o) => o.date);
+    expect(dates.map((d) => [d.year, d.month, d.day])).toEqual([[2024, 3, 15], [2025, 3, 15], [2026, 3, 15], [2027, 3, 15]]);
+    expect(new Set(dates.map((d) => `${lunarOf(d).month}-${lunarOf(d).day}`)).size).toBeGreaterThan(1);
+  });
+
+  it('âm lịch hằng tháng theo ngày âm; dương lịch hằng tháng theo ngày dương', () => {
+    const lunar = found({ calendar: 'am', repeats_monthly: true, repeats_yearly: false, month: null, day: 15 });
+    expect(lunar.length).toBeGreaterThanOrEqual(48);
+    for (const o of lunar) expect(lunarOf(o.date).day).toBe(15);
+    const solar = found({ calendar: 'duong', repeats_monthly: true, repeats_yearly: false, month: null, day: 15 });
+    expect(solar).toHaveLength(48);
+    for (const o of solar) expect(o.date.day).toBe(15);
+  });
+
+  it('một lần: âm lịch đổi ra đúng ngày dương của ngày âm đó; dương lịch giữ nguyên ngày dương', () => {
+    const [am] = found({ calendar: 'am', repeats_yearly: false, year: 2025, month: 8, day: 15 });
+    expect(am!.date).toEqual(lunarToSolar({ year: 2025, month: 8, day: 15, leap: false }));
+    const [duong] = found({ calendar: 'duong', repeats_yearly: false, year: 2025, month: 8, day: 15 });
+    expect(duong!.date).toEqual({ year: 2025, month: 8, day: 15 });
+  });
+
+  it('năm bắt đầu của sự kiện âm lịch tính theo năm âm: tháng Chạp âm năm 2023 rơi sang tháng 1 dương 2024 vẫn chưa tới', () => {
+    const lunarNewYear2024 = lunarToSolar({ year: 2024, month: 1, day: 1, leap: false })!;
+    const before = lunarToSolar({ year: 2023, month: 12, day: 20, leap: false })!;
+    expect(before.year).toBe(2024); // cuối tháng Chạp âm 2023 nằm trong năm dương 2024
+    const dates = occurrencesBetween(
+      source({ events: [event({ calendar: 'am', repeats_yearly: true, year: 2024, month: 12, day: 20 })] }),
+      { year: 2024, month: 1, day: 1 },
+      lunarNewYear2024,
+    );
+    expect(dates).toEqual([]);
+    const dương = occurrencesBetween(
+      source({ events: [event({ calendar: 'duong', repeats_yearly: true, year: 2024, month: 1, day: 5 })] }),
+      { year: 2024, month: 1, day: 1 },
+      { year: 2024, month: 1, day: 31 },
+    );
+    expect(dương).toHaveLength(1);
+  });
+
+  it('âm lịch có tháng nhuận: hằng năm vào tháng thường, hằng tháng có cả tháng nhuận', () => {
+    // 2025 có tháng 6 nhuận.
+    const yearly = found({ calendar: 'am', repeats_yearly: true, month: 6, day: 10 }).filter((o) => o.date.year === 2025);
+    expect(yearly).toHaveLength(1);
+    expect(lunarOf(yearly[0]!.date)).toMatchObject({ month: 6, leap: false });
+    const monthly = found({ calendar: 'am', repeats_monthly: true, repeats_yearly: false, month: null, day: 10 });
+    expect(monthly.some((o) => lunarOf(o.date).leap)).toBe(true);
+  });
+});
+
 describe('nhiều Gia phả và "Sắp tới"', () => {
   const data = source({
     persons: [

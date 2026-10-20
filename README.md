@@ -46,7 +46,7 @@ pnpm dev                                 # mở http://localhost:5173
 
 - **Supabase** project `family-tree` (`gihidxqjfcezsrcibrla`, vùng Singapore): database, đăng nhập. Ảnh cũ còn trong Storage cho tới khi chạy script chuyển (mục 4).
 - **Cloudflare Pages**: hosting web, tự deploy khi có commit lên `main`; Pages Function `/api/photos` đứng giữa trình duyệt và Google Drive.
-- **Google Drive** (15 GB miễn phí): ảnh Người và ảnh gia phả, thư mục `Family-tree/<tên gia phả>/Ảnh Gia Phả` và `Ảnh Người`.
+- **Google Drive** (15 GB miễn phí): ảnh Người và ảnh gia phả, thư mục `Family-tree/<tên gia phả>/Ảnh Gia Phả` , `Ảnh thành viên` và `Ảnh sự kiện`.
 - **Cloudflare Worker Cron** (`apps/worker`): chạy mỗi 5 ngày, có giỗ/sự kiện 5 ngày tới mới gửi một Bản tin nhắc chung cho Chủ sở hữu và Biên tập viên của mỗi gia phả qua **Resend** — chưa deploy, xem mục 3 dưới.
 
 ## Việc chủ dự án cần tự làm

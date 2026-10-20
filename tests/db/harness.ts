@@ -17,6 +17,9 @@ const ROOT = join(import.meta.dirname, '..', '..');
 const SHIM_FILE = join(import.meta.dirname, 'supabase-shim.sql');
 const MIGRATIONS_DIR = join(ROOT, 'supabase', 'migrations');
 
+/** Hồ sơ mặc định của tài khoản thử, đủ cho trigger đăng ký. */
+const DEFAULT_PROFILE = { full_name: 'Người Thử', birth_date: '1990-01-01', phone: '0901234567' };
+
 export type TestUser = { id: string; email: string };
 
 export type Caller = {
@@ -30,7 +33,7 @@ export type Caller = {
 
 export type TestDb = {
   /** Mặc định đã duyệt; truyền `{ approved: false }` để thử tài khoản chờ duyệt. */
-  createUser(email: string, options?: { approved?: boolean }): Promise<TestUser>;
+  createUser(email: string, options?: { approved?: boolean; profile?: Record<string, string> | null }): Promise<TestUser>;
   as(user: TestUser): Caller;
   asAnon(): Caller;
   /** Truy cập không qua RLS — chỉ để dựng dữ liệu hoặc kiểm tra trong test. */
@@ -94,9 +97,11 @@ export async function createTestDb(): Promise<TestDb> {
 
   return {
     createUser: async (email, options = {}) => {
+      // Đăng ký thật bắt buộc họ tên, ngày sinh, SĐT trong user metadata; `profile: null` để thử trường hợp thiếu.
+      const metadata = options.profile === null ? {} : (options.profile ?? DEFAULT_PROFILE);
       const result = await db.query<TestUser>(
-        'insert into auth.users (email) values ($1) returning id, email',
-        [email],
+        'insert into auth.users (email, raw_user_meta_data) values ($1, $2::jsonb) returning id, email',
+        [email, JSON.stringify(metadata)],
       );
       // Trigger mặc định để tài khoản mới ở trạng thái chưa duyệt; test thường cần tài khoản dùng được ngay.
       if (options.approved !== false) await db.query('update public.account_approvals set approved = true where account_id = $1', [result.rows[0]!.id]);

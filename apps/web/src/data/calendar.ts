@@ -12,12 +12,26 @@ import {
 import { fetchAll } from '../lib/fetch-all';
 import { supabase } from '../lib/supabase';
 import type { Row } from './database.types';
+import { discardStoredFiles, listEventPhotoPaths } from './photos';
 import { listMyTrees, failOn } from './trees';
 
 export type TreeEvent = Row<'tree_events'>;
 export type EventFields = Pick<
   TreeEvent,
-  'title' | 'calendar' | 'repeats_yearly' | 'year' | 'month' | 'day' | 'leap' | 'start_time' | 'location' | 'note'
+  | 'title'
+  | 'calendar'
+  | 'repeats_yearly'
+  | 'repeats_monthly'
+  | 'year'
+  | 'month'
+  | 'day'
+  | 'leap'
+  | 'start_time'
+  | 'location'
+  | 'note'
+  | 'host_person_id'
+  | 'show_in_pha_ky'
+  | 'show_in_timeline'
 >;
 
 const fail = (error: { code?: string; message?: string } | null) => {
@@ -72,13 +86,20 @@ export const listTreeEvents = async (treeId: string): Promise<TreeEvent[]> => {
   return data ?? [];
 };
 
-export const saveTreeEvent = async (input: { treeId: string; eventId: string | null; fields: EventFields }): Promise<void> => {
-  const query = input.eventId
-    ? supabase.from('tree_events').update(input.fields).eq('id', input.eventId)
-    : supabase.from('tree_events').insert({ ...input.fields, tree_id: input.treeId });
-  fail((await query).error);
+/** Lưu sự kiện; trả id (của sự kiện mới, hoặc chính sự kiện đang sửa) để gắn ảnh. */
+export const saveTreeEvent = async (input: { treeId: string; eventId: string | null; fields: EventFields }): Promise<string> => {
+  if (input.eventId) {
+    fail((await supabase.from('tree_events').update(input.fields).eq('id', input.eventId)).error);
+    return input.eventId;
+  }
+  const { data, error } = await supabase.from('tree_events').insert({ ...input.fields, tree_id: input.treeId }).select('id').single();
+  fail(error);
+  return data!.id;
 };
 
+/** Xoá sự kiện rồi dọn file ảnh của nó trên Drive (xoá dòng trước: không đủ quyền thì chưa mất gì). */
 export const removeTreeEvent = async (eventId: string): Promise<void> => {
+  const paths = await listEventPhotoPaths(eventId);
   fail((await supabase.from('tree_events').delete().eq('id', eventId)).error);
+  await discardStoredFiles(paths);
 };

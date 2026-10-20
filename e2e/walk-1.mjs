@@ -14,6 +14,9 @@ await step('mở app → chuyển tới đăng nhập', async () => {
 await step('đăng ký tài khoản', async () => {
   await page.getByRole('tab', { name: 'Tạo tài khoản' }).click();
   await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Họ và tên').fill('Người Thử');
+  await page.getByLabel('Ngày sinh').fill('1990-01-01');
+  await page.getByLabel('Số điện thoại').fill('0901234567');
   await page.locator('input[type=password]').first().fill('matkhau123');
   await page.getByRole('button', { name: 'Tạo tài khoản' }).last().click();
   await page.waitForURL(/\/gia-pha$/);

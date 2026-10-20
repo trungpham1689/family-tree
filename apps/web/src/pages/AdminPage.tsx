@@ -1,14 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import {
+  ADMIN_PAGE_SIZE,
   useAdminAccounts,
+  useAdminCounts,
   useDeleteAccount,
   useSendPasswordReset,
   useSetApproval,
   useSetBanned,
   useSetSuperadmin,
   type AdminAccount,
+  type AdminStatusFilter,
 } from '../data/admin';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
@@ -16,13 +19,17 @@ import { Dialog } from '../ui/Dialog';
 import { ErrorBanner, TextField } from '../ui/fields';
 import { Footer } from '../ui/Footer';
 
-type Filter = 'pending' | 'approved' | 'all';
+type Filter = AdminStatusFilter;
 type Confirm = { account: AdminAccount; action: 'revoke' | 'promote' | 'demote' | 'ban' | 'unban' | 'delete' };
 
-const FILTER_LABELS: Record<Filter, string> = { pending: 'Chờ duyệt', approved: 'Đã duyệt', all: 'Tất cả' };
+const FILTER_LABELS: Record<Filter, string> = { all: 'Tất cả', pending: 'Chờ duyệt', approved: 'Đã duyệt' };
+const SEARCH_DELAY_MS = 300;
 
 const formatDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'chưa bao giờ';
+
+/** "1985-03-20" → "20/03/1985" (cắt chuỗi, không qua Date để khỏi lệch múi giờ). */
+const formatBirthDate = (value: string) => value.split('-').reverse().join('/');
 
 const CONFIRM_TEXT: Record<Confirm['action'], { title: string; body: (email: string) => string; button: string }> = {
   revoke: {
@@ -60,7 +67,6 @@ const CONFIRM_TEXT: Record<Confirm['action'], { title: string; body: (email: str
 export const AdminPage = () => {
   const { state } = useAuth();
   const myId = state.status === 'signed-in' ? state.session.user.id : '';
-  const accounts = useAdminAccounts();
   const setApproval = useSetApproval();
   const setSuperadmin = useSetSuperadmin();
   const setBanned = useSetBanned();
@@ -69,21 +75,26 @@ export const AdminPage = () => {
   const [typed, setTyped] = useState('');
   const [filter, setFilter] = useState<Filter | null>(null);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(0);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
 
-  const all = useMemo(() => accounts.data ?? [], [accounts.data]);
-  const pendingCount = all.filter((account) => !account.approved).length;
-  const iAmRoot = all.some((account) => account.accountId === myId && account.isRoot);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), SEARCH_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const counts = useAdminCounts();
+  const pendingCount = counts.data?.pending ?? 0;
+  const iAmRoot = counts.data?.iAmRoot ?? false;
   // Mặc định mở tab "Chờ duyệt" nếu đang có người chờ, không thì xem tất cả.
   const activeFilter: Filter = filter ?? (pendingCount > 0 ? 'pending' : 'all');
-  const visible = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    return all.filter(
-      (account) =>
-        (activeFilter === 'all' || (activeFilter === 'pending' ? !account.approved : account.approved)) &&
-        (needle === '' || account.email.toLowerCase().includes(needle)),
-    );
-  }, [all, activeFilter, search]);
+  const accounts = useAdminAccounts({ status: activeFilter, search: debouncedSearch, page });
+  const visible = accounts.data?.accounts ?? [];
+  const total = accounts.data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE));
+  // Trang cuối trống sau khi duyệt/xoá hết người ở đó: quay về trang đầu (cách React khuyến nghị thay cho setState trong effect).
+  if (accounts.isSuccess && !accounts.isPlaceholderData && page > 0 && visible.length === 0) setPage(0);
 
   const error = setApproval.error ?? setSuperadmin.error ?? setBanned.error ?? deleteAccount.error ?? sendReset.error;
   const busyId = setApproval.isPending
@@ -138,20 +149,31 @@ export const AdminPage = () => {
               type="button"
               role="tab"
               aria-selected={key === activeFilter}
-              onClick={() => setFilter(key)}
+              onClick={() => {
+                setFilter(key);
+                setPage(0);
+              }}
               className={`min-h-11 rounded-full border px-4 font-semibold ${
                 key === activeFilter ? 'border-son bg-son text-white' : 'border-line bg-surface text-ink hover:bg-paper'
               }`}
             >
               {FILTER_LABELS[key]}
               {key === 'pending' && pendingCount > 0 && <span className="ml-2 rounded-full bg-kim-soft px-2 text-sm text-ink">{pendingCount}</span>}
-              {key === 'all' && <span className="ml-2 text-sm opacity-80">{all.length}</span>}
+              {key === 'all' && counts.data && <span className="ml-2 text-sm opacity-80">{counts.data.total}</span>}
             </button>
           ))}
         </div>
 
         <div className="mt-4">
-          <TextField label="Tìm theo email" type="search" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <TextField
+            label="Tìm theo họ tên, email hoặc số điện thoại"
+            type="search"
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(0);
+            }}
+          />
         </div>
 
         {error && (
@@ -172,7 +194,7 @@ export const AdminPage = () => {
         )}
         {accounts.isSuccess && visible.length === 0 && (
           <p className="mt-6 rounded-2xl border border-dashed border-line bg-surface px-6 py-10 text-center text-ink-muted">
-            {search ? 'Không có tài khoản nào khớp.' : activeFilter === 'pending' ? 'Không có tài khoản nào đang chờ duyệt.' : 'Chưa có tài khoản nào.'}
+            {debouncedSearch ? 'Không có tài khoản nào khớp.' : activeFilter === 'pending' ? 'Không có tài khoản nào đang chờ duyệt.' : 'Chưa có tài khoản nào.'}
           </p>
         )}
 
@@ -196,6 +218,20 @@ export const AdminPage = () => {
             />
           ))}
         </ul>
+
+        {total > ADMIN_PAGE_SIZE && (
+          <nav aria-label="Chia trang" className="mt-6 flex flex-wrap items-center justify-between gap-3">
+            <Button variant="secondary" disabled={page === 0} onClick={() => setPage(page - 1)}>
+              ← Trước
+            </Button>
+            <p role="status" className="text-ink-muted">
+              Trang {page + 1}/{pageCount} · {total} tài khoản
+            </p>
+            <Button variant="secondary" disabled={page + 1 >= pageCount} onClick={() => setPage(page + 1)}>
+              Sau →
+            </Button>
+          </nav>
+        )}
 
         <Dialog
           open={confirm !== null}
@@ -251,10 +287,11 @@ const AccountRow = ({
   onAsk: (action: Confirm['action']) => void;
 }) => (
   <li className="rounded-2xl border border-line bg-surface p-4">
-    <p className="break-all text-lg font-semibold">
-      {account.email}
+    <p className="break-words text-lg font-semibold">
+      {account.fullName ?? account.email}
       {isMe && <span className="ml-2 text-sm font-normal text-ink-muted">(bạn)</span>}
     </p>
+    {account.fullName && <p className="break-all text-ink-muted">{account.email}</p>}
     <p className="mt-1 flex flex-wrap gap-2">
       {account.isBanned ? (
         <Badge tone="red">Bị chặn</Badge>
@@ -267,6 +304,15 @@ const AccountRow = ({
       )}
     </p>
     <p className="mt-2 text-sm text-ink-muted">
+      Ngày sinh {account.birthDate ? formatBirthDate(account.birthDate) : '—'} · Điện thoại {account.phone ?? '—'}
+    </p>
+    <p className="mt-1 text-sm text-ink-muted">
+      Người mời:{' '}
+      {account.invitedBy.length === 0
+        ? 'không có (tự đăng ký)'
+        : account.invitedBy.map((who) => (who.fullName ? `${who.fullName} (${who.email})` : who.email)).join(', ')}
+    </p>
+    <p className="mt-1 text-sm text-ink-muted">
       Đăng ký {formatDate(account.createdAt)} · Đăng nhập gần nhất {formatDate(account.lastSignInAt)} · {account.treeCount} gia phả
     </p>
     <div className="mt-3 flex flex-wrap gap-2">

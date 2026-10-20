@@ -1,11 +1,31 @@
 // Mọi tính năng còn lại: Excel, tìm kiếm, hồ sơ, sự kiện, lịch, link công khai, Phả đồ, xoá.
 import { readFileSync, statSync, writeFileSync } from 'node:fs';
+import { crc32, deflateSync } from 'node:zlib';
 import { APP, makeStep, openBrowser, reportProblems, SHOTS } from './walk-lib.mjs';
 
 const { browser, page, problems } = await openBrowser();
 let current = page;
 const shot = (name, target = current) => target.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
 const step = makeStep(() => current);
+
+/** PNG đơn sắc `size`×`size` (đủ lớn để qua kiểm cạnh dài tối thiểu của ảnh sự kiện). */
+const solidPng = (size) => {
+  const chunk = (type, data) => {
+    const head = Buffer.alloc(8);
+    head.writeUInt32BE(data.length, 0);
+    head.write(type, 4, 'ascii');
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(Buffer.concat([head.subarray(4), data])), 0);
+    return Buffer.concat([head, data, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(size, 0);
+  ihdr.writeUInt32BE(size, 4);
+  ihdr.set([8, 2, 0, 0, 0], 8);
+  const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(size * 3, 0x9a)]);
+  const raw = Buffer.concat(Array.from({ length: size }, () => row));
+  return Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+};
 
 /** Khổ trang đầu tiên của file PDF, đơn vị pt. */
 const pdfPageSize = (path) => {
@@ -24,6 +44,9 @@ await step('đăng ký', async () => {
   await page.goto(`${APP}/dang-nhap`);
   await page.getByRole('tab', { name: 'Tạo tài khoản' }).click();
   await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Họ và tên').fill('Người Thử');
+  await page.getByLabel('Ngày sinh').fill('1990-01-01');
+  await page.getByLabel('Số điện thoại').fill('0901234567');
   await page.locator('input[type=password]').first().fill('matkhau123');
   await page.getByRole('button', { name: 'Tạo tài khoản' }).last().click();
   await page.waitForURL(/\/gia-pha$/);
@@ -130,11 +153,96 @@ await step('thêm Sự kiện âm lịch hằng năm', async () => {
   await dialog.getByLabel('Tên sự kiện').fill('Họp họ đầu xuân');
   await dialog.getByLabel('Ngày', { exact: true }).fill('10');
   await dialog.getByLabel('Tháng', { exact: true }).fill('1');
+  await dialog.getByLabel('Từ năm', { exact: true }).fill('2024');
   await dialog.getByLabel('Giờ').fill('08:30');
   await dialog.getByLabel('Địa điểm').fill('Nhà thờ họ');
   await dialog.getByRole('button', { name: 'Lưu' }).click();
   await page.getByText('Họp họ đầu xuân').waitFor();
   await shot('25-events');
+});
+
+await step('Sự kiện một lần có mô tả, chủ trì, ảnh: hiện ở Quản lý sự kiện, Dòng thời gian và Phả ký; ảnh quá 5MB bị từ chối', async () => {
+  // Giả kho ảnh Drive (/api/photos): lưu thân yêu cầu trong bộ nhớ, trả lại khi đọc.
+  const files = new Map();
+  await page.route('**/api/photos**', async (route) => {
+    const request = route.request();
+    if (request.method() === 'POST') {
+      const fileId = `fakefile${files.size}abcdef`;
+      files.set(fileId, request.postDataBuffer());
+      return route.fulfill({ status: 201, json: { fileId } });
+    }
+    if (request.method() === 'GET') {
+      const body = files.get(new URL(request.url()).pathname.split('/').pop());
+      return body ? route.fulfill({ status: 200, contentType: 'image/jpeg', body }) : route.fulfill({ status: 404, json: { error: 'không có' } });
+    }
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto(`${treeUrl}/su-kien`);
+  await page.getByRole('button', { name: '+ Thêm sự kiện' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Tên sự kiện').fill('Khánh thành nhà thờ họ');
+  await dialog.getByText('Dương lịch', { exact: true }).click();
+  await dialog.getByText('Một lần', { exact: true }).click();
+  await dialog.getByLabel('Ngày', { exact: true }).fill('20');
+  await dialog.getByLabel('Tháng', { exact: true }).fill('12');
+  await dialog.getByLabel('Năm', { exact: true }).fill('2026');
+  await dialog.getByLabel('Mô tả sự kiện').fill('Cả họ về dự lễ khánh thành.');
+  await dialog.getByLabel('Tìm người chủ trì (tuỳ chọn)').fill('Tổ');
+  await dialog.getByRole('button', { name: /Phạm Văn Tổ/ }).first().click();
+  await dialog.getByLabel('Đưa vào Dòng thời gian').check();
+
+  const input = dialog.locator('input[type=file]');
+  await input.setInputFiles({ name: 'qua-lon.png', mimeType: 'image/png', buffer: Buffer.concat([solidPng(500), Buffer.alloc(5 * 1024 * 1024)]) });
+  await dialog.getByText(/qua-lon\.png: Ảnh tối đa 5MB/).waitFor();
+  await input.setInputFiles([
+    { name: 'a.png', mimeType: 'image/png', buffer: solidPng(500) },
+    { name: 'b.png', mimeType: 'image/png', buffer: solidPng(520) },
+  ]);
+  await dialog.getByText('Ảnh (2/5)').waitFor();
+  await dialog.getByRole('button', { name: 'Lưu' }).click();
+
+  const row = page.getByRole('listitem').filter({ hasText: 'Khánh thành nhà thờ họ' });
+  await row.getByText('Chủ trì: Phạm Văn Tổ').waitFor();
+  await row.getByText('Cả họ về dự lễ khánh thành.').waitFor();
+  await row.getByText('Có trong Dòng thời gian').waitFor();
+  await row.getByText('Có trong Phả ký').waitFor();
+  await row.locator('img').first().waitFor();
+  if ((await row.locator('img').count()) !== 2) throw new Error('phải hiện 2 ảnh của sự kiện');
+
+  await page.goto(`${treeUrl}/dong-thoi-gian`);
+  const entry = page.getByRole('listitem').filter({ hasText: 'Khánh thành nhà thờ họ' }).last();
+  await entry.getByText('Sự kiện', { exact: true }).waitFor();
+  await entry.locator('img').waitFor();
+  await shot('25b-timeline-event');
+
+  await page.goto(`${treeUrl}/pha-ky`);
+  const phaKy = page.getByRole('listitem').filter({ hasText: 'Khánh thành nhà thờ họ' });
+  await phaKy.getByText('Cả họ về dự lễ khánh thành.').waitFor();
+  await phaKy.locator('img').waitFor();
+  await shot('25c-pha-ky-event');
+
+  // Xem lại sự kiện cũ theo khoảng thời gian: gồm cả sự kiện hằng năm đã diễn ra nhiều lần từ năm bắt đầu.
+  await page.goto(`${treeUrl}/su-kien`);
+  const panel = page.getByRole('region', { name: 'Xem lại và tìm sự kiện' });
+  await panel.getByLabel('Từ ngày').fill('2024-01-01');
+  await panel.getByLabel('Đến ngày').fill('2026-12-31');
+  await panel.getByText('Khánh thành nhà thờ họ').waitFor();
+  await panel.getByText(/Họp họ đầu xuân/).first().waitFor();
+  await panel.getByLabel('Tên sự kiện').fill('khanh thanh');
+  await panel.getByText('1 lần diễn ra').waitFor();
+  await panel.getByText('Họp họ đầu xuân').waitFor({ state: 'detached' });
+  await panel.getByLabel('Đến ngày').fill('2025-12-31');
+  await panel.getByText('Không có sự kiện nào trong khoảng này.').waitFor();
+
+  // Gỡ cờ hiển thị: sự kiện biến mất khỏi Dòng thời gian (Phả ký vẫn còn).
+  await page.goto(`${treeUrl}/su-kien`);
+  await page.getByRole('listitem').filter({ hasText: 'Khánh thành nhà thờ họ' }).getByRole('button', { name: 'Sửa' }).click();
+  await page.getByRole('dialog').getByLabel('Đưa vào Dòng thời gian').uncheck();
+  await page.getByRole('dialog').getByRole('button', { name: 'Lưu' }).click();
+  await page.getByText('Có trong Dòng thời gian').waitFor({ state: 'detached' });
+  await page.goto(`${treeUrl}/dong-thoi-gian`);
+  await page.getByText('Khánh thành nhà thờ họ').waitFor({ state: 'detached', timeout: 5000 });
 });
 
 await step('Lịch của tôi và Sắp tới', async () => {
@@ -194,6 +302,9 @@ await step('mời Biên tập viên bằng email; họ thấy gia phả với đ
   await editorPage.goto(`${APP}/dang-nhap`);
   await editorPage.getByRole('tab', { name: 'Tạo tài khoản' }).click();
   await editorPage.getByLabel('Email').fill(editorEmail);
+  await editorPage.getByLabel('Họ và tên').fill('Người Thử');
+  await editorPage.getByLabel('Ngày sinh').fill('1990-01-01');
+  await editorPage.getByLabel('Số điện thoại').fill('0901234567');
   await editorPage.locator('input[type=password]').first().fill('matkhau123');
   await editorPage.getByRole('button', { name: 'Tạo tài khoản' }).last().click();
   await editorPage.waitForURL(/\/gia-pha$/);

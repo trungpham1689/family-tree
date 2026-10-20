@@ -1,7 +1,21 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTestDb, type TestDb, type TestUser } from './harness';
 
-type AccountRow = { account_id: string; email: string; approved: boolean; is_superadmin: boolean; is_root: boolean; tree_count: number; is_banned: boolean };
+type Inviter = { account_id: string; email: string; full_name: string | null };
+type AccountRow = {
+  account_id: string;
+  email: string;
+  full_name: string | null;
+  birth_date: string | null;
+  phone: string | null;
+  approved: boolean;
+  is_superadmin: boolean;
+  is_root: boolean;
+  tree_count: number;
+  is_banned: boolean;
+  invited_by: Inviter[];
+  total_count: number;
+};
 
 describe('seam B: Quản trị tài khoản (siêu quản trị)', () => {
   let db: TestDb;
@@ -18,7 +32,8 @@ describe('seam B: Quản trị tài khoản (siêu quản trị)', () => {
   });
 
   const newUser = (approved = false) => db.createUser(`qt-${crypto.randomUUID()}@example.com`, { approved });
-  const list = (user: TestUser) => db.as(user).rpcRows<AccountRow>('admin_list_accounts');
+  const list = (user: TestUser, args: Record<string, unknown> = {}) =>
+    db.as(user).rpcRows<AccountRow>('admin_list_accounts', { page_size: 100, ...args });
 
   it('email gốc đăng ký xong là siêu quản trị đã duyệt; người khác thì không', async () => {
     const [mine] = await db.as(root).query<{ approved: boolean; is_superadmin: boolean }>('select approved, is_superadmin from account_approvals');
@@ -130,5 +145,70 @@ describe('seam B: Quản trị tài khoản (siêu quản trị)', () => {
     const victim = await newUser();
     await expect(db.as(plain).rpc('admin_delete_account', { target_account: victim.id })).rejects.toThrow(/NOT_ALLOWED/);
     await expect(db.as(plain).rpc('admin_set_banned', { target_account: victim.id, new_banned: true })).rejects.toThrow(/NOT_ALLOWED/);
+  });
+  it('đăng ký bắt buộc họ và tên, ngày sinh, số điện thoại hợp lệ; thiếu hoặc sai thì database từ chối', async () => {
+    const attempt = (email: string, profile: Record<string, string> | null) => db.createUser(email, { profile });
+    const ok = { full_name: 'Phạm Văn A', birth_date: '1985-03-20', phone: '+84 901 234 567' };
+    await expect(attempt('thieu-1@example.com', null)).rejects.toThrow(/PROFILE_REQUIRED/);
+    await expect(attempt('thieu-2@example.com', { ...ok, full_name: '  ' })).rejects.toThrow(/PROFILE_REQUIRED/);
+    await expect(attempt('thieu-3@example.com', { ...ok, phone: '' })).rejects.toThrow(/PROFILE_REQUIRED/);
+    await expect(attempt('thieu-4@example.com', { ...ok, birth_date: '' })).rejects.toThrow(/PROFILE_REQUIRED/);
+    await expect(attempt('sai-1@example.com', { ...ok, birth_date: 'hôm qua' })).rejects.toThrow(/PROFILE_INVALID/);
+    await expect(attempt('sai-2@example.com', { ...ok, birth_date: '2999-01-01' })).rejects.toThrow(/PROFILE_INVALID/);
+    await expect(attempt('sai-3@example.com', { ...ok, phone: '12ab' })).rejects.toThrow(/PROFILE_INVALID/);
+
+    const user = await attempt('dung@example.com', ok);
+    expect((await list(root, { search: 'dung@example.com' }))[0]).toMatchObject({
+      full_name: 'Phạm Văn A',
+      birth_date: '1985-03-20',
+      phone: '+84 901 234 567',
+    });
+    expect(user.email).toBe('dung@example.com');
+  });
+
+  it('danh sách ghi người đã mời: mời vào gia phả nào thì người mời hiện ra; tự đăng ký thì để trống; đổi vai trò giữ người mời cũ', async () => {
+    const owner = await db.createUser(`chu-${crypto.randomUUID()}@example.com`, { profile: { full_name: 'Chủ Họ', birth_date: '1970-01-01', phone: '0911111111' } });
+    const guest = await newUser(true);
+    const [tree] = await db.as(owner).query<{ id: string }>("insert into family_trees (name) values ('Họ Mời') returning id");
+    await db.as(owner).rpc('invite_to_tree', { target_tree: tree!.id, invite_email: guest.email, new_role: 'viewer' });
+    await db.as(owner).rpc('invite_to_tree', { target_tree: tree!.id, invite_email: guest.email, new_role: 'editor' });
+
+    const rows = await list(root);
+    expect(rows.find((row) => row.account_id === guest.id)!.invited_by).toEqual([
+      { account_id: owner.id, email: owner.email, full_name: 'Chủ Họ' },
+    ]);
+    expect(rows.find((row) => row.account_id === owner.id)!.invited_by).toEqual([]);
+  });
+
+  it('phân trang và tìm kiếm ở database: tổng khớp bộ lọc, trang không trùng, đếm tab riêng', async () => {
+    const tag = crypto.randomUUID().slice(0, 8);
+    for (let index = 0; index < 5; index += 1) {
+      await db.createUser(`phan-trang-${tag}-${index}@example.com`, {
+        approved: index % 2 === 0,
+        profile: { full_name: `Trang ${tag} số ${index}`, birth_date: '1990-01-01', phone: `090000000${index}` },
+      });
+    }
+    const first = await list(root, { search: tag, page_size: 2, page_offset: 0 });
+    const second = await list(root, { search: tag, page_size: 2, page_offset: 2 });
+    const last = await list(root, { search: tag, page_size: 2, page_offset: 4 });
+    expect([first.length, second.length, last.length]).toEqual([2, 2, 1]);
+    expect(first[0]!.total_count).toBe(5);
+    expect(new Set([...first, ...second, ...last].map((row) => row.account_id)).size).toBe(5);
+
+    const pending = await list(root, { search: tag, status_filter: 'pending' });
+    const approved = await list(root, { search: tag, status_filter: 'approved' });
+    expect([pending.length, approved.length]).toEqual([2, 3]);
+    expect(pending.every((row) => !row.approved) && approved.every((row) => row.approved)).toBe(true);
+
+    expect(await list(root, { search: `số 3` }).then((rows) => rows.some((row) => row.full_name === `Trang ${tag} số 3`))).toBe(true);
+    expect(await list(root, { search: '%' })).toHaveLength(0);
+
+    const counts = await db.as(root).rpcRows<{ total_count: number; pending_count: number; i_am_root: boolean }>('admin_account_counts');
+    const all = await list(root, { page_size: 100 });
+    expect(counts[0]).toMatchObject({ total_count: all.length, i_am_root: true });
+    expect(counts[0]!.pending_count).toBe(all.filter((row) => !row.approved).length);
+
+    const plain = await newUser(true);
+    await expect(db.as(plain).rpcRows('admin_account_counts')).rejects.toThrow(/NOT_ALLOWED/);
   });
 });

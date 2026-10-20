@@ -49,3 +49,38 @@ describe('digestOccurrences', () => {
     expect(digestOccurrences(source(), giỗ, 5)).toHaveLength(2);
   });
 });
+
+describe('nhắc sự kiện theo đúng lịch đã chọn (chuông và email)', () => {
+  const base = { id: 'e', tree_id: 't1', title: 'Họp họ', leap: false, start_time: null, location: null, year: 2020 };
+  const withEvent = (event: Record<string, unknown>): CalendarSource => ({
+    trees: [{ id: 't1', name: 'Họ Phạm' }],
+    persons: [],
+    events: [{ ...base, calendar: 'duong', repeats_yearly: true, repeats_monthly: false, month: 1, day: 1, ...event }],
+  });
+  const prefs = new Map([['t1', { offsetDays: 0, tienThuong: false }]]);
+  const bell = (source: CalendarSource, today: { year: number; month: number; day: number }) =>
+    bellReminders({ source, today, mutedPersonIds: new Set(), prefsByTree: prefs });
+
+  it('sự kiện âm lịch: nhắc vào ngày dương tương ứng của ngày âm, không phải ngày dương trùng số', () => {
+    const source = withEvent({ calendar: 'am', month: 3, day: 12 });
+    expect(bell(source, giỗ)).toHaveLength(1);
+    expect(bell(source, { year: giỗ.year, month: 3, day: 12 })).toHaveLength(0);
+    expect(digestOccurrences(source, daysBefore(1), 3).map((o) => o.date)).toEqual([giỗ]);
+  });
+
+  it('sự kiện dương lịch: nhắc vào đúng ngày dương, không phải ngày dương của ngày âm trùng số', () => {
+    const source = withEvent({ calendar: 'duong', month: 3, day: 12 });
+    expect(bell(source, { year: 2026, month: 3, day: 12 })).toHaveLength(1);
+    expect(bell(source, giỗ)).toHaveLength(0);
+    expect(digestOccurrences(source, { year: 2026, month: 3, day: 11 }, 3).map((o) => o.date)).toEqual([{ year: 2026, month: 3, day: 12 }]);
+  });
+
+  it('hằng tháng: âm theo ngày âm, dương theo ngày dương', () => {
+    const lunar = withEvent({ calendar: 'am', repeats_yearly: false, repeats_monthly: true, month: null, day: 12 });
+    expect(bell(lunar, giỗ)).toHaveLength(1);
+    expect(bell(lunar, { year: 2026, month: 5, day: 12 })).toHaveLength(0);
+    const solar = withEvent({ calendar: 'duong', repeats_yearly: false, repeats_monthly: true, month: null, day: 12 });
+    expect(bell(solar, { year: 2026, month: 5, day: 12 })).toHaveLength(1);
+    expect(bell(solar, giỗ)).toHaveLength(0);
+  });
+});

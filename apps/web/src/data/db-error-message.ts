@@ -39,6 +39,11 @@ export const BUSINESS_MESSAGES: Record<string, (details?: string | null) => stri
   SUPERADMIN_PROTECTED: () => 'Không thể thu hồi hay gỡ quyền của siêu quản trị gốc. Siêu quản trị khác phải được gỡ quyền trước khi thu hồi.',
   ACCOUNT_BANNED: () => 'Tài khoản đang bị chặn. Hãy bỏ chặn trước khi duyệt.',
   ACCOUNT_OWNS_TREES: () => 'Tài khoản này đang sở hữu gia phả nên không xoá được (xoá sẽ mất cả gia phả). Hãy chặn tài khoản thay vì xoá.',
+  EVENT_HOST_INVALID: () => 'Người chủ trì phải thuộc cùng gia phả với sự kiện.',
+  EVENT_NOT_FOUND: () => 'Không tìm thấy sự kiện này (có thể đã bị xoá).',
+  EVENT_PHOTO_LIMIT_REACHED: () => 'Mỗi sự kiện tối đa 5 ảnh.',
+  PROFILE_REQUIRED: () => 'Cần nhập họ và tên, ngày sinh và số điện thoại.',
+  PROFILE_INVALID: () => 'Họ và tên, ngày sinh hoặc số điện thoại chưa hợp lệ.',
   TREE_IMMUTABLE: () => 'Không thể chuyển Người sang gia phả khác.',
 };
 

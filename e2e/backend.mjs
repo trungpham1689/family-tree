@@ -30,13 +30,13 @@ for (const file of (await readdir(join(ROOT, 'supabase/migrations'))).filter((f)
 // Chỉ có trong môi trường kiểm thử: tạo tài khoản như GoTrue làm.
 await db.exec(`
   create schema if not exists e2e;
-  create function e2e.create_user(user_email text) returns uuid
+  create function e2e.create_user(user_email text, meta jsonb) returns uuid
   language plpgsql security definer set search_path = '' as
   $$
   declare
     new_id uuid;
   begin
-    insert into auth.users (email) values (user_email) returning id into new_id;
+    insert into auth.users (email, raw_user_meta_data) values (user_email, meta) returning id into new_id;
     -- Tài khoản kiểm thử dùng được ngay, không chờ duyệt; riêng email bắt đầu bằng "cho-duyet-" giữ trạng thái chờ duyệt (kịch bản trang quản trị).
     update public.account_approvals set approved = true where account_id = new_id and user_email not like 'cho-duyet-%';
     return new_id;
@@ -133,8 +133,11 @@ const restCall = (path, body) =>
   });
 
 // Tạo tài khoản qua kết nối của PostgREST (một hàng đợi duy nhất tới PGlite).
-const createAccount = async (email, password) => {
-  const id = await db.query('select e2e.create_user($1) as id', [email]).then((r) => r.rows[0].id);
+const DEFAULT_PROFILE = { full_name: 'Người Thử', birth_date: '1990-01-01', phone: '0901234567' };
+
+// `metadata`: user metadata mà app gửi khi đăng ký (họ tên, ngày sinh, SĐT); thiếu thì trigger đăng ký từ chối như GoTrue.
+const createAccount = async (email, password, metadata = DEFAULT_PROFILE) => {
+  const id = await db.query('select e2e.create_user($1, $2::jsonb) as id', [email, JSON.stringify(metadata)]).then((r) => r.rows[0].id);
   accounts.set(email, { id, password, createdAt: new Date().toISOString() });
 };
 
@@ -166,7 +169,11 @@ const handleAuth = async (req, res, url) => {
     const email = String(body.email ?? '').toLowerCase();
     if (accounts.has(email)) return authError(res, 422, 'User already registered');
     if (String(body.password ?? '').length < 6) return authError(res, 422, 'Password should be at least 6 characters');
-    await createAccount(email, body.password);
+    try {
+      await createAccount(email, body.password, body.data ?? {});
+    } catch (error) {
+      return authError(res, 500, `Database error saving new user: ${error.message}`);
+    }
     return json(res, 200, sessionFor(email));
   }
   if (path === '/token') {

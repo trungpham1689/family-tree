@@ -14,7 +14,10 @@ export const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 /** Phải khớp app_settings.max_photos_per_person trong database (nơi chặn thật); dùng để báo sớm và ẩn nút thêm. */
 export const MAX_PHOTOS_PER_PERSON = 3;
 
-export type PhotoKind = 'member' | 'tree';
+/** Phải khớp app_settings.max_photos_per_event trong database (nơi chặn thật). */
+export const MAX_PHOTOS_PER_EVENT = 5;
+
+export type PhotoKind = 'member' | 'tree' | 'event';
 
 /**
  * Khuyến nghị cho người tải ảnh. Trình duyệt tự thu nhỏ về `maxEdge` và nén JPEG nên ảnh điện thoại
@@ -31,6 +34,11 @@ export const PHOTO_SPECS: Record<PhotoKind, { maxEdge: number; minEdge: number; 
     minEdge: 600,
     hint: 'Ảnh ngang (tỉ lệ 3:2 hoặc 16:9) như ảnh nhà thờ họ, ảnh cả họ. Tối thiểu 1200×800px; tối đa 5MB, JPEG/PNG/WEBP. Hệ thống tự thu nhỏ về 1600px.',
   },
+  event: {
+    maxEdge: 1600,
+    minEdge: 400,
+    hint: 'Ảnh ngang hoặc dọc đều được. Tối đa 5 ảnh mỗi sự kiện, mỗi ảnh tối đa 5MB, JPEG/PNG/WEBP, cạnh dài từ 400px. Hệ thống tự thu nhỏ về 1600px. Ảnh đầu tiên là ảnh đại diện trong Phả ký và Dòng thời gian.',
+  },
 };
 
 /** Mục tiêu dung lượng sau nén (SPEC story 78): giảm dần chất lượng JPEG cho tới khi dưới mức này hoặc hết bậc. */
@@ -38,6 +46,7 @@ const TARGET_BYTES = 400 * 1024;
 const JPEG_QUALITIES = [0.85, 0.75, 0.65, 0.55, 0.45];
 
 export type PersonPhoto = Row<'person_photos'>;
+export type EventPhoto = Row<'event_photos'>;
 
 const blobToDataUrl = (blob: Blob): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -146,10 +155,11 @@ const legacyStorageStore: PhotoStore = {
 const storeFor = (path: string): PhotoStore => (drivePathOf(path) ? driveStore : legacyStorageStore);
 
 /** Nén rồi đưa ảnh lên Drive, trả đường dẫn "{tree_id}/{id file Drive}". */
-const uploadToDrive = async (input: { treeId: string; kind: PhotoKind; personId?: string; file: File }): Promise<string> => {
+const uploadToDrive = async (input: { treeId: string; kind: PhotoKind; personId?: string; eventId?: string; file: File }): Promise<string> => {
   const blob = await optimizeImage(input.file, input.kind);
   const query = new URLSearchParams({ treeId: input.treeId, kind: input.kind });
   if (input.personId) query.set('personId', input.personId);
+  if (input.eventId) query.set('eventId', input.eventId);
   const response = await photoRequest(`?${query}`, { method: 'POST', headers: { 'content-type': blob.type }, body: blob });
   return `${input.treeId}/${((await response.json()) as { fileId: string }).fileId}`;
 };
@@ -185,6 +195,38 @@ export const uploadPersonPhoto = async (input: {
     throw new DataError(error);
   }
   return data;
+};
+
+/** Ảnh của mọi sự kiện trong một gia phả, theo thứ tự tải lên (ảnh đầu của mỗi sự kiện là ảnh đại diện). */
+export const listEventPhotos = async (treeId: string): Promise<EventPhoto[]> => {
+  const { data, error } = await supabase.from('event_photos').select('*').eq('tree_id', treeId).order('created_at').order('id');
+  failOn(error);
+  return data;
+};
+
+/** Thêm một ảnh cho sự kiện (tối đa MAX_PHOTOS_PER_EVENT, chặn thật ở database). */
+export const uploadEventPhoto = async (input: { treeId: string; eventId: string; file: File }): Promise<EventPhoto> => {
+  const path = await uploadToDrive({ treeId: input.treeId, kind: 'event', eventId: input.eventId, file: input.file });
+  const { data, error } = await supabase.from('event_photos').insert({ event_id: input.eventId, storage_path: path }).select('*').single();
+  if (error) {
+    await removeStored(path).catch(() => undefined); // không để file mồ côi trên Drive
+    throw new DataError(error);
+  }
+  return data;
+};
+
+/** Xoá dòng dữ liệu trước (RLS quyết định quyền), rồi mới xoá file, như ảnh Người. */
+export const removeEventPhoto = async (input: { photoId: string; path: string }): Promise<void> => {
+  const { error } = await supabase.from('event_photos').delete().eq('id', input.photoId);
+  failOn(error);
+  await removeStored(input.path).catch(() => undefined);
+};
+
+/** Đường dẫn file ảnh của một sự kiện, lấy trước khi xoá sự kiện (xoá sự kiện kéo theo xoá dòng ảnh). */
+export const listEventPhotoPaths = async (eventId: string): Promise<string[]> => {
+  const { data, error } = await supabase.from('event_photos').select('storage_path').eq('event_id', eventId);
+  failOn(error);
+  return data.map((row) => row.storage_path);
 };
 
 export const setAvatarPhoto = async (photoId: string): Promise<void> => {

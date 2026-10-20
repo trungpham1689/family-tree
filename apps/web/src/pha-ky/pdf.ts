@@ -2,10 +2,15 @@ import { COLOR, CONTENT_BOTTOM, CONTENT_TOP, createOfficialPdf, MARGIN, MID, PAG
 import { kindLabel } from '../family/labels';
 import type { PdfFonts } from '../pha-do/pdf';
 import type { NarrativeGeneration } from './narrative';
-import type { PhaKySection } from './sections';
+import type { PhaKyEvent, PhaKySection } from './sections';
 
 /** Ảnh nhúng vào PDF (data URL JPEG): ảnh cả gia phả dưới tiêu đề bìa, ảnh đại diện từng Người theo personId. */
-export type PdfPhotos = { cover?: string | undefined; people?: ReadonlyMap<string, string> | undefined };
+export type PdfPhotos = {
+  cover?: string | undefined;
+  people?: ReadonlyMap<string, string> | undefined;
+  /** Ảnh đầu tiên của từng sự kiện, theo id sự kiện. */
+  events?: ReadonlyMap<string, string> | undefined;
+};
 
 const WIDTH = PAGE_W - MARGIN * 2;
 const SECTION_GAP = 9.5;
@@ -206,6 +211,59 @@ export const narrativeToPdf = (
     }
   };
 
+  /** Mỗi sự kiện: tên đậm, thời gian, chủ trì, mô tả; ảnh đầu tiên (nếu có) nằm bên phải. */
+  const eventsList = (items: readonly PhaKyEvent[]) => {
+    const PHOTO_W = 34;
+    const PHOTO_H = 25.5;
+    y += 2.1;
+    for (const [index, item] of items.entries()) {
+      const photo = photos.events?.get(item.id);
+      const textW = photo ? WIDTH - PHOTO_W - 4 : WIDTH;
+      font(12, true, COLOR.ink);
+      const titleLines = doc.splitTextToSize(item.title, textW) as string[];
+      font(10.5, false, COLOR.inkMuted);
+      const whenLines = doc.splitTextToSize(item.when, textW) as string[];
+      font(11, false, COLOR.ink);
+      const hostLines = item.host ? (doc.splitTextToSize(`Chủ trì: ${item.host}`, textW) as string[]) : [];
+      font(11.5, false, COLOR.ink);
+      const descLines = item.description ? (doc.splitTextToSize(item.description, textW) as string[]) : [];
+      const textHeight = titleLines.length * ROW_LINE + (whenLines.length + hostLines.length) * 5.4 + descLines.length * 6;
+      const height = ROW_PAD * 2 + Math.max(textHeight, photo ? PHOTO_H : 0);
+      ensure(height);
+      let lineY = y + ROW_PAD + ROW_LINE * 0.72;
+      font(12, true, COLOR.ink);
+      for (const line of titleLines) {
+        doc.text(line, MARGIN, lineY);
+        lineY += ROW_LINE;
+      }
+      font(10.5, false, COLOR.inkMuted);
+      lineY -= ROW_LINE - 5.4;
+      for (const line of whenLines) {
+        doc.text(line, MARGIN, lineY);
+        lineY += 5.4;
+      }
+      font(11, false, COLOR.ink);
+      for (const line of hostLines) {
+        doc.text(line, MARGIN, lineY);
+        lineY += 5.4;
+      }
+      font(11.5, false, COLOR.ink);
+      for (const line of descLines) {
+        doc.text(line, MARGIN, lineY + 0.6);
+        lineY += 6;
+      }
+      if (photo) {
+        const { width, height: imageHeight } = doc.getImageProperties(photo);
+        const scale = Math.min(PHOTO_W / width, PHOTO_H / imageHeight);
+        const w = width * scale;
+        const h = imageHeight * scale;
+        doc.addImage(photo, 'JPEG', PAGE_W - MARGIN - w, y + ROW_PAD, w, h);
+      }
+      y += height;
+      rowRule(index === items.length - 1 ? COLOR.rule : COLOR.line);
+    }
+  };
+
   for (const [index, section] of front.entries()) {
     sectionHeading(ROMAN[index] ?? null, section.heading);
     y += 0.5;
@@ -225,6 +283,9 @@ export const narrativeToPdf = (
         break;
       case 'notable':
         notableList(section.items);
+        break;
+      case 'events':
+        eventsList(section.items);
         break;
     }
   }

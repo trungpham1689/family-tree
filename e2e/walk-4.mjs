@@ -11,6 +11,9 @@ const signUp = async (p, address) => {
   await p.goto(`${APP}/dang-nhap`);
   await p.getByRole('tab', { name: 'Tạo tài khoản' }).click();
   await p.getByLabel('Email').fill(address);
+  await p.getByLabel('Họ và tên').fill('Người Thử');
+  await p.getByLabel('Ngày sinh').fill('1990-01-01');
+  await p.getByLabel('Số điện thoại').fill('0901234567');
   await p.locator('input[type=password]').first().fill('matkhau123');
   await p.getByRole('button', { name: 'Tạo tài khoản' }).last().click();
 };
@@ -40,6 +43,10 @@ await step('trang quản trị liệt kê người chờ duyệt; duyệt xong n
   await page.getByRole('heading', { name: 'Quản lý tài khoản' }).waitFor();
   const row = page.getByRole('listitem').filter({ hasText: userEmail });
   await row.getByText('Chờ duyệt').waitFor();
+  // Hồ sơ nhập lúc đăng ký và người mời (tự đăng ký nên không có).
+  await row.getByText('Người Thử', { exact: true }).waitFor();
+  await row.getByText('Ngày sinh 01/01/1990 · Điện thoại 0901234567').waitFor();
+  await row.getByText('Người mời: không có (tự đăng ký)').waitFor();
   await row.getByRole('button', { name: 'Duyệt', exact: true }).click();
   await page.getByRole('tab', { name: /Đã duyệt/ }).click();
   await page.getByRole('listitem').filter({ hasText: userEmail }).getByText('Đã duyệt').waitFor();

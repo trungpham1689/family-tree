@@ -2,19 +2,19 @@
  * Google Drive tối thiểu cho ảnh: tìm/tạo thư mục, tải lên, tải xuống, xoá. Chỉ dùng `fetch`,
  * chạy được trong Cloudflare Pages Function. Quyền `drive.file`: app chỉ thấy file do chính nó tạo.
  *
- * Cấu trúc: Family-tree / {tên gia phả} / Ảnh Gia Phả + Ảnh Người. Thư mục tìm theo appProperties
+ * Cấu trúc: Family-tree / {tên gia phả} / Ảnh Gia Phả + Ảnh thành viên + Ảnh sự kiện. Thư mục tìm theo appProperties
  * (treeId, role) chứ không theo tên, nên đổi tên gia phả hay thư mục không làm mất ảnh.
  */
 
 export type DriveEnv = { GOOGLE_CLIENT_ID: string; GOOGLE_CLIENT_SECRET: string; GOOGLE_REFRESH_TOKEN: string };
-export type FolderRole = 'root' | 'tree' | 'tree-photos' | 'member-photos';
-export type TreeFolders = { treePhotos: string; memberPhotos: string };
+export type FolderRole = 'root' | 'tree' | 'tree-photos' | 'member-photos' | 'event-photos';
+export type TreeFolders = { treePhotos: string; memberPhotos: string; eventPhotos: string };
 
 const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 
-const FOLDER_NAMES = { root: 'Family-tree', 'tree-photos': 'Ảnh Gia Phả', 'member-photos': 'Ảnh Người' } as const;
+const FOLDER_NAMES = { root: 'Family-tree', 'tree-photos': 'Ảnh Gia Phả', 'member-photos': 'Ảnh thành viên', 'event-photos': 'Ảnh sự kiện' } as const;
 
 type Fetch = typeof fetch;
 
@@ -86,16 +86,16 @@ const ensureFolder = async (
   doFetch: Fetch,
 ): Promise<string> => (await findFolder(token, input.role, input.treeId, doFetch)) ?? createFolder(token, input, doFetch);
 
-/** Đảm bảo có Gia Phả/{treeName}/Ảnh Gia Phả và /Ảnh Người, trả id hai thư mục ảnh. */
+/** Đảm bảo có Gia Phả/{treeName}/Ảnh Gia Phả, /Ảnh thành viên và /Ảnh sự kiện, trả id ba thư mục ảnh. */
 export const ensureTreeFolders = async (token: string, treeId: string, treeName: string, doFetch: Fetch = fetch): Promise<TreeFolders> => {
   const root = await ensureFolder(token, { name: FOLDER_NAMES.root, parent: null, role: 'root', treeId: null }, doFetch);
   const tree = await ensureFolder(token, { name: treeName, parent: root, role: 'tree', treeId }, doFetch);
-  const [treePhotos, memberPhotos] = await Promise.all(
-    (['tree-photos', 'member-photos'] as const).map((role) =>
+  const [treePhotos, memberPhotos, eventPhotos] = await Promise.all(
+    (['tree-photos', 'member-photos', 'event-photos'] as const).map((role) =>
       ensureFolder(token, { name: FOLDER_NAMES[role], parent: tree, role, treeId }, doFetch),
     ),
   );
-  return { treePhotos: treePhotos!, memberPhotos: memberPhotos! };
+  return { treePhotos: treePhotos!, memberPhotos: memberPhotos!, eventPhotos: eventPhotos! };
 };
 
 /** Tải ảnh lên thư mục; gắn treeId vào file để kiểm quyền khi đọc/xoá. Trả id file Drive. */

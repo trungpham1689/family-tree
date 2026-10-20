@@ -48,6 +48,21 @@ begin
 end;
 $function$;
 
+-- private.can_edit_event(target_event uuid)  [anon: không, authenticated: có, service_role: không]
+CREATE OR REPLACE FUNCTION private.can_edit_event(target_event uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select exists (
+    select 1 from public.tree_events e
+    where e.id = target_event
+      and (private.tree_role(e.tree_id) = 'owner'
+           or (private.tree_role(e.tree_id) = 'editor' and e.created_by = auth.uid()))
+  )
+$function$;
+
 -- private.can_edit_person(target_person uuid)  [anon: không, authenticated: có, service_role: không]
 CREATE OR REPLACE FUNCTION private.can_edit_person(target_person uuid)
  RETURNS boolean
@@ -61,6 +76,53 @@ AS $function$
       and (private.tree_role(p.tree_id) = 'owner'
            or (private.tree_role(p.tree_id) = 'editor' and p.created_by = auth.uid()))
   )
+$function$;
+
+-- private.check_event_photo()  [anon: không, authenticated: không, service_role: không]
+CREATE OR REPLACE FUNCTION private.check_event_photo()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  target_tree uuid;
+  current_count integer;
+  max_photos integer := private.app_setting('max_photos_per_event');
+begin
+  select tree_id into target_tree from public.tree_events where id = new.event_id;
+  if target_tree is null then
+    raise exception 'EVENT_NOT_FOUND' using errcode = 'no_data_found';
+  end if;
+  new.tree_id := target_tree;
+
+  if split_part(new.storage_path, '/', 1) <> target_tree::text then
+    raise exception 'PHOTO_PATH_INVALID' using errcode = 'check_violation';
+  end if;
+
+  select count(*) into current_count from public.event_photos where event_id = new.event_id;
+  if current_count >= max_photos then
+    raise exception 'EVENT_PHOTO_LIMIT_REACHED'
+      using detail = format('Mỗi sự kiện tối đa %s ảnh.', max_photos), errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$function$;
+
+-- private.check_event_refs()  [anon: không, authenticated: không, service_role: không]
+CREATE OR REPLACE FUNCTION private.check_event_refs()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+begin
+  if new.host_person_id is not null
+     and not exists (select 1 from public.persons where id = new.host_person_id and tree_id = new.tree_id) then
+    raise exception 'EVENT_HOST_INVALID' using errcode = 'check_violation';
+  end if;
+  return new;
+end;
 $function$;
 
 -- private.check_linked_person()  [anon: không, authenticated: không, service_role: không]
@@ -506,9 +568,33 @@ CREATE OR REPLACE FUNCTION private.new_account_approval()
 AS $function$
 declare
   is_root constant boolean := lower(coalesce(new.email, '')) = private.root_superadmin_email();
+  meta constant jsonb := coalesce(new.raw_user_meta_data, '{}'::jsonb);
+  name_text constant text := btrim(coalesce(meta ->> 'full_name', ''));
+  phone_text constant text := btrim(coalesce(meta ->> 'phone', ''));
+  birth_text constant text := btrim(coalesce(meta ->> 'birth_date', ''));
+  birth date;
 begin
-  insert into public.account_approvals (account_id, email, approved, is_superadmin, approved_at)
-  values (new.id, new.email, is_root, is_root, case when is_root then now() end);
+  if name_text = '' or phone_text = '' or birth_text = '' then
+    raise exception 'PROFILE_REQUIRED'
+      using detail = 'Cần nhập họ và tên, ngày sinh và số điện thoại.', errcode = 'check_violation';
+  end if;
+  begin
+    birth := birth_text::date;
+  exception when others then
+    raise exception 'PROFILE_INVALID' using detail = 'Ngày sinh không hợp lệ.', errcode = 'check_violation';
+  end;
+  if birth < date '1900-01-01' or birth > current_date then
+    raise exception 'PROFILE_INVALID' using detail = 'Ngày sinh không hợp lệ.', errcode = 'check_violation';
+  end if;
+  if char_length(name_text) > 120 then
+    raise exception 'PROFILE_INVALID' using detail = 'Họ và tên tối đa 120 ký tự.', errcode = 'check_violation';
+  end if;
+  if phone_text !~ '^[0-9+(). -]{8,20}$' or char_length(regexp_replace(phone_text, '[^0-9]', '', 'g')) < 8 then
+    raise exception 'PROFILE_INVALID' using detail = 'Số điện thoại không hợp lệ.', errcode = 'check_violation';
+  end if;
+
+  insert into public.account_approvals (account_id, email, approved, is_superadmin, approved_at, full_name, birth_date, phone)
+  values (new.id, new.email, is_root, is_root, case when is_root then now() end, name_text, birth, phone_text);
   return new;
 end;
 $function$;
@@ -675,6 +761,23 @@ begin
 end;
 $function$;
 
+-- public.admin_account_counts()  [anon: không, authenticated: có, service_role: có]
+CREATE OR REPLACE FUNCTION public.admin_account_counts()
+ RETURNS TABLE(total_count integer, pending_count integer, i_am_root boolean)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+begin
+  if not private.is_superadmin() then
+    raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
+  end if;
+  return query
+    select count(*)::integer, (count(*) filter (where not a.approved))::integer, private.is_root_superadmin()
+    from public.account_approvals a;
+end;
+$function$;
+
 -- public.admin_delete_account(target_account uuid)  [anon: không, authenticated: có, service_role: có]
 CREATE OR REPLACE FUNCTION public.admin_delete_account(target_account uuid)
  RETURNS void
@@ -702,26 +805,43 @@ begin
 end;
 $function$;
 
--- public.admin_list_accounts()  [anon: không, authenticated: có, service_role: có]
-CREATE OR REPLACE FUNCTION public.admin_list_accounts()
- RETURNS TABLE(account_id uuid, email text, approved boolean, is_superadmin boolean, is_root boolean, created_at timestamp with time zone, approved_at timestamp with time zone, last_sign_in_at timestamp with time zone, tree_count integer, is_banned boolean)
+-- public.admin_list_accounts(status_filter text, search text, page_size integer, page_offset integer)  [anon: không, authenticated: có, service_role: có]
+CREATE OR REPLACE FUNCTION public.admin_list_accounts(status_filter text DEFAULT 'all'::text, search text DEFAULT ''::text, page_size integer DEFAULT 20, page_offset integer DEFAULT 0)
+ RETURNS TABLE(account_id uuid, email text, full_name text, birth_date date, phone text, approved boolean, is_superadmin boolean, is_root boolean, created_at timestamp with time zone, approved_at timestamp with time zone, last_sign_in_at timestamp with time zone, tree_count integer, is_banned boolean, invited_by jsonb, total_count bigint)
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
  SET search_path TO ''
 AS $function$
+declare
+  needle constant text := lower(btrim(coalesce(search, '')));
 begin
   if not private.is_superadmin() then
     raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
   end if;
   return query
-    select a.account_id, a.email, a.approved, a.is_superadmin,
+    select a.account_id, a.email, a.full_name, a.birth_date, a.phone, a.approved, a.is_superadmin,
            lower(coalesce(a.email, '')) = private.root_superadmin_email(),
            a.created_at, a.approved_at, u.last_sign_in_at,
            (select count(*)::integer from public.family_trees t where t.owner_id = a.account_id),
-           coalesce(u.banned_until > now(), false)
+           coalesce(u.banned_until > now(), false),
+           (select coalesce(jsonb_agg(x.who order by x.first_at), '[]'::jsonb)
+              from (select jsonb_build_object('account_id', r.invited_by, 'email', ia.email, 'full_name', ia.full_name) as who,
+                           min(r.created_at) as first_at
+                      from public.tree_roles r
+                      join public.account_approvals ia on ia.account_id = r.invited_by
+                     where r.account_id = a.account_id and r.invited_by is not null
+                     group by r.invited_by, ia.email, ia.full_name) x),
+           count(*) over ()
     from public.account_approvals a
     left join auth.users u on u.id = a.account_id
-    order by a.approved, a.created_at desc;
+    where (status_filter = 'all' or (status_filter = 'pending' and not a.approved) or (status_filter = 'approved' and a.approved))
+      and (needle = ''
+           or position(needle in lower(coalesce(a.email, ''))) > 0
+           or position(needle in lower(coalesce(a.full_name, ''))) > 0
+           or position(needle in coalesce(a.phone, '')) > 0)
+    order by a.approved, a.created_at desc, a.account_id
+    limit least(greatest(coalesce(page_size, 20), 1), 100)
+    offset greatest(coalesce(page_offset, 0), 0);
 end;
 $function$;
 
@@ -828,6 +948,14 @@ CREATE OR REPLACE FUNCTION public.calendar_feed(token text)
  STABLE
  SET search_path TO ''
 AS $function$ select public_share.calendar_feed(token) $function$;
+
+-- public.can_edit_event(target_event uuid)  [anon: không, authenticated: có, service_role: có]
+CREATE OR REPLACE FUNCTION public.can_edit_event(target_event uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE
+ SET search_path TO ''
+AS $function$ select private.can_edit_event(target_event) $function$;
 
 -- public.can_edit_person(target_person uuid)  [anon: không, authenticated: có, service_role: có]
 CREATE OR REPLACE FUNCTION public.can_edit_person(target_person uuid)
@@ -940,7 +1068,7 @@ begin
     raise exception 'ALREADY_OWNER' using errcode = 'check_violation';
   end if;
 
-  insert into public.tree_roles (tree_id, account_id, role) values (target_tree, invitee, new_role)
+  insert into public.tree_roles (tree_id, account_id, role, invited_by) values (target_tree, invitee, new_role, auth.uid())
     on conflict (tree_id, account_id) do update set role = excluded.role;
 end;
 $function$;
@@ -1562,7 +1690,7 @@ begin
       'events', coalesce((
         select jsonb_agg(jsonb_build_object(
           'id', e.id, 'tree_id', e.tree_id, 'title', e.title, 'calendar', e.calendar,
-          'repeats_yearly', e.repeats_yearly, 'year', e.year, 'month', e.month, 'day', e.day,
+          'repeats_yearly', e.repeats_yearly, 'repeats_monthly', e.repeats_monthly, 'year', e.year, 'month', e.month, 'day', e.day,
           'leap', e.leap, 'start_time', e.start_time, 'location', e.location))
         from public.tree_events e where e.tree_id in (select id from my_trees)
       ), '[]'::jsonb),

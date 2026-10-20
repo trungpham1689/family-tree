@@ -16,9 +16,9 @@ export type Database = {
         Relationships: [];
       };
       account_approvals: {
-        Row: { account_id: string; email: string | null; approved: boolean; is_superadmin: boolean; created_at: string; approved_at: string | null };
-        Insert: { account_id: string; email?: string | null; approved?: boolean; is_superadmin?: boolean; created_at?: string; approved_at?: string | null };
-        Update: { account_id?: string; email?: string | null; approved?: boolean; is_superadmin?: boolean; created_at?: string; approved_at?: string | null };
+        Row: { account_id: string; email: string | null; approved: boolean; is_superadmin: boolean; created_at: string; approved_at: string | null; full_name: string | null; birth_date: string | null; phone: string | null };
+        Insert: { account_id: string; email?: string | null; approved?: boolean; is_superadmin?: boolean; created_at?: string; approved_at?: string | null; full_name?: string | null; birth_date?: string | null; phone?: string | null };
+        Update: { account_id?: string; email?: string | null; approved?: boolean; is_superadmin?: boolean; created_at?: string; approved_at?: string | null; full_name?: string | null; birth_date?: string | null; phone?: string | null };
         Relationships: [];
       };
       family_trees: {
@@ -295,14 +295,18 @@ export type Database = {
           title: string;
           calendar: string;
           repeats_yearly: boolean;
+          repeats_monthly: boolean;
           year: number | null;
-          month: number;
+          month: number | null;
           day: number;
           leap: boolean;
           start_time: string | null;
           location: string | null;
           note: string | null;
           created_by: string | null;
+          host_person_id: string | null;
+          show_in_pha_ky: boolean;
+          show_in_timeline: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -312,14 +316,18 @@ export type Database = {
           title: string;
           calendar?: string;
           repeats_yearly?: boolean;
+          repeats_monthly?: boolean;
           year?: number | null;
-          month: number;
+          month?: number | null;
           day: number;
           leap?: boolean;
           start_time?: string | null;
           location?: string | null;
           note?: string | null;
           created_by?: string | null;
+          host_person_id?: string | null;
+          show_in_pha_ky?: boolean;
+          show_in_timeline?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -329,18 +337,36 @@ export type Database = {
           title?: string;
           calendar?: string;
           repeats_yearly?: boolean;
+          repeats_monthly?: boolean;
           year?: number | null;
-          month?: number;
+          month?: number | null;
           day?: number;
           leap?: boolean;
           start_time?: string | null;
           location?: string | null;
           note?: string | null;
           created_by?: string | null;
+          host_person_id?: string | null;
+          show_in_pha_ky?: boolean;
+          show_in_timeline?: boolean;
           created_at?: string;
           updated_at?: string;
         };
         Relationships: [];
+      };
+      event_photos: {
+        Row: { id: string; tree_id: string; event_id: string; storage_path: string; created_at: string };
+        Insert: { id?: string; tree_id?: string; event_id: string; storage_path: string; created_at?: string };
+        Update: { id?: string; tree_id?: string; event_id?: string; storage_path?: string; created_at?: string };
+        Relationships: [
+          {
+            foreignKeyName: 'event_photos_event_id_fkey';
+            columns: ['event_id'];
+            isOneToOne: false;
+            referencedRelation: 'tree_events';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       unions: {
         Row: {
@@ -385,9 +411,9 @@ export type Database = {
         Relationships: [];
       };
       tree_roles: {
-        Row: { account_id: string; created_at: string; role: string; tree_id: string; linked_person_id: string | null };
-        Insert: { account_id: string; created_at?: string; role: string; tree_id: string; linked_person_id?: string | null };
-        Update: { account_id?: string; created_at?: string; role?: string; tree_id?: string; linked_person_id?: string | null };
+        Row: { account_id: string; created_at: string; role: string; tree_id: string; linked_person_id: string | null; invited_by: string | null };
+        Insert: { account_id: string; created_at?: string; role: string; tree_id: string; linked_person_id?: string | null; invited_by?: string | null };
+        Update: { account_id?: string; created_at?: string; role?: string; tree_id?: string; linked_person_id?: string | null; invited_by?: string | null };
         Relationships: [
           {
             foreignKeyName: 'tree_roles_tree_id_fkey';
@@ -456,10 +482,13 @@ export type Database = {
       public_tree: { Args: { token: string; password: string | null }; Returns: Json };
       public_tree_card: { Args: { token: string }; Returns: Json };
       admin_list_accounts: {
-        Args: Record<string, never>;
+        Args: { status_filter?: string; search?: string; page_size?: number; page_offset?: number };
         Returns: {
           account_id: string;
           email: string | null;
+          full_name: string | null;
+          birth_date: string | null;
+          phone: string | null;
           approved: boolean;
           is_superadmin: boolean;
           is_root: boolean;
@@ -468,7 +497,13 @@ export type Database = {
           last_sign_in_at: string | null;
           tree_count: number;
           is_banned: boolean;
+          invited_by: Json;
+          total_count: number;
         }[];
+      };
+      admin_account_counts: {
+        Args: Record<string, never>;
+        Returns: { total_count: number; pending_count: number; i_am_root: boolean }[];
       };
       admin_set_approval: { Args: { target_account: string; new_approved: boolean }; Returns: undefined };
       admin_set_banned: { Args: { target_account: string; new_banned: boolean }; Returns: undefined };

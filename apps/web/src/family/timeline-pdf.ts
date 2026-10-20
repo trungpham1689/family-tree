@@ -3,7 +3,7 @@ import { COLOR, CONTENT_BOTTOM, CONTENT_TOP, createOfficialPdf, MARGIN, MID, PAG
 import { KIND_LABEL, type TimelineEntry, type TimelineKind } from './timeline';
 
 /** Màu nhãn từng loại mốc: đúng các màu `text-la/kim-text/son/tram` của trang web. */
-const KIND_COLOR: Record<TimelineKind, Rgb> = { sinh: [47, 111, 78], cuoi: COLOR.kimText, mat: COLOR.son, lich_su: [43, 92, 138] };
+const KIND_COLOR: Record<TimelineKind, Rgb> = { sinh: [47, 111, 78], cuoi: COLOR.kimText, mat: COLOR.son, su_kien: [38, 102, 110], lich_su: [43, 92, 138] };
 
 const YEAR_W = 24.3;
 const YEAR_MIN_H = 14;
@@ -11,6 +11,8 @@ const ENTRY_X = MARGIN + YEAR_W + 5.3;
 const TEXT_X = ENTRY_X + 23.3;
 const TEXT_W = PAGE_W - MARGIN - TEXT_X;
 const PAD = 1.6;
+const PHOTO_W = 52;
+const PHOTO_H = 36;
 
 type Meta = { treeName: string; /** Ngày lập, YYYY-MM-DD. */ date: string };
 
@@ -42,7 +44,7 @@ export const timelineToPdf = (entries: readonly TimelineEntry[], fonts: PdfFonts
   }
   doc.text(treeName, MID, 146, { align: 'center' });
   font(13.5, false, COLOR.inkMuted);
-  doc.text('Các mốc sinh, kết hôn và qua đời', MID, 157, { align: 'center' });
+  doc.text('Các mốc sinh, kết hôn, qua đời và sự kiện', MID, 157, { align: 'center' });
   doc.text('của gia đình theo năm', MID, 164.6, { align: 'center' });
 
   const years = entries.map((entry) => entry.year);
@@ -101,11 +103,22 @@ export const timelineToPdf = (entries: readonly TimelineEntry[], fonts: PdfFonts
     font(10.5, false, COLOR.inkMuted);
     const inline = detail !== '' && lastWidth + doc.getTextWidth(` ${detail}`) <= TEXT_W;
     const detailLines = detail === '' || inline ? [] : (doc.splitTextToSize(detail, TEXT_W) as string[]);
-    const height = PAD * 2 + (lines.length + detailLines.length) * lineHeight;
-    return { history, size, lineHeight, lines, lastWidth, detail, inline, detailLines, height };
+    // Sự kiện: mô tả (chữ nhạt) và ảnh đầu tiên bên dưới, rộng tối đa PHOTO_W, cao tối đa PHOTO_H.
+    font(10.5, false, COLOR.inkMuted);
+    const descLines = entry.description ? (doc.splitTextToSize(entry.description, TEXT_W) as string[]) : [];
+    let photoW = 0;
+    let photoH = 0;
+    if (entry.photo) {
+      const { width, height: imageHeight } = doc.getImageProperties(entry.photo);
+      const scale = Math.min(PHOTO_W / width, PHOTO_H / imageHeight);
+      photoW = width * scale;
+      photoH = imageHeight * scale;
+    }
+    const height = PAD * 2 + (lines.length + detailLines.length + descLines.length) * lineHeight + (photoH > 0 ? photoH + 1.5 : 0);
+    return { history, size, lineHeight, lines, lastWidth, detail, inline, detailLines, descLines, photoW, photoH, height };
   };
   const drawEntry = (entry: TimelineEntry, item: ReturnType<typeof layout>) => {
-    const { history, size, lineHeight, lines, lastWidth, detail, inline, detailLines, height } = item;
+    const { history, size, lineHeight, lines, lastWidth, detail, inline, detailLines, descLines, photoW, photoH, height } = item;
     if (history) {
       doc.setFillColor(...COLOR.tint);
       doc.rect(ENTRY_X - 2.1, y, PAGE_W - MARGIN - ENTRY_X + 2.1, height, 'F');
@@ -130,6 +143,11 @@ export const timelineToPdf = (entries: readonly TimelineEntry[], fonts: PdfFonts
       doc.text(line, TEXT_X, lineY);
       lineY += lineHeight;
     }
+    for (const line of descLines) {
+      doc.text(line, TEXT_X, lineY);
+      lineY += lineHeight;
+    }
+    if (entry.photo && photoH > 0) doc.addImage(entry.photo, 'JPEG', TEXT_X, lineY - lineHeight * 0.71 + 1, photoW, photoH);
     y += height;
   };
 

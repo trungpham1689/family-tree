@@ -53,4 +53,22 @@ describe('xuất PDF Phả ký', () => {
     }).output('arraybuffer').byteLength;
     expect(withPhotos).toBeGreaterThan(plain);
   });
+
+  it('mục Sự kiện của dòng họ: vẽ tên, thời gian, chủ trì, mô tả và ảnh đầu tiên', () => {
+    const front = [
+      {
+        kind: 'events' as const,
+        heading: 'Sự kiện của dòng họ',
+        items: [
+          { id: 'e1', title: 'Khánh thành nhà thờ họ', when: 'Ngày 20/12/1960 · Nhà thờ họ', host: 'Phạm Văn Tổ – Đời 1', description: 'Cả họ về dự lễ khánh thành. '.repeat(10) },
+          { id: 'e2', title: 'Họp họ đầu xuân', when: 'Ngày 10 tháng 1 âm lịch, hằng năm', host: null, description: null },
+        ],
+      },
+    ];
+    const photo = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
+    const generations = buildNarrative(family());
+    const without = narrativeToPdf(generations, fonts, meta, front, null).output('arraybuffer').byteLength;
+    const withPhoto = narrativeToPdf(generations, fonts, meta, front, null, { events: new Map([['e1', photo]]) }).output('arraybuffer').byteLength;
+    expect(withPhoto).toBeGreaterThan(without);
+  });
 });

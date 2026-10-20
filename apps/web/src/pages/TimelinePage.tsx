@@ -7,12 +7,15 @@ import { TreePageShell } from '../tree/TreePageShell';
 import { Button } from '../ui/Button';
 import { ErrorBanner } from '../ui/fields';
 import { buildTimeline, KIND_LABEL, type TimelineKind } from '../family/timeline';
+import { firstPhotoOfEvents, useEventPhotoImages, useEventPhotos, useTreeEvents } from '../data/calendar-queries';
+import { personLabel } from '../people/person-label';
 
 /** Màu nhãn từng loại mốc; PDF (family/timeline-pdf.ts) dùng đúng các màu này. */
 const KIND_COLOR: Record<TimelineKind, string> = {
   sinh: 'text-la',
   cuoi: 'text-kim-text',
   mat: 'text-son',
+  su_kien: 'text-[#26666e]',
   lich_su: 'text-tram',
 };
 
@@ -26,10 +29,22 @@ const TimelineBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<
   const treeId = tree.id;
   const { running, error: exportError, run: runExport } = useTreeExport(tree.name);
   const [withHistory, setWithHistory] = useState(true);
-  const entries = useMemo(
-    () => buildTimeline(graph.persons, graph.unions, withHistory),
-    [graph, withHistory],
+  const treeEvents = useTreeEvents(treeId);
+  const eventPhotos = useEventPhotos(treeId);
+  const covers = useMemo(() => {
+    const shown = new Set((treeEvents.data ?? []).filter((event) => event.show_in_timeline).map((event) => event.id));
+    return [...firstPhotoOfEvents(eventPhotos.data ?? []).values()].filter((photo) => shown.has(photo.event_id));
+  }, [treeEvents.data, eventPhotos.data]);
+  const coverImages = useEventPhotoImages(covers);
+  const baseEntries = useMemo(
+    () => buildTimeline(graph.persons, graph.unions, withHistory, treeEvents.data ?? [], (personId) => (graph.person(personId) ? personLabel(graph, personId) : null)),
+    [graph, withHistory, treeEvents.data],
   );
+  // Gắn ảnh đầu tiên của sự kiện vào mốc (data URL, dùng cho cả trang và PDF).
+  const entries = useMemo(() => {
+    const byEvent = new Map(covers.flatMap((photo) => (coverImages.data?.get(photo.id) ? [[photo.event_id, coverImages.data.get(photo.id)!] as const] : [])));
+    return baseEntries.map((entry) => (entry.eventId && byEvent.has(entry.eventId) ? { ...entry, photo: byEvent.get(entry.eventId)! } : entry));
+  }, [baseEntries, covers, coverImages.data]);
   const years = useMemo(() => {
     const groups = new Map<number, typeof entries>();
     for (const entry of entries) groups.set(entry.year, [...(groups.get(entry.year) ?? []), entry]);
@@ -47,7 +62,7 @@ const TimelineBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<
           </Button>
         )}
       </div>
-      <p className="mt-1 text-ink-muted">Những mốc sinh, cưới, mất của gia đình theo năm. Thêm ngày cưới ở trang của từng người.</p>
+      <p className="mt-1 text-ink-muted">Những mốc sinh, cưới, mất và sự kiện của gia đình theo năm. Thêm ngày cưới ở trang của từng người; sự kiện thêm ở tab Sự kiện (chọn đưa vào Dòng thời gian).</p>
       {exportError && <ErrorBanner>{exportError}</ErrorBanner>}
 
       <label className="mt-4 flex min-h-11 items-center gap-3">
@@ -71,7 +86,7 @@ const TimelineBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<
                 const subject = entry.subject ?? '';
                 return (
                   <li
-                    key={`${entry.kind}-${entry.personId ?? ''}-${index}`}
+                    key={`${entry.kind}-${entry.personId ?? entry.eventId ?? ''}-${index}`}
                     className={`grid grid-cols-[4.75rem_1fr] items-baseline gap-x-3 py-1.5 sm:grid-cols-[5.25rem_1fr] ${history ? '-ml-2 bg-[#f7f2e8] px-2' : ''}`}
                   >
                     <span className={`text-[11px] font-bold uppercase tracking-[0.14em] ${KIND_COLOR[entry.kind]}`}>{KIND_LABEL[entry.kind]}</span>
@@ -83,10 +98,16 @@ const TimelineBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<
                           </Link>
                           {entry.text.slice(subject.length)}
                         </>
+                      ) : entry.eventId ? (
+                        <Link to={`/gia-pha/${treeId}/su-kien#${entry.eventId}`} className="font-bold hover:text-son hover:underline">
+                          {entry.text}
+                        </Link>
                       ) : (
                         entry.text
                       )}
                       {entry.detail && <span className="text-sm text-ink-muted"> — {entry.detail}</span>}
+                      {entry.description && <span className="mt-0.5 block whitespace-pre-line text-[15px] text-ink-muted">{entry.description}</span>}
+                      {entry.photo && <img src={entry.photo} alt={entry.text} className="mt-1.5 max-h-32 max-w-56 border border-line object-cover" />}
                     </span>
                   </li>
                 );

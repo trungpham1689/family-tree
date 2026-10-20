@@ -34,9 +34,10 @@ const guide = (input: BackupInput): string =>
     `Xuất lúc: ${input.exportedAt}`,
     '',
     'Trong file này có:',
-    '- du-lieu.json : toàn bộ dữ liệu (Người, quan hệ, hôn phối, sự kiện, cấu hình Phả đồ, danh sách ảnh). Dành cho người rành kỹ thuật hoặc để chuyển sang hệ thống khác.',
+    '- du-lieu.json : toàn bộ dữ liệu (Người, quan hệ, hôn phối, sự kiện, cấu hình Phả đồ, danh sách ảnh người và ảnh sự kiện). Dành cho người rành kỹ thuật hoặc để chuyển sang hệ thống khác.',
     '- gia-pha.xlsx : danh sách Người theo định dạng của phần mềm; vào mục "Nhập từ Excel" để khôi phục Người và quan hệ (không gồm ảnh, sự kiện).',
     '- anh/         : ảnh gia phả và ảnh từng Người. Tên file gắn với tên Người; mỗi ảnh trong du-lieu.json có trường "file" trỏ tới đây.',
+    '- anh-su-kien/ : ảnh của các sự kiện, tên file gắn với tên sự kiện; trỏ từ mục "eventPhotos" trong du-lieu.json.',
     '',
     'Bản sao lưu chứa thông tin cá nhân (điện thoại, email, mộ phần…). Hãy cất giữ cẩn thận, không chia sẻ công khai.',
     ...(input.failedImages.length > 0

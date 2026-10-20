@@ -39,4 +39,26 @@ describe('buildTimeline', () => {
     );
     expect(entries.map((e) => e.kind)).toEqual(['sinh', 'sinh', 'cuoi', 'mat']);
   });
+
+  it('sự kiện chọn đưa vào Dòng thời gian xếp theo năm, kèm chủ trì và mô tả; sự kiện không chọn hoặc không năm thì bỏ', () => {
+    const base = {
+      tree_id: 't', calendar: 'duong', repeats_yearly: false, repeats_monthly: false, month: 3, day: 9, leap: false, start_time: null,
+      location: 'Nhà thờ họ', created_by: null, created_at: '', updated_at: '', host_person_id: null, show_in_pha_ky: false, note: null,
+    };
+    const events = [
+      { ...base, id: 'e1', title: 'Khánh thành nhà thờ họ', year: 1960, show_in_timeline: true, host_person_id: 'a', note: 'Cả họ về dự.' },
+      { ...base, id: 'e2', title: 'Không hiện', year: 1960, show_in_timeline: false },
+      { ...base, id: 'e3', title: 'Giỗ họ hằng năm', year: null, repeats_yearly: true, show_in_timeline: false },
+    ];
+    const entries = buildTimeline(persons, [], false, events, (id) => (id === 'a' ? 'Cụ Tổ' : null));
+    const found = entries.filter((e) => e.kind === 'su_kien');
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({
+      year: 1960,
+      text: 'Khánh thành nhà thờ họ',
+      eventId: 'e1',
+      description: 'Cả họ về dự.',
+      detail: 'Ngày 9/3/1960 · Nhà thờ họ · chủ trì: Cụ Tổ',
+    });
+  });
 });

@@ -1,4 +1,4 @@
-import { anniversariesBetween, fromJulianDay, julianDay, lunarToSolar, type SolarDate } from '@gia-pha/lunar';
+import { anniversariesBetween, fromJulianDay, julianDay, lunarToSolar, solarToLunar, type SolarDate } from '@gia-pha/lunar';
 
 /**
  * Những gì hiện trên "Lịch của tôi": giỗ và sinh nhật suy ra từ hồ sơ Người (không lưu trùng),
@@ -39,8 +39,12 @@ export type CalendarEvent = {
   title: string;
   calendar: string;
   repeats_yearly: boolean;
+  /** Lặp mỗi tháng vào `day` (không có `month`). Thiếu thì coi là false (dữ liệu cũ). */
+  repeats_monthly?: boolean;
+  /** Sự kiện một lần: năm tổ chức. Sự kiện lặp: năm bắt đầu (null: từ trước tới nay). */
   year: number | null;
-  month: number;
+  /** Null chỉ khi lặp hằng tháng. */
+  month: number | null;
   day: number;
   leap: boolean;
   start_time: string | null;
@@ -76,6 +80,32 @@ const solarInYear = (year: number, month: number, day: number): SolarDate => ({
   month,
   day: Math.min(day, daysInSolarMonth(year, month)),
 });
+
+/**
+ * Các ngày `day` hằng tháng trong khoảng [from, to]. Dương lịch: ngày không có trong tháng (31/2…) lùi về ngày cuối tháng.
+ * Âm lịch: duyệt từng ngày, lấy ngày âm = `day`; tháng thiếu (29 ngày) thì ngày 30 rơi vào ngày cuối tháng; tháng nhuận cũng tính.
+ */
+const monthlyBetween = (calendar: 'am' | 'duong', day: number, from: SolarDate, to: SolarDate): SolarDate[] => {
+  const dates: SolarDate[] = [];
+  if (calendar === 'duong') {
+    for (let year = from.year, month = from.month; year < to.year || (year === to.year && month <= to.month); ) {
+      const date = solarInYear(year, month, day);
+      if (julianDay(date) >= julianDay(from) && julianDay(date) <= julianDay(to)) dates.push(date);
+      month += 1;
+      if (month > 12) {
+        month = 1;
+        year += 1;
+      }
+    }
+    return dates;
+  }
+  for (let jd = julianDay(from); jd <= julianDay(to); jd += 1) {
+    const lunar = solarToLunar(fromJulianDay(jd));
+    const isLastDay = solarToLunar(fromJulianDay(jd + 1)).day === 1;
+    if (lunar.day === day || (isLastDay && lunar.day < day)) dates.push(fromJulianDay(jd));
+  }
+  return dates;
+};
 
 const parseIso = (iso: string): SolarDate | null => {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
@@ -146,34 +176,45 @@ export const occurrencesBetween = (source: CalendarSource, from: SolarDate, to: 
 
   for (const event of source.events) {
     const base = { kind: 'su_kien' as const, title: event.title, treeId: event.tree_id, treeName: treeName.get(event.tree_id) ?? '', eventId: event.id };
+    const monthly = event.repeats_monthly === true;
+    const month = event.month;
     const detail = [
-      event.calendar === 'am' ? `Ngày ${event.day} tháng ${event.month}${event.leap ? ' nhuận' : ''} âm lịch` : null,
+      event.calendar === 'am' ? (monthly ? `Ngày ${event.day} âm lịch hằng tháng` : `Ngày ${event.day} tháng ${month}${event.leap ? ' nhuận' : ''} âm lịch`) : null,
+      monthly && event.calendar !== 'am' ? `Ngày ${event.day} hằng tháng` : null,
       timeText(event.start_time),
       event.location,
     ]
       .filter(Boolean)
       .join(' · ');
     const dates: SolarDate[] = [];
-    if (event.calendar === 'am') {
+    if (monthly) {
+      dates.push(...monthlyBetween(event.calendar === 'am' ? 'am' : 'duong', event.day, from, to));
+    } else if (month === null) {
+      // Không hợp lệ (database cấm): bỏ qua thay vì đoán.
+    } else if (event.calendar === 'am') {
       if (event.repeats_yearly) {
         // Cùng luật với giỗ: tháng nhuận → tháng thường, ngày 30 thiếu → ngày cuối tháng.
-        dates.push(...anniversariesBetween({ day: event.day, month: event.month }, from, to));
+        dates.push(...anniversariesBetween({ day: event.day, month }, from, to));
       } else if (event.year !== null) {
         const exact =
-          lunarToSolar({ year: event.year, month: event.month, day: event.day, leap: event.leap }) ??
-          lunarToSolar({ year: event.year, month: event.month, day: event.day - 1, leap: event.leap });
+          lunarToSolar({ year: event.year, month, day: event.day, leap: event.leap }) ??
+          lunarToSolar({ year: event.year, month, day: event.day - 1, leap: event.leap });
         if (exact && inRange(exact)) dates.push(exact);
       }
     } else if (event.repeats_yearly) {
       for (let year = from.year; year <= to.year; year += 1) {
-        const date = solarInYear(year, event.month, event.day);
+        const date = solarInYear(year, month, event.day);
         if (inRange(date)) dates.push(date);
       }
     } else if (event.year !== null) {
-      const date = solarInYear(event.year, event.month, event.day);
+      const date = solarInYear(event.year, month, event.day);
       if (inRange(date)) dates.push(date);
     }
-    for (const date of dates) results.push({ ...base, date, detail });
+    // Sự kiện lặp có năm bắt đầu thì không xuất hiện trước năm đó. Sự kiện âm lịch tính theo năm ÂM (tháng Chạp âm
+    // của năm âm 2023 rơi vào tháng 1 dương 2024 vẫn thuộc năm 2023); sự kiện dương lịch tính theo năm dương.
+    const startYear = event.repeats_yearly || monthly ? event.year : null;
+    const yearOf = (date: SolarDate) => (event.calendar === 'am' ? solarToLunar(date).year : date.year);
+    for (const date of dates) if (startYear === null || yearOf(date) >= startYear) results.push({ ...base, date, detail });
   }
 
   return results.sort(

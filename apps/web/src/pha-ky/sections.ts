@@ -1,3 +1,5 @@
+import type { TreeEvent } from '../data/calendar';
+import { describeEvent } from '../events/event-form';
 import { anniversaryText } from '../people/person-display';
 import type { BranchSummary, NotablePerson, OriginSummary } from './narrative';
 
@@ -19,7 +21,30 @@ export type PhaKySection =
       facts: { label: string; value: string }[];
     }
   | { kind: 'branches'; heading: string; items: { id: string; name: string; memberCount: number }[] }
-  | { kind: 'notable'; heading: string; items: { id: string; name: string; title: string }[] };
+  | { kind: 'notable'; heading: string; items: { id: string; name: string; title: string }[] }
+  | { kind: 'events'; heading: string; items: PhaKyEvent[] };
+
+/** Một Sự kiện trong Phả ký. Ảnh (nếu có) nằm ngoài dữ liệu này, theo `id`, vì là data URL nặng. */
+export type PhaKyEvent = { id: string; title: string; when: string; host: string | null; description: string | null };
+
+/** Sự kiện chọn "Đưa vào Phả ký": có năm thì xếp theo ngày, lặp không năm xếp sau theo tháng, ngày. */
+export const phaKyEvents = (events: readonly TreeEvent[], hostName: (personId: string) => string | null): PhaKyEvent[] =>
+  events
+    .filter((event) => event.show_in_pha_ky)
+    .toSorted(
+      (a, b) =>
+        (a.year ?? 99_999) - (b.year ?? 99_999) ||
+        (a.month ?? 99) - (b.month ?? 99) ||
+        a.day - b.day ||
+        a.title.localeCompare(b.title, 'vi'),
+    )
+    .map((event) => ({
+      id: event.id,
+      title: event.title,
+      when: describeEvent(event),
+      host: event.host_person_id ? hostName(event.host_person_id) : null,
+      description: event.note,
+    }));
 
 export const buildFrontSections = (input: {
   description: string | null;
@@ -27,8 +52,10 @@ export const buildFrontSections = (input: {
   branches: readonly BranchSummary[];
   notable: readonly NotablePerson[];
   today: { year: number; month: number; day: number };
+  /** Sự kiện đã chọn đưa vào Phả ký (xem `phaKyEvents`). */
+  events?: readonly PhaKyEvent[];
 }): PhaKySection[] => {
-  const { description, origin, branches, notable, today } = input;
+  const { description, origin, branches, notable, today, events = [] } = input;
   const sections: PhaKySection[] = [];
   if (description) sections.push({ kind: 'intro', heading: 'Lời mở đầu', text: description });
   if (origin?.progenitorName && origin.progenitorId) {
@@ -56,5 +83,6 @@ export const buildFrontSections = (input: {
   if (notable.length > 0) {
     sections.push({ kind: 'notable', heading: 'Người có chức tước, công trạng', items: notable.map((p) => ({ id: p.personId, name: p.fullName, title: p.title })) });
   }
+  if (events.length > 0) sections.push({ kind: 'events', heading: 'Sự kiện của dòng họ', items: [...events] });
   return sections;
 };

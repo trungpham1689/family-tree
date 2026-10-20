@@ -3,6 +3,7 @@ import { handleDelete, handleDeleteTree, handleDownload, handleSweep, handleUplo
 
 const TREE = '11111111-1111-1111-1111-111111111111';
 const PERSON = '22222222-2222-2222-2222-222222222222';
+const EVENT = '33333333-3333-3333-3333-333333333333';
 const env: PhotoEnv = {
   VITE_SUPABASE_URL: 'https://db.test',
   VITE_SUPABASE_PUBLISHABLE_KEY: 'pk',
@@ -14,11 +15,13 @@ const env: PhotoEnv = {
 type Call = { url: string; method: string };
 
 /** Giả Supabase + Drive: `roles` là các hàm vai trò trả true; Drive giữ thư mục/file trong bộ nhớ. */
-const fakeServer = (options: { allow?: string[]; fileTree?: string; personTree?: string; photoRow?: boolean; coverPhoto?: boolean; referenced?: string[]; driveFiles?: string[]; treeDeletable?: boolean; lookupFails?: boolean } = {}) => {
+const fakeServer = (options: { allow?: string[]; fileTree?: string; personTree?: string; photoRow?: boolean; eventPhotoRow?: boolean; eventTree?: string; coverPhoto?: boolean; referenced?: string[]; driveFiles?: string[]; treeDeletable?: boolean; lookupFails?: boolean } = {}) => {
   const allow = new Set(options.allow ?? []);
   const calls: Call[] = [];
   let folderCount = 0;
   const folders: { id: string; role: string }[] = [];
+  /** Thư mục (role) mà mỗi file tải lên được đặt vào. */
+  const uploadedTo: string[] = [];
   const doFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = init?.method ?? 'GET';
@@ -36,13 +39,15 @@ const fakeServer = (options: { allow?: string[]; fileTree?: string; personTree?:
       return json({ files: (options.driveFiles ?? []).map((id) => ({ id })) });
     }
     if (url.startsWith('https://db.test/rest/v1/persons')) return json([{ tree_id: options.personTree ?? TREE }]);
+    if (url.startsWith('https://db.test/rest/v1/tree_events')) return json([{ tree_id: options.eventTree ?? TREE }]);
+    if (url.startsWith('https://db.test/rest/v1/event_photos')) return json(options.eventPhotoRow ? [{ event_id: EVENT }] : []);
     if (options.lookupFails && url.startsWith('https://db.test/rest/v1/person_photos')) return new Response('down', { status: 503 });
     if (url.startsWith('https://db.test/rest/v1/person_photos')) return json(options.photoRow ? [{ person_id: PERSON }] : []);
     if (url.startsWith('https://db.test/rest/v1/family_trees') && url.includes('photo_path')) return json(options.coverPhoto ? [{ id: TREE }] : []);
     if (url.startsWith('https://db.test/rest/v1/family_trees')) return json([{ name: 'Họ Phạm' }]);
     if (url === 'https://oauth2.googleapis.com/token') return json({ access_token: 'drive-token' });
     if (url.startsWith('https://www.googleapis.com/drive/v3/files?q=')) {
-      const role = /value='(root|tree|tree-photos|member-photos)'/.exec(decodeURIComponent(url.replace(/\+/g, ' ')))![1]!;
+      const role = /value='(root|tree|tree-photos|member-photos|event-photos)'/.exec(decodeURIComponent(url.replace(/\+/g, ' ')))![1]!;
       return json({ files: folders.filter((folder) => folder.role === role).map(({ id }) => ({ id })) });
     }
     if (url.startsWith('https://www.googleapis.com/drive/v3/files?fields=id') && method === 'POST') {
@@ -50,13 +55,17 @@ const fakeServer = (options: { allow?: string[]; fileTree?: string; personTree?:
       folders.push({ id: `folder-${++folderCount}`, role: body.appProperties.role });
       return json({ id: `folder-${folderCount}` });
     }
-    if (url.includes('/upload/drive/v3/files')) return json({ id: 'driveFileId123' });
+    if (url.includes('/upload/drive/v3/files')) {
+      const parent = /"parents":\["([^"]+)"\]/.exec(new TextDecoder().decode(init!.body as Uint8Array))?.[1];
+      uploadedTo.push(folders.find((folder) => folder.id === parent)?.role ?? '?');
+      return json({ id: 'driveFileId123' });
+    }
     if (url.includes('fields=appProperties')) return json({ appProperties: { treeId: options.fileTree ?? TREE } });
     if (url.includes('alt=media')) return new Response('bytes', { headers: { 'content-type': 'image/jpeg' } });
     if (method === 'DELETE') return new Response(null, { status: 204 });
     return json({}, 500);
   }) as typeof fetch;
-  return { doFetch, calls, folders };
+  return { doFetch, calls, folders, uploadedTo };
 };
 
 const MEMBER_QUERY_FOR_TREE = `treeId=${TREE}&kind=member&personId=${PERSON}`;
@@ -69,19 +78,20 @@ const upload = (query: string, headers: Record<string, string> = {}, body: BodyI
   });
 
 describe('/api/photos', () => {
-  it('Biên tập viên tải ảnh Người: tạo Family-tree/{tên}/Ảnh Gia Phả + Ảnh Người rồi trả id file', async () => {
+  it('Biên tập viên tải ảnh Người: tạo Family-tree/{tên}/Ảnh Gia Phả + Ảnh thành viên rồi trả id file', async () => {
     const server = fakeServer({ allow: ['can_edit_person'] });
     const response = await handleUpload(upload(`treeId=${TREE}&kind=member&personId=${PERSON}`), env, server.doFetch);
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({ fileId: 'driveFileId123' });
-    expect(server.folders.map((folder) => folder.role).sort()).toEqual(['member-photos', 'root', 'tree', 'tree-photos']);
+    expect(server.folders.map((folder) => folder.role).sort()).toEqual(['event-photos', 'member-photos', 'root', 'tree', 'tree-photos']);
+    expect(server.uploadedTo).toEqual(['member-photos']);
   });
 
   it('lần tải thứ hai dùng lại thư mục, không tạo thêm', async () => {
     const server = fakeServer({ allow: ['can_edit_person'] });
     await handleUpload(upload(`treeId=${TREE}&kind=member&personId=${PERSON}`), env, server.doFetch);
     await handleUpload(upload(`treeId=${TREE}&kind=member&personId=${PERSON}`), env, server.doFetch);
-    expect(server.folders).toHaveLength(4);
+    expect(server.folders).toHaveLength(5);
   });
 
   it('không đăng nhập hoặc phiên hết hạn: 401; không đủ vai trò: 403', async () => {
@@ -142,6 +152,22 @@ describe('/api/photos', () => {
     expect((await handleDelete(request(), env, 'driveFileId123', denied.doFetch)).status).toBe(403);
     expect(denied.calls.some((call) => call.method === 'DELETE' && call.url.includes('googleapis'))).toBe(false);
     expect((await handleDelete(request(), env, 'driveFileId123', fakeServer({ allow: ['can_edit_person'], photoRow: true }).doFetch)).status).toBe(204);
+  });
+
+  it('ảnh sự kiện theo đúng RLS event_photos: cần can_edit_event; sự kiện phải thuộc đúng gia phả; xoá cũng cần can_edit_event', async () => {
+    const query = `treeId=${TREE}&kind=event&eventId=${EVENT}`;
+    expect((await handleUpload(upload(`treeId=${TREE}&kind=event`), env, fakeServer({ allow: ['can_edit_event'] }).doFetch)).status).toBe(400);
+    expect((await handleUpload(upload(query), env, fakeServer({ allow: ['can_edit_tree', 'can_edit_person'] }).doFetch)).status).toBe(403);
+    const otherTree = fakeServer({ allow: ['can_edit_event'], eventTree: '44444444-4444-4444-4444-444444444444' });
+    expect((await handleUpload(upload(query), env, otherTree.doFetch)).status).toBe(404);
+    const ok = fakeServer({ allow: ['can_edit_event'] });
+    expect((await handleUpload(upload(query), env, ok.doFetch)).status).toBe(201);
+    expect(ok.uploadedTo).toEqual(['event-photos']); // thư mục "Ảnh sự kiện" riêng của gia phả
+
+    const request = () => new Request(`https://app.test/api/photos/driveFileId123?treeId=${TREE}`, { method: 'DELETE', headers: { authorization: 'Bearer user' } });
+    const denied = fakeServer({ allow: ['can_edit_tree'], eventPhotoRow: true });
+    expect((await handleDelete(request(), env, 'driveFileId123', denied.doFetch)).status).toBe(403);
+    expect((await handleDelete(request(), env, 'driveFileId123', fakeServer({ allow: ['can_edit_event'], eventPhotoRow: true }).doFetch)).status).toBe(204);
   });
 
   it('tra cứu quyền lỗi (Supabase không trả lời) thì từ chối 502, không coi như được phép xoá', async () => {
