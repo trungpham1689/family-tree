@@ -80,14 +80,9 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
           <div className="flex flex-wrap gap-2">
             {canEdit && family.isSuccess && !isEmpty && <ExportButton tree={tree} graph={family.data} />}
             {isOwner && (
-              <>
-                <Button variant="secondary" onClick={() => setRenaming(true)}>
-                  Sửa thông tin
-                </Button>
-                <Button variant="ghost" className="text-danger!" onClick={() => setDeleting(true)}>
-                  Xoá
-                </Button>
-              </>
+              <Button variant="secondary" onClick={() => setRenaming(true)}>
+                Sửa thông tin
+              </Button>
             )}
           </div>
         </div>
@@ -142,9 +137,18 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
             </p>
           </div>
         )}
-        {isOwner && family.isSuccess && !isEmpty && (
-          <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-line pt-6">
-            <BackupButton tree={tree} />
+        {isOwner && family.isSuccess && (
+          <div className="mt-8 space-y-4 border-t border-line pt-6">
+            {!isEmpty && (
+              <div className="flex flex-wrap items-center gap-3">
+                <BackupButton tree={tree} />
+              </div>
+            )}
+            <div>
+              <Button variant="danger" onClick={() => setDeleting(true)}>
+                Xoá gia phả
+              </Button>
+            </div>
           </div>
         )}
       </section>

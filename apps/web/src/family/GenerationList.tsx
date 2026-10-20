@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { useAddChild, usePersonAvatars } from '../data/tree-queries';
 import type { Person } from '../data/trees';
@@ -23,6 +23,13 @@ export const GenerationList = ({ treeId, graph, canEdit }: { treeId: string; gra
       ? selectedGeneration
       : (generations[0]?.generation ?? null);
   const activeGroup = generations.find((group) => group.generation === activeGeneration);
+  const panelRef = useRef<HTMLDivElement>(null);
+  // Chọn đời ở cuối cột dọc khi đang cuộn xuống: kéo phần thẻ người lên lại tầm nhìn.
+  const selectGeneration = (generation: number) => {
+    setSelectedGeneration(generation);
+    const panel = panelRef.current;
+    if (panel && panel.getBoundingClientRect().top < 0) panel.scrollIntoView({ block: 'start' });
+  };
 
   return (
     <div className="space-y-8">
@@ -31,18 +38,38 @@ export const GenerationList = ({ treeId, graph, canEdit }: { treeId: string; gra
           <h2 id="cac-doi" className="font-serif text-2xl font-bold">
             Các đời
           </h2>
-          <div className="mt-3 flex items-start gap-4">
-            <nav aria-label="Chọn đời" className="flex w-20 shrink-0 flex-col gap-2 sm:w-28">
+          <div className="mt-3 flex items-start gap-3 sm:gap-6">
+            <nav
+              aria-label="Chọn đời"
+              className="sticky top-2 flex max-h-[calc(100dvh-1rem)] w-14 shrink-0 flex-col gap-2 overflow-y-auto sm:w-44"
+            >
               {generations.map((group) => (
                 <GenerationTab
                   key={group.generation}
                   group={group}
                   active={group.generation === activeGeneration}
-                  onSelect={() => setSelectedGeneration(group.generation)}
+                  onSelect={() => selectGeneration(group.generation)}
                 />
               ))}
             </nav>
-            <div className="min-w-0 flex-1">
+            <div ref={panelRef} className="min-w-0 flex-1 scroll-mt-2">
+              {activeGroup && (
+                <p className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-ink-muted">
+                  <span>
+                    <strong className="text-ink">Đời {activeGroup.generation}</strong> · {activeGroup.total} người
+                  </span>
+                  <span className="inline-flex items-center gap-1 font-semibold text-tram">
+                    <GenderIcon gender="nam" />
+                    {activeGroup.male}
+                    <span className="sr-only">nam</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1 font-semibold text-hong">
+                    <GenderIcon gender="nu" />
+                    {activeGroup.female}
+                    <span className="sr-only">nữ</span>
+                  </span>
+                </p>
+              )}
               {activeGroup && <GenerationCards treeId={treeId} graph={graph} group={activeGroup} canEdit={canEdit} />}
             </div>
           </div>
@@ -110,21 +137,39 @@ const PersonList = ({ treeId, graph, persons, action }: PersonListProps) => (
   </ul>
 );
 
+/** Biểu tượng giới tính vẽ bằng SVG (ký tự ♂♀ tuỳ font nên hay lệch dòng); màu theo `currentColor`. */
+const GenderIcon = ({ gender, className = 'size-4' }: { gender: 'nam' | 'nu'; className?: string }) => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" className={`${className} shrink-0`} fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+    {gender === 'nam' ? (
+      <>
+        <circle cx="10" cy="14" r="5" />
+        <path d="M14 10l6-6M15 4h5v5" />
+      </>
+    ) : (
+      <>
+        <circle cx="12" cy="9" r="5" />
+        <path d="M12 14v7M9 18h6" />
+      </>
+    )}
+  </svg>
+);
+
+// Cột dọc ở mọi khổ màn hình: mobile chỉ "Đời" + số (cột hẹp để thẻ người còn rộng), từ sm có thêm số người.
 const GenerationTab = ({ group, active, onSelect }: { group: GenerationGroup<Person>; active: boolean; onSelect: () => void }) => (
   <button
     type="button"
     aria-current={active || undefined}
+    aria-label={`Đời ${group.generation}, ${group.total} người`}
     onClick={onSelect}
-    className={`rounded-xl px-2 py-2 text-center transition-colors ${
-      active ? 'bg-son text-white' : 'bg-surface text-ink-muted hover:bg-paper'
+    className={`flex min-h-14 shrink-0 flex-col items-center justify-center rounded-xl border px-1 py-2 transition-colors sm:flex-row sm:justify-between sm:gap-3 sm:px-4 sm:py-3 ${
+      active ? 'border-son bg-son text-white' : 'border-line bg-surface text-ink-muted hover:bg-paper'
     }`}
   >
-    <p className={`text-xs font-semibold uppercase tracking-wide ${active ? 'text-white/80' : 'text-ink-muted'}`}>Đời thứ</p>
-    <p className="font-serif text-2xl font-bold">{group.generation}</p>
-    <p className={`text-xs ${active ? 'text-white/85' : 'text-ink-muted'}`}>
-      ♂{group.male} ♀{group.female}
-    </p>
-    <p className={`text-xs ${active ? 'text-white/70' : 'text-ink-muted'}`}>Tổng {group.total}</p>
+    <span className="flex flex-col items-center leading-tight sm:flex-row sm:gap-1.5">
+      <span className={`text-xs font-semibold sm:font-serif sm:text-xl sm:font-bold ${active ? 'text-white/85 sm:text-white' : 'sm:text-ink'}`}>Đời</span>
+      <span className={`font-serif text-xl font-bold ${active ? '' : 'text-ink'}`}>{group.generation}</span>
+    </span>
+    <span className={`hidden whitespace-nowrap text-sm sm:inline ${active ? 'text-white/85' : ''}`}>{group.total} người</span>
   </button>
 );
 
@@ -187,31 +232,37 @@ const GenerationCard = ({
         </p>
       )}
       <div className="flex items-stretch overflow-hidden rounded-2xl bg-son text-white">
-        <Link to={`/gia-pha/${treeId}/nguoi/${person.id}`} className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 hover:bg-son-strong">
-          <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-paper text-lg font-bold text-son">
+        <Link to={`/gia-pha/${treeId}/nguoi/${person.id}`} className="flex min-w-0 flex-1 items-start gap-3 px-3 py-3.5 hover:bg-son-strong sm:px-4">
+          <span className="grid size-10 shrink-0 place-items-center sm:size-12 overflow-hidden rounded-xl bg-paper text-lg font-bold text-son">
             {avatarUrl ? <img src={avatarUrl} alt="" className="size-full object-cover" /> : initial}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-lg font-bold">{person.full_name}</span>
-            <span className="mt-1 flex flex-wrap items-center gap-1.5">
+            <span className="block text-lg font-bold leading-snug">{person.full_name}</span>
+            <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
               <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                  person.gender === 'nam' ? 'bg-kim-soft text-ink' : person.gender === 'nu' ? 'bg-white text-son' : 'border border-white/40 text-white/90'
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-sm font-semibold leading-5 ${
+                  person.gender === 'nam' ? 'bg-kim-soft text-tram' : person.gender === 'nu' ? 'bg-white text-hong' : 'border border-white/40 text-white/90'
                 }`}
               >
-                {person.gender === 'nam' ? '♂ Nam' : person.gender === 'nu' ? '♀ Nữ' : 'Chưa rõ giới tính'}
+                {person.gender === 'nam' || person.gender === 'nu' ? (
+                  <>
+                    <GenderIcon gender={person.gender} className="size-3.5" />
+                    {person.gender === 'nam' ? 'Nam' : 'Nữ'}
+                  </>
+                ) : (
+                  'Chưa rõ giới tính'
+                )}
               </span>
               {kind !== 'dinh' && (
-                <span className="rounded-full border border-white/50 px-2.5 py-0.5 text-xs font-semibold text-white">
+                <span className="rounded-full border border-white/50 px-2.5 py-px text-sm font-semibold leading-5 text-white">
                   {kindLabel(kind, person.gender)}
                 </span>
               )}
-              {adopted && <span className="rounded-full border border-white/50 px-2.5 py-0.5 text-xs font-semibold text-white">Con nuôi</span>}
+              {adopted && <span className="rounded-full border border-white/50 px-2.5 py-px text-sm font-semibold leading-5 text-white">Con nuôi</span>}
             </span>
             {(spouseCount > 0 || childCount > 0) && (
-              <span className="mt-1.5 flex flex-wrap items-center gap-x-2 text-sm font-semibold text-kim-soft">
+              <span className="mt-2 flex flex-wrap gap-x-3 text-sm font-semibold text-kim-soft">
                 {spouseCount > 0 && <span>{spouseCount} vợ/chồng</span>}
-                {spouseCount > 0 && childCount > 0 && <span aria-hidden="true">·</span>}
                 {childCount > 0 && <span>{childCount} con</span>}
               </span>
             )}
@@ -222,7 +273,7 @@ const GenerationCard = ({
             type="button"
             aria-label={`Thêm con cho ${person.full_name}`}
             onClick={() => setAdding(true)}
-            className="grid w-12 shrink-0 place-items-center border-l border-white/15 text-xl font-bold hover:bg-son-strong"
+            className="grid w-11 shrink-0 place-items-center sm:w-13 border-l border-white/15 text-2xl font-bold hover:bg-son-strong"
           >
             +
           </button>

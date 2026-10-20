@@ -14,6 +14,8 @@ export const DuplicatesSection = ({ treeId, graph }: { treeId: string; graph: Fa
   const merge = useMergePersons(treeId);
   const groups = useMemo(() => duplicateGroups(graph.persons), [graph]);
 
+  if (groups.length === 0) return null;
+
   return (
     <section className="mt-12">
       <h2 className="font-serif text-2xl font-bold text-son">Thành viên trùng</h2>
@@ -21,12 +23,6 @@ export const DuplicatesSection = ({ treeId, graph }: { treeId: string; graph: Fa
         Những Người cùng tên (và năm sinh không mâu thuẫn) có thể là một người nhập hai lần, thường sau khi nhập Excel. Chọn người
         cần giữ, phần còn lại sẽ được gộp vào.
       </p>
-
-      {groups.length === 0 && (
-        <p className="mt-6 rounded-2xl border border-dashed border-line bg-surface px-6 py-10 text-center text-ink-muted">
-          Không thấy thành viên nào nghi trùng.
-        </p>
-      )}
 
       <div className="mt-6 space-y-6">
         {groups.map((group) => (

@@ -128,14 +128,14 @@ await step('Người trùng: thêm người cùng tên, trang gộp liệt kê n
   await until(async () => (await page.getByRole('button', { name: /Gộp 1 người vào/ }).count()) > 0, 'nhóm trùng xuất hiện', 15000);
   // Backend giả lập (PGlite + PostgREST, một kết nối) thỉnh thoảng trả 503 tạm thời; thao tác gộp cho phép bấm lại.
   for (let attempt = 0; attempt < 4; attempt += 1) {
-    if (await page.getByText('Không thấy Người nào nghi trùng.').count()) break;
+    if (!(await page.getByRole('button', { name: /Gộp 1 người vào/ }).count())) break;
     const open = page.getByRole('dialog');
     if (!(await open.count())) await page.getByRole('button', { name: /Gộp 1 người vào/ }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Gộp', exact: true }).click();
     await page.waitForTimeout(1500);
     if (await page.getByRole('dialog').count()) await page.keyboard.press('Escape');
   }
-  await page.getByText('Không thấy Người nào nghi trùng.').waitFor({ timeout: 15000 });
+  await page.getByRole('heading', { name: 'Thành viên trùng' }).waitFor({ state: 'detached', timeout: 15000 });
   await shot('w3-07-merged');
 });
 
