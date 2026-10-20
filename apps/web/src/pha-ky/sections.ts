@@ -73,7 +73,7 @@ export const buildFrontSections = (input: {
       progenitorId: origin.progenitorId,
       progenitorName: origin.progenitorName,
       before: 'Dòng họ tôn ',
-      after: ` làm Thuỷ tổ — người đời đầu tiên còn ghi lại được.${origin.hometown ? ` Quê quán tại ${origin.hometown}.` : ''}`,
+      after: ` làm Thuỷ tổ — người đời đầu tiên còn ghi lại được.${origin.hometown?.trim().replace(/[\s.,;:]+$/u, '') ? ` Nguyên quán: ${origin.hometown.trim().replace(/[\s.,;:]+$/u, '')}.` : ''}`,
       facts,
     });
   }

@@ -305,7 +305,9 @@ export const narrativeToPdf = (
     const textRight = photo ? PAGE_W - MARGIN - PHOTO - 2.1 : PAGE_W - MARGIN;
     const textWidth = textRight - TEXT_X;
     font(11.25, false, COLOR.ink);
-    const detailLines = item.detail ? (doc.splitTextToSize(item.detail, textWidth) as string[]) : [];
+    // Mỗi nội dung một dòng (xuống dòng riêng); nội dung dài thì tự gập thêm dòng.
+    const detailParagraphs = item.lines.map((line) => doc.splitTextToSize(line, textWidth) as string[]);
+    const detailLines = detailParagraphs.flat();
     ensure(3.7 + NAME_LINE + (detailLines.length > 0 ? 1.06 + ROW_LINE * Math.min(2, detailLines.length) : 0));
 
     const rowTop = y;
@@ -357,13 +359,16 @@ export const narrativeToPdf = (
     if (detailLines.length > 0) {
       y += 1.06;
       font(11.25, false, COLOR.ink);
-      for (const [index, line] of detailLines.entries()) {
-        ensure(ROW_LINE);
-        font(11.25, false, COLOR.ink);
-        const lineBase = y + ROW_LINE * 0.72;
-        if (index < detailLines.length - 1) justified(line, TEXT_X, lineBase, textWidth);
-        else doc.text(line, TEXT_X, lineBase);
-        y += ROW_LINE;
+      for (const paragraph of detailParagraphs) {
+        for (const [index, line] of paragraph.entries()) {
+          ensure(ROW_LINE);
+          font(11.25, false, COLOR.ink);
+          const lineBase = y + ROW_LINE * 0.72;
+          // Căn đều các dòng gập của một nội dung; dòng cuối của nội dung căn trái.
+          if (index < paragraph.length - 1) justified(line, TEXT_X, lineBase, textWidth);
+          else doc.text(line, TEXT_X, lineBase);
+          y += ROW_LINE;
+        }
       }
     }
     if (photo) {

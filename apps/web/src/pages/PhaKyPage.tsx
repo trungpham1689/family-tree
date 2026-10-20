@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { todayInVietnam } from '../calendar/month-grid';
 import { firstPhotoOfEvents, useEventPhotoImages, useEventPhotos, useTreeEvents } from '../data/calendar-queries';
 import { useAvatarDataUrl, usePersonAvatars } from '../data/tree-queries';
@@ -111,7 +111,9 @@ const PhaKyBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Per
                     <span aria-hidden="true" className={`absolute top-[1.125rem] -left-[7px] size-3 rounded-full border-2 ${genderDot(item.gender)} ${dashed ? 'border-dashed' : 'border-solid'}`} />
                     <div className="min-w-0">
                       <h3 className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 font-serif text-lg font-bold">
-                        {item.name}
+                        <Link to={`/gia-pha/${tree.id}/nguoi/${item.personId}`} className="rounded-sm hover:text-son hover:underline">
+                          {item.name}
+                        </Link>
                         {item.adopted && <span role="img" aria-label="Con nuôi" title="Con nuôi" className="size-2 self-center rounded-full bg-ink-muted" />}
                         {item.lifespan && <span className="text-sm font-normal text-ink-muted">({item.lifespan})</span>}
                         {item.kind !== 'dinh' && (
@@ -120,7 +122,13 @@ const PhaKyBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Per
                           </span>
                         )}
                       </h3>
-                      {item.detail && <p className="mt-1 text-justify text-[15px] leading-relaxed text-ink">{item.detail}</p>}
+                      {item.lines.length > 0 && (
+                        <div className="mt-1 space-y-0.5 text-[15px] leading-relaxed text-ink">
+                          {item.lines.map((line, index) => (
+                            <p key={index}>{line}</p>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     {photo && <img src={photo} alt={item.name} className="mt-2 size-[72px] border border-line object-cover sm:mt-0" />}
                   </article>

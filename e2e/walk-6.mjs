@@ -174,6 +174,41 @@ await step('Trang trí: cỡ chữ cùng hàng phía trên ô chữ tương ứn
   await shot('pha-do-trang-tri');
 });
 
+await step('Phả ký: bấm tên mở thành viên', async () => {
+  await page.goto(`${treeUrl}/pha-ky`);
+  await page.locator('article').first().waitFor();
+  // Mỗi nội dung của thành viên một dòng riêng; tên trong mục Đời là liên kết mở hồ sơ.
+  assert((await page.locator('article p').count()) >= 4, 'nội dung thành viên chưa tách dòng');
+  await page.locator('article h3').getByRole('link', { name: 'Cha Tổ' }).click();
+  await page.waitForURL(/\/nguoi\/[0-9a-f-]{36}$/);
+});
+
+await step('Tra cứu: Đặt tên cho Bé — chọn Ba/Mẹ suy ra Đời, liệt kê người trùng kèm lý do và quan hệ', async () => {
+  await page.goto(`${treeUrl}/quan-he`);
+  await page.getByRole('tab', { name: 'Đặt tên cho Bé' }).click();
+  assert((await page.getByLabel('Đời của Bé').count()) === 0, 'vẫn còn ô nhập Đời của Bé');
+  assert((await page.getByLabel('Mẹ', { exact: true }).count()) === 0, 'vẫn còn ô nhập Mẹ riêng');
+  await page.getByLabel('Họ và tên của Bé').fill('Phạm Tổ A');
+  await page.getByText('Chọn Ba/Mẹ của Bé để xem kết quả.').waitFor();
+  assert((await page.getByText(/người trùng/).count()) === 0, 'chưa chọn Cha/Mẹ mà đã có kết quả');
+  // Ba là Con A (Đời 2) → Bé thuộc Đời 3. Tên "A" trùng Con A (cha); tên lót "Tổ" trùng Cha Tổ (Đời 1).
+  await page.getByLabel('Ba/Mẹ', { exact: true }).fill('con a');
+  await page.getByRole('button', { name: /Con A/ }).click();
+  await page.getByText('Bé thuộc Đời 3').waitFor();
+  await page.getByText(/Có 2 người trùng/).waitFor();
+  await page.getByText('tên "A" trùng với tên của Bé').waitFor();
+  await page.getByText('tên "Tổ" trùng với tên lót "Tổ" của Bé').waitFor();
+  const text = await page.locator('main').textContent();
+  assert(text.includes('Quan hệ với Bé: Ba'), 'Con A phải là Ba của Bé');
+  assert(text.includes('Quan hệ với Bé: Ông nội'), 'Cha Tổ phải là Ông nội của Bé');
+  // Tên "B" trùng Con B: em của cha → chú ruột.
+  await page.getByLabel('Họ và tên của Bé').fill('Phạm Hữu B');
+  await page.getByText('Quan hệ với Bé: Chú ruột').waitFor();
+  await shot('tra-cuu-dat-ten');
+  await page.getByLabel('Họ và tên của Bé').fill('Phạm Hữu Khôi');
+  await page.getByText(/Không trùng với ai/).waitFor();
+});
+
 async function shot(name) {
   await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
 }

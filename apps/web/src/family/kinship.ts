@@ -14,7 +14,7 @@ type Side = 'nam' | 'nu' | null;
 const asSide = (gender: string | null | undefined): Side => (gender === 'nam' || gender === 'nu' ? gender : null);
 
 /** Từ `id`, mọi tổ tiên tới được cùng đường đi (gần nhất) qua Cha mẹ. */
-const ancestorPaths = <P extends GraphPerson>(graph: FamilyGraph<P>, startId: string): Map<string, P[]> => {
+export const ancestorPaths = <P extends GraphPerson>(graph: FamilyGraph<P>, startId: string): Map<string, P[]> => {
   const result = new Map<string, P[]>();
   const visited = new Set([startId]);
   let frontier: { id: string; path: P[] }[] = [{ id: startId, path: [] }];
@@ -58,7 +58,7 @@ const lineageTermDown = (generations: number, targetGender: string | null, side:
 };
 
 /** `a` có năm sinh/thứ tự con sớm hơn `b` không; null khi chưa đủ dữ liệu để biết. */
-const isOlder = (a: GraphPerson, b: GraphPerson): boolean | null => {
+export const isOlder = (a: GraphPerson, b: GraphPerson): boolean | null => {
   if (a.birth_year !== null && b.birth_year !== null) return a.birth_year < b.birth_year;
   if (a.birth_order !== null && b.birth_order !== null) return a.birth_order < b.birth_order;
   return null;
