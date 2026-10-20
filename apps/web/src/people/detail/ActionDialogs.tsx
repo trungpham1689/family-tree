@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAddChild, useAddParent, useAddSpouse, useUpdateParentLinkKind } from '../../data/tree-queries';
 import type { Person } from '../../data/trees';
-import type { FamilyGraph, ParentLinkKind } from '../../family/family-graph';
-import { LINK_KIND_LABELS } from '../../family/labels';
+import type { FamilyGraph, ParentLinkKind, SpouseRelative } from '../../family/family-graph';
+import { LINK_KIND_LABELS, spouseLabel } from '../../family/labels';
 import { DeletePerson } from '../DeletePerson';
 import { EditPerson } from '../EditPerson';
 import { EMPTY_PERSON_FORM } from '../person-form';
@@ -26,7 +26,7 @@ export const ActionDialogs = ({
   graph: FamilyGraph<Person>;
   person: Person;
   isOwner: boolean;
-  spouses: Person[];
+  spouses: SpouseRelative<Person>[];
   action: Action;
   onClose: () => void;
 }) => {
@@ -36,7 +36,7 @@ export const ActionDialogs = ({
   const addSpouse = useAddSpouse(treeId);
   // null = chưa chọn: mặc định là vợ/chồng thứ nhất *tại lúc mở form* (danh sách có thể vừa thay đổi).
   const [chosenOtherParent, setOtherParentId] = useState<string | null>(null);
-  const otherParentId = chosenOtherParent ?? spouses[0]?.id ?? '';
+  const otherParentId = chosenOtherParent ?? spouses[0]?.person.id ?? '';
   const [linkKind, setLinkKind] = useState<ParentLinkKind>('ruot');
 
 
@@ -80,8 +80,8 @@ export const ActionDialogs = ({
       <span className="mb-1 block font-medium">{person.gender === 'nu' ? 'Cha của con' : 'Mẹ của con'}</span>
       <Select className="w-full" value={otherParentId} onChange={(event) => setOtherParentId(event.target.value)}>
         {spouses.map((spouse) => (
-          <option key={spouse.id} value={spouse.id}>
-            {spouse.full_name}
+          <option key={spouse.person.id} value={spouse.person.id}>
+            {person.gender === 'nu' && spouses.length >= 2 ? `${spouseLabel(spouse.person.gender, spouse.order)}: ${spouse.person.full_name}` : spouse.person.full_name}
           </option>
         ))}
         <option value="">Không rõ / không ghi</option>

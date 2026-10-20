@@ -12,10 +12,13 @@ export const ReorderableChildren = ({
   treeId,
   items,
   canEdit,
+  captions,
 }: {
   treeId: string;
   items: ChildRelative<Person>[];
   canEdit: boolean;
+  /** Ghi chú con với vợ/chồng nào, khoá là id con (xem `coParentCaptions`). */
+  captions: ReadonlyMap<string, string>;
 }) => {
   const reorder = useReorderChildren(treeId);
   const byId = new Map(items.map((child) => [child.person.id, child]));
@@ -44,7 +47,7 @@ export const ReorderableChildren = ({
             )}
             <Link to={`/gia-pha/${treeId}/nguoi/${child.person.id}`} className="group min-w-0 flex-1">
               <span className="block text-sm text-ink-muted">
-                {[birthOrderLabel(index + 1), child.kind === 'nuoi' ? 'Con nuôi' : ''].filter(Boolean).join(' · ')}
+                {[birthOrderLabel(index + 1), child.kind === 'nuoi' ? 'Con nuôi' : '', captions.get(id)].filter(Boolean).join(' · ')}
               </span>
               <span className="text-lg font-semibold group-hover:text-son group-hover:underline">{child.person.full_name}</span>
               <span className="ml-2 text-ink-muted">{lifespanText(child.person)}</span>

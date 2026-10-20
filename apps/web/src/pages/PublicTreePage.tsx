@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router';
 import type { PublicTree, PublicPerson } from '../data/public-tree';
 import { usePublicTree, usePublicTreeCard } from '../data/tree-queries';
 import { birthOrderLabel, kindLabel, spouseLabel } from '../family/labels';
+import { coParentCaptions } from '../family/co-parent';
 import { lifespanText } from '../people/person-display';
 import { ProfileInfo } from '../people/ProfileInfo';
 import { TreeExplorer } from '../tree/TreeExplorer';
@@ -169,6 +170,7 @@ const PublicPersonView = ({ data, token }: { data: PublicTree; token: string }) 
   const parents = graph.parentsOf(person.id);
   const spouses = graph.spousesOf(person.id);
   const children = graph.childrenOf(person.id);
+  const captions = coParentCaptions(graph, person.id);
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-8">
@@ -195,7 +197,7 @@ const PublicPersonView = ({ data, token }: { data: PublicTree; token: string }) 
       {[
         ['Cha mẹ', parents.map(({ person: parent }) => relative(parent, parent.gender === 'nu' ? 'Mẹ' : 'Cha'))],
         ['Vợ / chồng', spouses.map((spouse) => relative(spouse.person, spouseLabel(spouse.person.gender, spouse.order)))],
-        ['Con', children.map(({ person: child }) => relative(child, birthOrderLabel(child.birth_order)))],
+        ['Con', children.map(({ person: child }) => relative(child, [birthOrderLabel(child.birth_order), captions.get(child.id)].filter(Boolean).join(' · ')))],
       ].map(([title, items]) =>
         Array.isArray(items) && items.length > 0 ? (
           <section key={String(title)} className="mt-8">

@@ -16,6 +16,7 @@ import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
 import { Section, RelativeRow, Empty, Tag } from '../people/detail/detail-bits';
 import { ReorderableChildren } from '../people/detail/ChildList';
+import { coParentCaptions } from '../family/co-parent';
 import { ReorderableSpouses } from '../people/detail/SpouseList';
 import {
   HiddenFromPublicToggle,
@@ -165,7 +166,7 @@ const PersonDetail = ({ treeId, graph, person, viewer }: DetailProps) => {
         {children.length === 0 ? (
           <Empty>Chưa ghi con.</Empty>
         ) : (
-          <ReorderableChildren treeId={treeId} items={children} canEdit={canEdit} />
+          <ReorderableChildren treeId={treeId} items={children} canEdit={canEdit} captions={coParentCaptions(graph, person.id)} />
         )}
       </Section>
 
@@ -210,7 +211,7 @@ const PersonDetail = ({ treeId, graph, person, viewer }: DetailProps) => {
         graph={graph}
         person={person}
         isOwner={isOwner}
-        spouses={spouses.map((s) => s.person)}
+        spouses={spouses}
         action={action}
         onClose={close}
       />
