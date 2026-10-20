@@ -12,6 +12,9 @@ export type GraphPerson = {
   full_name: string;
   gender: string | null;
   birth_year: number | null;
+  /** Chỉ có ở bản đầy đủ (bản công khai không gửi tháng, ngày). */
+  birth_month?: number | null;
+  birth_day?: number | null;
   birth_order: number | null;
 };
 
@@ -63,11 +66,28 @@ const asKind = (value: string): PersonKind =>
 
 const byName = new Intl.Collator('vi').compare;
 
-/** Anh chị em: theo Thứ tự con, rồi năm sinh, rồi tên. */
-const compareSiblings = (a: GraphPerson, b: GraphPerson): number =>
-  (a.birth_order ?? Number.MAX_SAFE_INTEGER) - (b.birth_order ?? Number.MAX_SAFE_INTEGER) ||
-  (a.birth_year ?? Number.MAX_SAFE_INTEGER) - (b.birth_year ?? Number.MAX_SAFE_INTEGER) ||
-  byName(a.full_name, b.full_name);
+const LAST = Number.MAX_SAFE_INTEGER;
+
+/** Sinh trước xếp trước: năm, rồi tháng, rồi ngày. Thiếu năm/tháng/ngày thì xếp sau người có đủ trong cùng kỳ; bằng nhau thì trả 0. */
+export const compareBirthDate = (a: GraphPerson, b: GraphPerson): number =>
+  (a.birth_year ?? LAST) - (b.birth_year ?? LAST) ||
+  (a.birth_month ?? LAST) - (b.birth_month ?? LAST) ||
+  (a.birth_day ?? LAST) - (b.birth_day ?? LAST);
+
+/** Anh chị em: theo Thứ tự con, rồi ngày sinh (năm, tháng, ngày), rồi tên. */
+export const compareSiblings = (a: GraphPerson, b: GraphPerson): number =>
+  (a.birth_order ?? LAST) - (b.birth_order ?? LAST) || compareBirthDate(a, b) || byName(a.full_name, b.full_name);
+
+/**
+ * Con mới thêm (không ghi Thứ tự con) vào đúng chỗ theo ngày sinh giữa các anh chị em đã có, giữ nguyên thứ tự của họ:
+ * đứng trước người đầu tiên sinh sau nó. Chưa biết năm sinh thì ở cuối. `siblings` đã theo thứ tự hiện có, chưa gồm `added`.
+ */
+export const orderWithNewChild = (siblings: readonly GraphPerson[], added: GraphPerson): string[] => {
+  const ids = siblings.map((sibling) => sibling.id);
+  const index = added.birth_year === null ? -1 : siblings.findIndex((sibling) => sibling.birth_year !== null && compareBirthDate(added, sibling) < 0);
+  ids.splice(index === -1 ? ids.length : index, 0, added.id);
+  return ids;
+};
 
 const push = <K, V>(map: Map<K, V[]>, key: K, value: V) => {
   const list = map.get(key);

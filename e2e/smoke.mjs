@@ -1,6 +1,6 @@
 /**
  * Test khói end-to-end: bật backend giả lập + bản build e2e của app, rồi chạy lần lượt
- * walk-1 (luồng cơ bản), walk-2 (mọi tính năng), walk-3 (PWA, thống kê, gộp trùng, lịch đăng ký) và walk-mobile (khổ 375px, không tràn ngang).
+ * walk-1 (luồng cơ bản), walk-2 (mọi tính năng), walk-3 (PWA, thống kê, gộp trùng, lịch đăng ký), walk-5 (kéo thả đổi thứ tự con) và walk-mobile (khổ 375px, không tràn ngang).
  * Cần: .tools/postgrest, apps/web/dist-e2e (e2e/rebuild.sh), Chromium cho Playwright.
  * Chạy: node e2e/smoke.mjs
  */
@@ -45,7 +45,7 @@ try {
     '4173',
   );
   const results = [];
-  for (const script of ['walk-1.mjs', 'walk-2.mjs', 'walk-3.mjs', 'walk-4.mjs', 'walk-mobile.mjs']) results.push(await run(script));
+  for (const script of ['walk-1.mjs', 'walk-2.mjs', 'walk-3.mjs', 'walk-4.mjs', 'walk-5.mjs', 'walk-mobile.mjs']) results.push(await run(script));
   ok = results.every(Boolean);
 } catch (error) {
   console.error(error.message);

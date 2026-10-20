@@ -1,7 +1,8 @@
 import { Link } from 'react-router';
+import { Button } from '../../ui/Button';
 import { useReorderChildren } from '../../data/tree-queries';
 import type { Person } from '../../data/trees';
-import type { ChildRelative } from '../../family/family-graph';
+import { compareBirthDate, type ChildRelative } from '../../family/family-graph';
 import { birthOrderLabel } from '../../family/labels';
 import { lifespanText } from '../person-display';
 import { useDragReorder } from './use-drag-reorder';
@@ -20,6 +21,9 @@ export const ReorderableChildren = ({
   const byId = new Map(items.map((child) => [child.person.id, child]));
   const sourceOrder = items.map((child) => child.person.id);
   const { order, canDrag, setRef, dragHandleProps } = useDragReorder(sourceOrder, canEdit, (next) => reorder.mutate(next));
+  // Sắp xếp ổn định: cùng ngày sinh (hoặc cùng thiếu ngày sinh) thì giữ thứ tự đang có.
+  const byBirthDate = [...items].sort((a, b) => compareBirthDate(a.person, b.person)).map((child) => child.person.id);
+  const sortedByBirthDate = byBirthDate.every((id, index) => id === order[index]);
 
   return (
     <>
@@ -48,6 +52,13 @@ export const ReorderableChildren = ({
           </li>
         );
       })}
+      {canDrag && !sortedByBirthDate && (
+        <li className="px-5 py-3">
+          <Button variant="ghost" disabled={reorder.isPending} onClick={() => reorder.mutate(byBirthDate)}>
+            Tự xếp theo ngày sinh (anh chị lớn trước)
+          </Button>
+        </li>
+      )}
       {reorder.isError && <li className="px-5 py-3 text-sm text-danger">{reorder.error.message}</li>}
     </>
   );

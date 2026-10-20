@@ -1,6 +1,6 @@
 import { fetchAll } from '../lib/fetch-all';
 import { supabase } from '../lib/supabase';
-import type { ParentLinkKind, UnionStatus } from '../family/family-graph';
+import { compareSiblings, orderWithNewChild, type ParentLinkKind, type UnionStatus } from '../family/family-graph';
 import type { PersonFields } from '../people/person-form';
 import type { Row } from './database.types';
 import { failOn } from './trees';
@@ -35,13 +35,14 @@ export const loadFamily = async (treeId: string): Promise<FamilyData> => {
   };
 };
 
+/** Thêm con. Không ghi Thứ tự con thì con mới tự vào đúng chỗ theo ngày sinh giữa các anh chị em (database chỉ xếp cuối). */
 export const addChild = async (input: {
   parentId: string;
   otherParentId: string | null;
   kind: ParentLinkKind;
   fields: PersonFields;
-}): Promise<string> =>
-  check(
+}): Promise<string> => {
+  const id = check(
     await supabase.rpc('add_child', {
       parent_id: input.parentId,
       other_parent_id: input.otherParentId,
@@ -49,6 +50,25 @@ export const addChild = async (input: {
       person: input.fields,
     }),
   );
+  if (input.fields.birth_order === null) await placeByBirthDate(input.parentId, id);
+  return id;
+};
+
+/** Đã thêm xong thì việc xếp chỗ chỉ là tiện ích: lỗi ở đây không được làm hỏng lần thêm (vẫn xếp tay hoặc bấm "Tự xếp" được). */
+const placeByBirthDate = async (parentId: string, childId: string): Promise<void> => {
+  try {
+    const links = check(await supabase.from('parent_links').select('child_id').eq('parent_id', parentId));
+    const children = check(await supabase.from('persons').select('*').in('id', links.map((link) => link.child_id)));
+    const added = children.find((child) => child.id === childId);
+    if (!added) return;
+    const siblings = children.filter((child) => child.id !== childId).sort(compareSiblings);
+    const ordered = orderWithNewChild(siblings, added);
+    // Chỗ cuối là chỗ database đã xếp sẵn.
+    if (ordered[ordered.length - 1] !== childId) await reorderChildren(ordered);
+  } catch {
+    // xem chú thích trên
+  }
+};
 
 export const addParent = async (input: { childId: string; kind: ParentLinkKind; fields: PersonFields }): Promise<string> =>
   check(await supabase.rpc('add_parent', { child_id: input.childId, link_kind: input.kind, person: input.fields }));

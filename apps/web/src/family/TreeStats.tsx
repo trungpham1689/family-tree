@@ -29,7 +29,7 @@ export const TreeStats = ({ graph }: { graph: FamilyGraph<Person> }) => {
   if (unconnected > 0) stats.push({ label: 'Chưa nối vào cây', value: String(unconnected) });
 
   const funRows: [string, string | null][] = [
-    ['Tuổi thọ trung bình', fun.averageLifespan !== null ? `${fun.averageLifespan.toFixed(1)} tuổi` : null],
+    ['Tuổi thọ trung bình', fun.averageLifespan !== null ? `${Math.round(fun.averageLifespan)} tuổi` : null],
     ['Người thọ nhất', fun.longestLived ? `${fun.longestLived.person.full_name} (${fun.longestLived.age} tuổi)` : null],
     ['Người cao tuổi nhất còn sống', fun.oldestLiving ? `${fun.oldestLiving.person.full_name} (${fun.oldestLiving.age} tuổi)` : null],
     ['Số con trung bình', fun.averageChildren !== null ? `${fun.averageChildren.toFixed(1)} con mỗi người có con` : null],

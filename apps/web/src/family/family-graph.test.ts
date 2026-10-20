@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildFamilyGraph, type GraphPerson } from './family-graph';
+import { buildFamilyGraph, compareBirthDate, orderWithNewChild, type GraphPerson } from './family-graph';
 
 const person = (id: string, extra: Partial<GraphPerson> = {}): GraphPerson => ({
   id,
@@ -151,5 +151,61 @@ describe('buildFamilyGraph', () => {
   it('Người không có trong kết quả vị trí coi như chưa nối', () => {
     const graph = buildFamilyGraph({ persons: [person('x')], parentLinks: [], unions: [], positions: [] });
     expect(graph.placement('x').kind).toBe('chua_noi');
+  });
+});
+
+describe('compareBirthDate', () => {
+  const born = (year: number | null, month: number | null = null, day: number | null = null) =>
+    person('x', { birth_year: year, birth_month: month, birth_day: day });
+
+  it('xếp theo năm, rồi tháng, rồi ngày', () => {
+    const list = [born(1990, 5, 2), born(1989, 12, 31), born(1990, 5, 1), born(1990, 1, 20)];
+    const sorted = [...list].sort(compareBirthDate).map((p) => [p.birth_year, p.birth_month, p.birth_day]);
+    expect(sorted).toEqual([[1989, 12, 31], [1990, 1, 20], [1990, 5, 1], [1990, 5, 2]]);
+  });
+
+  it('thiếu tháng/ngày xếp sau người có đủ trong cùng kỳ; thiếu năm xếp cuối; bằng nhau trả 0', () => {
+    expect(compareBirthDate(born(1990, 3), born(1990))).toBeLessThan(0);
+    expect(compareBirthDate(born(1990, 3, 4), born(1990, 3))).toBeLessThan(0);
+    expect(compareBirthDate(born(2000), born(null))).toBeLessThan(0);
+    expect(compareBirthDate(born(null), born(null))).toBe(0);
+  });
+
+  it('con không có Thứ tự con tự xếp theo ngày sinh đầy đủ, trước khi so tên', () => {
+    const graph = buildFamilyGraph({
+      persons: [
+        person('cha'),
+        person('b', { birth_year: 1990, birth_month: 6, birth_day: 1 }),
+        person('a', { birth_year: 1990, birth_month: 2, birth_day: 9 }),
+        person('c', { birth_year: 1991 }),
+      ],
+      parentLinks: ['b', 'a', 'c'].map((child_id) => ({ child_id, parent_id: 'cha', kind: 'ruot' })),
+      unions: [],
+      positions: [],
+    });
+    expect(graph.childrenOf('cha').map((child) => child.person.id)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('orderWithNewChild', () => {
+  const kid = (id: string, year: number | null, month: number | null = null, day: number | null = null) =>
+    person(id, { birth_year: year, birth_month: month, birth_day: day });
+  const siblings = [kid('a', 1990), kid('b', 1995, 3, 1), kid('c', 2000)];
+
+  it('chèn vào đúng chỗ theo ngày sinh, giữ thứ tự những người đã có', () => {
+    expect(orderWithNewChild(siblings, kid('n', 1993))).toEqual(['a', 'n', 'b', 'c']);
+    expect(orderWithNewChild(siblings, kid('n', 1995, 2, 1))).toEqual(['a', 'n', 'b', 'c']);
+    expect(orderWithNewChild(siblings, kid('n', 1995, 3, 2))).toEqual(['a', 'b', 'n', 'c']);
+    expect(orderWithNewChild(siblings, kid('n', 1980))).toEqual(['n', 'a', 'b', 'c']);
+  });
+
+  it('út nhất hoặc chưa biết năm sinh thì ở cuối', () => {
+    expect(orderWithNewChild(siblings, kid('n', 2010))).toEqual(['a', 'b', 'c', 'n']);
+    expect(orderWithNewChild(siblings, kid('n', null))).toEqual(['a', 'b', 'c', 'n']);
+  });
+
+  it('anh chị em chưa biết năm sinh không chặn đường chèn; không có anh chị em thì chỉ có con mới', () => {
+    expect(orderWithNewChild([kid('x', null), kid('c', 2000)], kid('n', 1999))).toEqual(['x', 'n', 'c']);
+    expect(orderWithNewChild([], kid('n', 1999))).toEqual(['n']);
   });
 });
