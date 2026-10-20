@@ -5,7 +5,7 @@
 import { EMPTY_DATE_INPUT, type DateInput } from '../people/partial-date-input';
 import { EMPTY_PERSON_FORM, parsePersonForm, type PersonFields, type PersonFormValues } from '../people/person-form';
 import { normalizeName } from '../tree/tree-search';
-import { COLUMNS, HEADER_OF, type ColumnKey, type RawRow } from './columns';
+import { COLUMNS, HEADER_ALIASES, HEADER_OF, type ColumnKey, type RawRow } from './columns';
 
 export type ImportError = { row: number; column: string | null; message: string };
 
@@ -71,7 +71,10 @@ const cellText = (value: CellValue): string => {
   return String(value).trim();
 };
 
-const HEADER_KEYS = new Map<string, ColumnKey>(COLUMNS.map((column) => [normalizeName(column.header), column.key]));
+const HEADER_KEYS = new Map<string, ColumnKey>([
+  ...COLUMNS.map((column): [string, ColumnKey] => [normalizeName(column.header), column.key]),
+  ...HEADER_ALIASES.map(([header, key]): [string, ColumnKey] => [normalizeName(header), key]),
+]);
 
 /** Tìm dòng tiêu đề và trả về các dòng dữ liệu dạng { cột: chữ }. */
 export const readTable = (rows: readonly (readonly CellValue[])[]): { rows: { row: number; data: RawRow }[]; missing: string[] } => {

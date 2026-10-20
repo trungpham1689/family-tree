@@ -5,8 +5,8 @@ import { buildFamilyGraph } from '../family/family-graph';
 import { defaultPhaDoConfig, hasStoredMemberFont, pageSizeMm, readPhaDoConfig, type PhaDoConfig } from './config';
 import { FRAME_LABELS, layoutDecoration, type FrameStyle } from './decoration';
 import { PT_PER_MM, type DrawItem } from './drawing';
-import { autoMemberFontPx, fitPaperToFont } from './auto-fit';
-import { MIN_READABLE_PX, renderPhaDo } from './render';
+import { autoMemberFontPx, fitPaperToFont, refitTiming } from './auto-fit';
+import { legendWidthMm, MIN_READABLE_PX, renderPhaDo } from './render';
 import { drawingToSvg } from './svg';
 
 /**
@@ -538,5 +538,39 @@ describe('màu ô thành viên', () => {
   it('đọc lại cấu hình: chỉ nhận #rrggbb', () => {
     expect(readPhaDoConfig({ memberFillColor: '#AABBCC', memberTextColor: '#123456' }, 1)).toMatchObject({ memberFillColor: '#aabbcc', memberTextColor: '#123456' });
     expect(readPhaDoConfig({ memberFillColor: 'red', memberTextColor: '#12' }, 1)).toMatchObject({ memberFillColor: null, memberTextColor: null });
+  });
+});
+
+describe('refitTiming: khi nào co giãn lại', () => {
+  it('màu và phông chữ không đụng bố cục; gõ chữ trang trí thì chờ; còn lại tính ngay', () => {
+    expect(refitTiming(base, { memberFillColor: '#ffffff' })).toBe('none');
+    expect(refitTiming(base, { memberTextColor: null, fontFamily: 'system' })).toBe('none');
+    expect(refitTiming(base, { decoration: { ...base.decoration, title: 'Gia phả họ Phạm' } })).toBe('later');
+    expect(refitTiming(base, { decoration: { ...base.decoration, coupletLeft: 'Uống nước' } })).toBe('later');
+    expect(refitTiming(base, { decoration: { ...base.decoration, frame: 'moc' } })).toBe('now');
+    expect(refitTiming(base, { decoration: { ...base.decoration, titleSize: 80 } })).toBe('now');
+    expect(refitTiming(base, { extraLines: ['gio'] })).toBe('now');
+    expect(refitTiming(base, { memberFillColor: '#fff', showAvatars: true })).toBe('now');
+  });
+});
+
+describe('cỡ chữ ô tự suy và chú giải', () => {
+  it('cây rất đông: giữ chữ số thập phân thay vì nâng lên 4 px không chứa nổi; đọc lại từ cấu hình đã lưu được', () => {
+    const crowded = { ...defaultPhaDoConfig(5), paper: 'A1' as const };
+    const px = autoMemberFontPx(bigFamily(150), crowded);
+    const actual = renderPhaDo(bigFamily(150), { ...crowded, memberFontPx: 300 }).namePx;
+    expect(actual).toBeLessThan(4);
+    expect(px).toBeLessThanOrEqual(actual + 1e-9);
+    expect(px).toBeGreaterThanOrEqual(actual - 0.11);
+    expect(readPhaDoConfig({ memberFontPx: px }, 1).memberFontPx).toBe(px);
+  });
+
+  it('chiều ngang chú giải tính từ chính hằng số vẽ: không item nào vượt, tỉ lệ theo khổ giấy', () => {
+    const a1 = { width: 841, height: 594 };
+    const items = renderPhaDo(sample(), { ...defaultPhaDoConfig(1), paper: 'A1', decoration: { ...defaultPhaDoConfig(1).decoration, frame: 'none' } }).drawing.items;
+    const legendRight = Math.max(...items.filter((i): i is Extract<DrawItem, { type: 'text' }> => i.type === 'text' && i.align === 'start').map((i) => i.x));
+    const legendLeft = Math.min(...items.filter((i): i is Extract<DrawItem, { type: 'text' }> => i.type === 'text' && i.align === 'start').map((i) => i.x - 5.5));
+    expect(legendWidthMm(a1)).toBeGreaterThan(legendRight - legendLeft); // gồm cả chữ cuối
+    expect(legendWidthMm({ width: 420, height: 297 })).toBeCloseTo(legendWidthMm(a1) / 2, 6);
   });
 });

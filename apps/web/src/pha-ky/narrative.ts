@@ -8,7 +8,7 @@ import { ageAtDeath, deathAgeLabel, lifespanText } from '../people/person-displa
  * Suy thẳng từ dữ liệu đã có — không cần lưu thêm gì.
  */
 
-/** `text` gộp sẵn cho PDF (văn xuôi thuần); `name`/`lifespan`/`detail` tách riêng để web trình bày nổi bật. */
+/** `name`/`lifespan` tách riêng để web và PDF trình bày nổi bật; `lines` là mỗi nội dung một dòng. */
 export type NarrativeItem = {
   personId: string;
   kind: PersonKind;
@@ -16,29 +16,26 @@ export type NarrativeItem = {
   adopted: boolean;
   name: string;
   lifespan: string | null;
-  /** Các câu mô tả nối thành một đoạn (dùng cho tìm kiếm, kiểm thử). */
-  detail: string;
   /** Mỗi nội dung (nguyên quán, nơi ở, kết hôn…) một dòng, để dễ đọc ở web và PDF. */
   lines: string[];
-  text: string;
 };
 export type NarrativeGeneration = { generation: number; male: number; female: number; total: number; items: NarrativeItem[] };
 
 /** Giá trị người dùng gõ tự do: bỏ khoảng trắng và dấu câu cuối, để ghép câu không bị ".." hay dính vào câu sau. */
-const clean = (value: string | null | undefined): string => (value ?? '').trim().replace(/[\s.,;:]+$/u, '');
+export const cleanFreeText = (value: string | null | undefined): string => (value ?? '').trim().replace(/[\s.,;:]+$/u, '');
 
 /** Câu "Nhãn: giá trị." — nhãn luôn đứng riêng để các mục hồ sơ không dính chùm vào nhau; không có giá trị thì không có câu. */
 const labelled = (label: string, value: string | null | undefined): string[] => {
-  const text = clean(value);
+  const text = cleanFreeText(value);
   return text ? [`${label}: ${text}.`] : [];
 };
 
-const personNarrative = (graph: FamilyGraph<Person>, person: Person): { lifespan: string | null; detail: string; lines: string[]; text: string } => {
+const personNarrative = (graph: FamilyGraph<Person>, person: Person): { lifespan: string | null; lines: string[] } => {
   const placement = graph.placement(person.id);
   const lifespan = lifespanText(person);
   const sentences: string[] = [];
 
-  const commonName = clean(person.common_name);
+  const commonName = cleanFreeText(person.common_name);
   if (commonName) sentences.push(`Còn gọi là ${commonName}.`);
   sentences.push(...labelled('Tên tự / hiệu', person.courtesy_name));
 
@@ -52,8 +49,8 @@ const personNarrative = (graph: FamilyGraph<Person>, person: Person): { lifespan
 
   sentences.push(...labelled('Nơi sinh', person.birth_place));
   sentences.push(...labelled('Nguyên quán', person.hometown));
-  if (clean(person.residence) && clean(person.residence) !== clean(person.hometown)) {
-    sentences.push(`Sinh sống tại ${clean(person.residence)}.`);
+  if (cleanFreeText(person.residence) && cleanFreeText(person.residence) !== cleanFreeText(person.hometown)) {
+    sentences.push(`Sinh sống tại ${cleanFreeText(person.residence)}.`);
   }
 
   const spouses = graph.spousesOf(person.id).map((s) => s.person.full_name);
@@ -67,15 +64,13 @@ const personNarrative = (graph: FamilyGraph<Person>, person: Person): { lifespan
   if (person.is_deceased) {
     const age = ageAtDeath(person);
     sentences.push(age !== null ? `Mất, ${deathAgeLabel(age).toLowerCase()} ${age} tuổi.` : 'Đã mất.');
-    if (clean(person.burial_place)) sentences.push(`An táng tại ${clean(person.burial_place)}.`);
-    if (clean(person.worship_place)) sentences.push(`Thờ phụng tại ${clean(person.worship_place)}.`);
+    if (cleanFreeText(person.burial_place)) sentences.push(`An táng tại ${cleanFreeText(person.burial_place)}.`);
+    if (cleanFreeText(person.worship_place)) sentences.push(`Thờ phụng tại ${cleanFreeText(person.worship_place)}.`);
   }
 
   if (person.biography) sentences.push(person.biography.trim());
 
-  const heading = `${person.full_name}${lifespan ? ` (${lifespan})` : ''}.`;
-  const detail = sentences.join(' ');
-  return { lifespan: lifespan || null, detail, lines: sentences, text: [heading, ...sentences].join(' ') };
+  return { lifespan: lifespan || null, lines: sentences };
 };
 
 export const buildNarrative = (graph: FamilyGraph<Person>): NarrativeGeneration[] =>
@@ -85,8 +80,8 @@ export const buildNarrative = (graph: FamilyGraph<Person>): NarrativeGeneration[
     female: group.female,
     total: group.total,
     items: group.persons.map((person) => {
-      const { lifespan, detail, lines, text } = personNarrative(graph, person);
-      return { personId: person.id, kind: graph.placement(person.id).kind, gender: person.gender, adopted: graph.parentsOf(person.id).some((parent) => parent.kind === 'nuoi'), name: person.full_name, lifespan, detail, lines, text };
+      const { lifespan, lines } = personNarrative(graph, person);
+      return { personId: person.id, kind: graph.placement(person.id).kind, gender: person.gender, adopted: graph.parentsOf(person.id).some((parent) => parent.kind === 'nuoi'), name: person.full_name, lifespan, lines };
     }),
   }));
 

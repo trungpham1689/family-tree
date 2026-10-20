@@ -14,17 +14,24 @@ import { babyGeneration, checkBabyName } from './name-check';
 export const NameCheckPanel = ({ treeId, graph }: { treeId: string; graph: FamilyGraph<Person> }) => {
   const [fullName, setFullName] = useState('');
   const [parentId, setParentId] = useState<string | null>(null);
-  const [otherChoice, setOtherChoice] = useState<string | null>(null);
+  /** undefined: theo gợi ý (người duy nhất còn hôn phối); null: người dùng chọn "không chọn". */
+  const [otherChoice, setOtherChoice] = useState<string | null | undefined>(undefined);
   const [includeSpouses, setIncludeSpouses] = useState(true);
 
   const pickParent = (personId: string | null) => {
     setParentId(personId);
-    setOtherChoice(null);
+    setOtherChoice(undefined);
   };
 
   // Người đã nhập là Ba (nam, hoặc chưa rõ giới tính) hay Mẹ (nữ); người còn lại tự tìm trong vợ/chồng của người đó.
   const spouses = useMemo(() => (parentId ? graph.spousesOf(parentId).map(({ person }) => person) : []), [graph, parentId]);
-  const other = spouses.length === 1 ? spouses[0]! : (spouses.find((spouse) => spouse.id === otherChoice) ?? null);
+  // Gợi ý: đúng một vợ/chồng còn hôn phối (không tính ly hôn, goá) thì tự chọn; người dùng đổi hoặc bỏ chọn được.
+  const suggested = useMemo(() => {
+    const active = parentId ? graph.spousesOf(parentId).filter((spouse) => spouse.status === 'con') : [];
+    return active.length === 1 ? active[0]!.person.id : null;
+  }, [graph, parentId]);
+  const otherId = otherChoice === undefined ? suggested : otherChoice;
+  const other = spouses.find((spouse) => spouse.id === otherId) ?? null;
   const parentIsMother = parentId !== null && graph.person(parentId)?.gender === 'nu';
   const fatherId = parentIsMother ? (other?.id ?? null) : parentId;
   const motherId = parentIsMother ? parentId : (other?.id ?? null);
@@ -81,15 +88,10 @@ export const NameCheckPanel = ({ treeId, graph }: { treeId: string; graph: Famil
         ) : (
           <PersonPicker graph={graph} label="Ba/Mẹ" onPick={pickParent} />
         )}
-        {parentId && spouses.length === 1 && (
-          <p>
-            <span className="text-ink-muted">{parentIsMother ? 'Ba' : 'Mẹ'} của Bé:</span> <span className="font-semibold">{personLabel(graph, spouses[0]!.id)}</span>
-          </p>
-        )}
-        {parentId && spouses.length > 1 && (
+        {parentId && spouses.length > 0 && (
           <label className="block">
-            <span className="mb-1 block text-sm text-ink-muted">{parentIsMother ? 'Ba' : 'Mẹ'} của Bé (có {spouses.length} vợ/chồng, chọn một)</span>
-            <Select className="w-full" value={otherChoice ?? ''} onChange={(event) => setOtherChoice(event.target.value || null)}>
+            <span className="mb-1 block text-sm text-ink-muted">{parentIsMother ? 'Ba' : 'Mẹ'} của Bé</span>
+            <Select className="w-full" value={otherId ?? ''} onChange={(event) => setOtherChoice(event.target.value || null)}>
               <option value="">Chưa rõ / không chọn</option>
               {spouses.map((spouse) => (
                 <option key={spouse.id} value={spouse.id}>

@@ -1,6 +1,6 @@
 import type { Person } from '../data/trees';
 import { buildFamilyGraph, type FamilyGraph, type GraphPerson } from './family-graph';
-import { ancestorPaths, isOlder } from './kinship';
+import { ancestorPaths, isOlder, lineageTermUp } from './kinship';
 
 /**
  * Quan hệ của một người trong gia phả với bé sắp đặt tên ("X là … của bé"), suy từ cha và/hoặc mẹ của bé.
@@ -25,14 +25,12 @@ const BABY_ID = '__be__';
 const lower = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
 const sideWord = (side: 'noi' | 'ngoai') => (side === 'noi' ? 'nội' : 'ngoại');
 
-/** Tổ tiên trực hệ cách bé `distance` đời; `side` là bên cha (nội) hay mẹ (ngoại). */
+/** Tổ tiên trực hệ cách bé `distance` đời; `side` là bên ba (nội) hay mẹ (ngoại). Dùng chung bảng từ với tab xưng hô, gọi cha là "Ba". */
 const directTerm = (distance: number, gender: string | null, side: 'noi' | 'ngoai'): string => {
-  if (distance === 1) return gender === 'nam' ? 'Ba' : gender === 'nu' ? 'Mẹ' : 'Ba/Mẹ';
+  const base = lineageTermUp(distance, gender, side === 'noi' ? 'nam' : 'nu', 'Ba');
+  if (distance <= 2) return base;
   const sex = gender === 'nam' ? 'ông' : gender === 'nu' ? 'bà' : 'ông/bà';
-  if (distance === 2) return `${sex === 'ông' ? 'Ông' : sex === 'bà' ? 'Bà' : 'Ông/Bà'} ${sideWord(side)}`;
-  if (distance === 3) return `Cụ ${sex} ${sideWord(side)}`;
-  if (distance === 4) return `Kỵ ${sex} ${sideWord(side)}`;
-  return `Tổ tiên đời thứ ${distance} bên ${sideWord(side)}`;
+  return distance <= 4 ? `${base} ${sex} ${sideWord(side)}` : `${base} bên ${sideWord(side)}`;
 };
 
 /** "ruột" khi hai người có cùng cha mẹ đã ghi; "cùng cha khác mẹ"/"cùng mẹ khác cha" khi cả hai đều ghi đủ cha mẹ mà khác nhau; còn lại không nói. */
@@ -50,13 +48,17 @@ const siblingQualifier = (graph: FamilyGraph<GraphPerson>, aId: string, bId: str
   return shared.every((p) => p.gender === 'nam') ? ' (cùng ba khác mẹ)' : shared.every((p) => p.gender === 'nu') ? ' (cùng mẹ khác ba)' : '';
 };
 
+/** Họ hàng khác nhánh: Thứ tự con chỉ so được giữa anh chị em cùng cha mẹ, nên chỉ dựa vào năm sinh. */
+const olderByYear = (a: GraphPerson, b: GraphPerson): boolean | null =>
+  a.birth_year !== null && b.birth_year !== null && a.birth_year !== b.birth_year ? a.birth_year < b.birth_year : null;
+
 /** Từ gốc của cách gọi anh chị em của một bậc tiền bối `elder` (cha, mẹ, ông, bà…): bác, chú, cô, cậu, dì. */
-const collateralWord = (elder: GraphPerson, person: GraphPerson, elderSide: 'noi' | 'ngoai'): string => {
+const collateralWord = (elder: GraphPerson, person: GraphPerson, elderSide: 'noi' | 'ngoai', siblings: boolean): string => {
   const male = person.gender === 'nam';
   const female = person.gender === 'nu';
   const fatherLine = elder.gender === 'nam' || (elder.gender === null && elderSide === 'noi');
   if (fatherLine) {
-    const older = isOlder(person, elder);
+    const older = siblings ? isOlder(person, elder) : olderByYear(person, elder);
     if (older === true) return 'bác';
     if (female) return older === false ? 'cô' : 'cô/bác';
     return older === false ? 'chú' : male ? 'bác/chú' : 'cô/bác/chú';
@@ -71,7 +73,8 @@ const PREFIX: Record<number, (male: boolean | null) => string> = {
   4: () => 'Kỵ ',
 };
 
-const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+/** Viết hoa chữ đầu và chữ đầu sau dấu "/": "bác/chú họ" → "Bác/Chú họ". */
+const capitalize = (text: string) => text.replace(/(^|\/)\p{L}/gu, (match) => match.toUpperCase());
 
 const phrase = (person: GraphPerson, elder: GraphPerson | null): string => {
   const older = elder ? isOlder(person, elder) : null;
@@ -137,7 +140,7 @@ const bloodRelation = (graph: FamilyGraph<GraphPerson>, parents: BabyParents, ta
   // Người cùng hàng với bậc tiền bối `elder` của bé (cha mẹ nếu diff = 1, ông bà nếu diff = 2…).
   const elder = fromPath[diff - 1]!;
   const elderSide = sideOf(fromPath[0]!.id);
-  const word = collateralWord(elder, target, elderSide);
+  const word = collateralWord(elder, target, elderSide, b === 1);
   const male = target.gender === 'nam' ? true : target.gender === 'nu' ? false : null;
   const prefix = (PREFIX[diff] ?? (() => ''))(male);
   const known = diff <= 4;

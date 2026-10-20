@@ -4,7 +4,7 @@ import type { FamilyGraph } from '../family/family-graph';
 import { lifespanText } from '../people/person-display';
 import { pageSizeMm, type ExtraLine, type PhaDoConfig } from './config';
 import { layoutDecoration } from './decoration';
-import { fitSize, truncateToFit } from './glyph-widths';
+import { fitSize, textWidthEm, truncateToFit } from './glyph-widths';
 import { MM_PER_PX, paperScale, PT_PER_MM, type Drawing, type DrawItem } from './drawing';
 
 /** Dưới cỡ này (px) chữ in ra khó đọc với người lớn tuổi. */
@@ -81,10 +81,21 @@ const extraText = (line: ExtraLine, person: Person, generation: number | null): 
  */
 const LEGEND_COL_WIDTH = 32;
 const LEGEND_TEXT_PT = 9;
+const LEGEND_SWATCH = 3.5;
+const LEGEND_LABEL_GAP = 2;
+/** Mục cuối của chú giải bắt đầu ở cột thứ 5 cộng 0,8 cột (xem `legend`). */
+const LEGEND_LAST_COL = 4.8;
+const LEGEND_LAST_LABEL = 'Con nuôi';
+
+/** Chiều ngang (mm) chú giải chiếm trên trang `page`, tính từ chính các hằng số vẽ chú giải để khổ giấy tự tính chừa đủ chỗ. */
+export const legendWidthMm = (page: { width: number; height: number }): number =>
+  paperScale(page) *
+  (LEGEND_LAST_COL * LEGEND_COL_WIDTH + LEGEND_SWATCH + LEGEND_LABEL_GAP + (textWidthEm(LEGEND_LAST_LABEL, false) * LEGEND_TEXT_PT) / PT_PER_MM);
+
 const legend = (area: { x: number; y: number; width: number; height: number }, k: number): DrawItem[] => {
   const y = area.y + area.height - (LEGEND_HEIGHT * k) / 2;
-  const swatch = 3.5 * k;
-  const labelGap = 2 * k;
+  const swatch = LEGEND_SWATCH * k;
+  const labelGap = LEGEND_LABEL_GAP * k;
   const sizePt = LEGEND_TEXT_PT * k;
   let col = 0;
   const nextX = () => area.x + col++ * LEGEND_COL_WIDTH * k;
@@ -121,10 +132,10 @@ const legend = (area: { x: number; y: number; width: number; height: number }, k
     label(dauReX + swatch + labelGap, 'Dâu/Rể (viền đứt)'),
   );
 
-  const adoptedX = nextX() + LEGEND_COL_WIDTH * k * 0.8;
+  const adoptedX = nextX() + LEGEND_COL_WIDTH * k * (LEGEND_LAST_COL - 4);
   items.push(
     { type: 'rect', x: adoptedX, y: y - swatch / 2, width: swatch, height: swatch, radius: swatch / 2, fill: COLORS.genderUnknown, stroke: COLORS.genderUnknown, strokeWidth: 0 },
-    label(adoptedX + swatch + labelGap, 'Con nuôi'),
+    label(adoptedX + swatch + labelGap, LEGEND_LAST_LABEL),
   );
   return items;
 };

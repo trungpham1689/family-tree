@@ -28,7 +28,7 @@ const FIELD_GROUPS: readonly FieldGroup[] = [
     format: (p) => describeDate(storedBirth(p)) ?? '',
   },
   { label: 'Nơi sinh', keys: ['birth_place'], format: text('birth_place') },
-  { label: 'Quê quán', keys: ['hometown'], format: text('hometown') },
+  { label: 'Nguyên quán', keys: ['hometown'], format: text('hometown') },
   { label: 'Nơi ở', keys: ['residence'], format: text('residence') },
   { label: 'Nghề nghiệp', keys: ['occupation'], format: text('occupation') },
   { label: 'Học vấn', keys: ['education'], format: text('education') },

@@ -19,7 +19,7 @@ export const ProfileInfo = ({ person, graph }: { person: Person; graph: FamilyGr
     ['Ngày sinh', describeDate(storedBirth(person))],
     ['Tuổi', alive !== null ? `${alive} tuổi` : null],
     ['Nơi sinh', person.birth_place],
-    ['Quê quán', person.hometown],
+    ['Nguyên quán', person.hometown],
     ['Nơi ở', person.residence],
     ['Nghề nghiệp', person.occupation],
     ['Học vấn', person.education],

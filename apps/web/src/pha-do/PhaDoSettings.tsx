@@ -22,6 +22,7 @@ import { DEFAULT_DECORATION, defaultTitle, FRAME_LABELS, layoutDecoration, type 
 import { DEFAULT_MEMBER_COLORS } from './render';
 import { drawingToSvg } from './svg';
 import { Select, TextField } from '../ui/fields';
+import { onTabKeyDown } from '../ui/tab-keys';
 
 /** Ba nhóm thiết lập của thanh bên: mỗi lúc chỉ hiện một nhóm để thanh bên ngắn gọn. */
 export type SettingsTab = 'content' | 'decoration' | 'paper';
@@ -33,7 +34,12 @@ const TABS: { id: SettingsTab; label: string; icon: string }[] = [
 ];
 
 export const SettingsTabs = ({ tab, onChange }: { tab: SettingsTab; onChange: (tab: SettingsTab) => void }) => (
-  <div role="tablist" aria-label="Nhóm thiết lập" className="flex border-b border-line bg-paper/60">
+  <div
+    role="tablist"
+    aria-label="Nhóm thiết lập"
+    className="flex border-b border-line bg-paper/60"
+    onKeyDown={(event) => onTabKeyDown(event, TABS.map((item) => item.id), tab, onChange, (id) => `pha-do-tab-${id}`)}
+  >
     {TABS.map((item) => {
       const on = tab === item.id;
       return (
@@ -43,6 +49,7 @@ export const SettingsTabs = ({ tab, onChange }: { tab: SettingsTab; onChange: (t
           role="tab"
           id={`pha-do-tab-${item.id}`}
           aria-selected={on}
+          tabIndex={on ? 0 : -1}
           aria-controls="pha-do-panel"
           onClick={() => onChange(item.id)}
           className={`flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2 text-sm ${
@@ -59,12 +66,24 @@ export const SettingsTabs = ({ tab, onChange }: { tab: SettingsTab; onChange: (t
   </div>
 );
 
-const SectionLabel = ({ children, aside }: { children: ReactNode; aside?: ReactNode }) => (
-  <p className="mb-2 flex items-baseline justify-between gap-2 text-xs font-bold uppercase tracking-wider text-ink-muted">
-    <span>{children}</span>
-    {aside && <span className="font-medium normal-case tracking-normal">{aside}</span>}
-  </p>
-);
+const SECTION_LABEL_CLASS = 'mb-2 flex items-baseline justify-between gap-2 text-xs font-bold uppercase tracking-wider text-ink-muted';
+
+/** Nhãn nhóm thiết lập; truyền `htmlFor` thì là <label> của ô nhập tương ứng (không lồng <p> trong <label>). */
+const SectionLabel = ({ children, aside, htmlFor }: { children: ReactNode; aside?: ReactNode; htmlFor?: string }) => {
+  const content = (
+    <>
+      <span>{children}</span>
+      {aside && <span className="font-medium normal-case tracking-normal">{aside}</span>}
+    </>
+  );
+  return htmlFor ? (
+    <label htmlFor={htmlFor} className={SECTION_LABEL_CLASS}>
+      {content}
+    </label>
+  ) : (
+    <p className={SECTION_LABEL_CLASS}>{content}</p>
+  );
+};
 
 const Note = ({ children }: { children: ReactNode }) => <p className="mt-2 text-sm text-ink-muted">{children}</p>;
 
@@ -439,9 +458,7 @@ export const ContentSettings = ({
       <ScopeSettings graph={graph} config={config} onChange={onChange} />
 
       <section>
-        <label htmlFor="pha-do-outside">
-          <SectionLabel>Cháu ngoại</SectionLabel>
-        </label>
+        <SectionLabel htmlFor="pha-do-outside">Cháu ngoại</SectionLabel>
         <Select
           id="pha-do-outside"
           className="w-full"

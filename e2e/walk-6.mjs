@@ -58,6 +58,19 @@ await step('thanh bên: 3 tab, thanh xuất luôn hiện, mỗi lúc một nhóm
   }
 });
 
+await step('thanh bên: mũi tên chuyển tab, chỉ tab đang chọn nằm trong thứ tự Tab', async () => {
+  await tab('Nội dung');
+  await page.getByRole('tab', { name: 'Nội dung' }).focus();
+  await page.keyboard.press('ArrowRight');
+  assert((await page.getByRole('tab', { name: 'Trang trí' }).getAttribute('aria-selected')) === 'true', 'ArrowRight không chuyển sang Trang trí');
+  assert((await page.getByRole('tab', { name: 'Trang trí' }).evaluate((el) => document.activeElement === el)) === true, 'tiêu điểm không theo tab mới');
+  assert((await page.getByRole('tab', { name: 'Nội dung' }).getAttribute('tabindex')) === '-1', 'tab không chọn vẫn nằm trong thứ tự Tab');
+  await page.keyboard.press('End');
+  assert((await page.getByRole('tab', { name: 'Khổ giấy & chữ' }).getAttribute('aria-selected')) === 'true', 'End không về tab cuối');
+  await page.keyboard.press('ArrowRight');
+  assert((await page.getByRole('tab', { name: 'Nội dung' }).getAttribute('aria-selected')) === 'true', 'ArrowRight không quay vòng');
+});
+
 await step('mở Phả đồ: khổ A1, cỡ chữ ô mặc định là số đang hiện; chọn Tự nhập bắt đầu từ khổ đang dùng', async () => {
   await tab('Khổ giấy & chữ');
   // Cây 4 người trên A1 ngang: chữ chạm trần 28 pt = 37,33 px; cỡ chữ mặc định là số đang hiện, làm tròn xuống.
@@ -140,7 +153,7 @@ await step('chọn khổ A1 cố định: đổi nội dung thì khổ giữ ngu
 await step('Nội dung: tối đa 2 dòng chữ, chip còn lại mờ đi', async () => {
   await page.getByRole('button', { name: 'Ngày giỗ' }).click();
   await page.getByRole('button', { name: 'Đời', exact: true }).click();
-  assert(await page.getByRole('button', { name: 'Quê quán' }).isDisabled(), 'chip thứ 3 vẫn bấm được');
+  assert(await page.getByRole('button', { name: 'Nguyên quán' }).isDisabled(), 'chip thứ 3 vẫn bấm được');
   await page.getByRole('button', { name: 'Ngày giỗ' }).click();
   await page.getByRole('button', { name: 'Đời', exact: true }).click();
 });

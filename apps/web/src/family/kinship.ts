@@ -38,8 +38,8 @@ const UP_NAMES = ['', '', '', 'Cụ', 'Kỵ'];
 const DOWN_NAMES = ['', '', 'Cháu', 'Chắt', 'Chút'];
 
 /** "Cha"/"Mẹ", "Ông nội"/"Bà ngoại", "Cụ"… — `target` là tổ tiên cách `generations` đời. */
-const lineageTermUp = (generations: number, targetGender: string | null, side: Side): string => {
-  if (generations === 1) return targetGender === 'nam' ? 'Cha' : targetGender === 'nu' ? 'Mẹ' : 'Cha/Mẹ';
+export const lineageTermUp = (generations: number, targetGender: string | null, side: Side, fatherWord = 'Cha'): string => {
+  if (generations === 1) return targetGender === 'nam' ? fatherWord : targetGender === 'nu' ? 'Mẹ' : `${fatherWord}/Mẹ`;
   if (generations === 2) {
     const grand = targetGender === 'nam' ? 'Ông' : targetGender === 'nu' ? 'Bà' : 'Ông/Bà';
     return side ? `${grand} ${side === 'nam' ? 'nội' : 'ngoại'}` : grand;

@@ -18,6 +18,23 @@ const base: RawRow[] = [
   { code: 'C', fullName: 'Phạm Văn Con', gender: 'Nam', fatherCode: 'T' },
 ];
 
+describe('mô-đun Excel: cột Nguyên quán', () => {
+  const read = (hometownHeader: string) => {
+    const headers = HEADERS.map((header) => (header === 'Nguyên quán' ? hometownHeader : header));
+    const rows: CellValue[][] = [headers, ...[{ code: 'T', fullName: 'Phạm Văn Tổ', gender: 'Nam', hometown: 'Làng Đông' }].map((row) => COLUMNS.map((column) => (row as RawRow)[column.key] ?? null))];
+    return buildImportPreview(rows);
+  };
+
+  it('tiêu đề cột là Nguyên quán; file cũ ghi "Quê quán" vẫn đọc được', () => {
+    expect(HEADERS).toContain('Nguyên quán');
+    for (const header of ['Nguyên quán', 'Quê quán', 'QUE QUAN']) {
+      const result = read(header);
+      expect(result.errors).toEqual([]);
+      expect(JSON.stringify(result)).toContain('Làng Đông');
+    }
+  });
+});
+
 describe('mô-đun Excel: file mẫu', () => {
   it('file mẫu có sheet dữ liệu và sheet hướng dẫn; đọc lại ra đúng gia phả ví dụ', async () => {
     const buffer = await writeXlsxFile(templateSheets()).toBuffer();

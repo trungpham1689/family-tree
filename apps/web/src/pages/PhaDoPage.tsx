@@ -1,5 +1,5 @@
 import { canEditTree } from '../data/permissions';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import {
   useFamily,
@@ -12,7 +12,7 @@ import type { Person, TreeWithRole } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
 import { FONT_FAMILY_CSS, hasStoredMemberFont, readPhaDoConfig, type PhaDoConfig } from '../pha-do/config';
 import { DESKTOP_LIMITS, IOS_LIMITS, isAppleMobile, planPng } from '../pha-do/png';
-import { autoMemberFontPx, fitPaperToFont } from '../pha-do/auto-fit';
+import { autoMemberFontPx, fitPaperToFont, refitTiming } from '../pha-do/auto-fit';
 import { renderPhaDo } from '../pha-do/render';
 import { drawingToSvg } from '../pha-do/svg';
 import { TreeTabs } from '../tree/TreeTabs';
@@ -99,17 +99,33 @@ const PhaDoDesigner = ({
     next.autoPaper
       ? fitPaperToFont(graph, next, tree.name, avatars.data)
       : { ...next, memberFontPx: autoMemberFontPx(graph, next, tree.name, avatars.data) };
-  const update = (patch: Partial<PhaDoConfig>) => setConfig((current) => refit({ ...current, ...patch }));
+  // Gõ chữ trang trí từng phím: hiện chữ ngay, chờ ngừng gõ rồi mới co giãn lại (tính khổ giấy khá tốn với cây lớn).
+  const latest = useRef({ config, refit });
+  useEffect(() => {
+    latest.current = { config, refit };
+  });
+  const refitTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(refitTimer.current), []);
+  const update = (patch: Partial<PhaDoConfig>) => {
+    const next = { ...config, ...patch };
+    window.clearTimeout(refitTimer.current);
+    const timing = refitTiming(config, patch);
+    if (timing === 'now') return setConfig(refit(next));
+    setConfig(next);
+    if (timing === 'later') {
+      refitTimer.current = window.setTimeout(() => setConfig(latest.current.refit(latest.current.config)), 300);
+    }
+  };
   /** Người dùng chọn khổ giấy/kích thước cụ thể: giữ khổ đó, cỡ chữ tự chỉnh theo. */
-  const updatePaper = (patch: Partial<PhaDoConfig>) => setConfig((current) => refit({ ...current, ...patch, autoPaper: false }));
+  const updatePaper = (patch: Partial<PhaDoConfig>) => setConfig(refit({ ...config, ...patch, autoPaper: false }));
 
   const changeMemberFont = (memberFontPx: number) =>
-    setConfig((current) => fitPaperToFont(graph, { ...current, memberFontPx, autoPaper: true }, tree.name, avatars.data));
+    setConfig(fitPaperToFont(graph, { ...config, memberFontPx, autoPaper: true }, tree.name, avatars.data));
 
   const exportPdf = () => runExport('pha-do-pdf', { drawing: result.drawing, fontFamily: config.fontFamily });
   const exportPng = () => runExport('pha-do-png', { drawing: result.drawing, fontFamily: config.fontFamily, plan: pngPlan });
 
-  const setAuto = () => setConfig((current) => fitPaperToFont(graph, { ...current, autoPaper: true }, tree.name, avatars.data));
+  const setAuto = () => setConfig(fitPaperToFont(graph, { ...config, autoPaper: true }, tree.name, avatars.data));
   const namePx = result.personCount > 0 ? result.namePx : null;
 
   return (

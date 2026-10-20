@@ -8,6 +8,7 @@ import { PersonPicker } from '../people/PersonPicker';
 import { personLabel } from '../people/person-label';
 import { TreePageShell } from '../tree/TreePageShell';
 import { Button } from '../ui/Button';
+import { onTabKeyDown } from '../ui/tab-keys';
 
 /** Tra cứu: xưng hô giữa hai Người, và trùng tên khi đặt tên cho Bé. */
 export const KinshipPage = () => {
@@ -16,24 +17,31 @@ export const KinshipPage = () => {
 };
 
 type LookupTab = 'kinship' | 'naming';
+const LOOKUP_TABS: readonly (readonly [LookupTab, string])[] = [
+  ['kinship', 'Quan hệ, xưng hô'],
+  ['naming', 'Đặt tên cho Bé'],
+];
 
 const LookupBody = ({ treeId, graph }: { treeId: string; graph: FamilyGraph<Person> }) => {
   const [tab, setTab] = useState<LookupTab>('kinship');
   return (
     <>
       <h1 className="font-serif text-3xl font-bold text-son">Tra cứu</h1>
-      <div role="tablist" aria-label="Loại tra cứu" className="mt-4 flex gap-1 rounded-xl bg-line/50 p-1">
-        {(
-          [
-            ['kinship', 'Quan hệ, xưng hô'],
-            ['naming', 'Đặt tên cho Bé'],
-          ] as const
-        ).map(([id, label]) => (
+      <div
+        role="tablist"
+        aria-label="Loại tra cứu"
+        className="mt-4 flex gap-1 rounded-xl bg-line/50 p-1"
+        onKeyDown={(event) => onTabKeyDown(event, LOOKUP_TABS.map(([id]) => id), tab, setTab, (id) => `lookup-tab-${id}`)}
+      >
+        {LOOKUP_TABS.map(([id, label]) => (
           <button
             key={id}
             type="button"
             role="tab"
+            id={`lookup-tab-${id}`}
             aria-selected={tab === id}
+            aria-controls="lookup-panel"
+            tabIndex={tab === id ? 0 : -1}
             onClick={() => setTab(id)}
             className={`min-h-11 flex-1 rounded-lg px-3 ${tab === id ? 'bg-surface font-bold text-son shadow-sm' : 'font-medium hover:bg-surface/60'}`}
           >
@@ -41,7 +49,9 @@ const LookupBody = ({ treeId, graph }: { treeId: string; graph: FamilyGraph<Pers
           </button>
         ))}
       </div>
-      <div className="mt-6">{tab === 'kinship' ? <KinshipBody graph={graph} /> : <NameCheckPanel treeId={treeId} graph={graph} />}</div>
+      <div role="tabpanel" id="lookup-panel" aria-labelledby={`lookup-tab-${tab}`} className="mt-6">
+        {tab === 'kinship' ? <KinshipBody graph={graph} /> : <NameCheckPanel treeId={treeId} graph={graph} />}
+      </div>
     </>
   );
 };

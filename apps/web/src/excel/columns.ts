@@ -42,7 +42,7 @@ export const COLUMNS = [
   },
   { key: 'birthCalendar', header: 'Lịch ngày sinh', guide: 'Dương, Âm, hoặc Âm nhuận (tháng nhuận). Để trống là Dương.' },
   { key: 'birthPlace', header: 'Nơi sinh', guide: '' },
-  { key: 'hometown', header: 'Quê quán', guide: '' },
+  { key: 'hometown', header: 'Nguyên quán', guide: '' },
   { key: 'residence', header: 'Nơi ở', guide: '' },
   { key: 'occupation', header: 'Nghề nghiệp', guide: '' },
   { key: 'education', header: 'Học vấn', guide: '' },
@@ -66,6 +66,9 @@ export const COLUMNS = [
   { key: 'hiddenFromPublic', header: 'Ẩn khỏi link công khai', guide: 'Có hoặc để trống. Người này không hiện trên link chia sẻ công khai.' },
   { key: 'foundsBranch', header: 'Lập chi mới', guide: 'Có hoặc để trống. Đánh dấu người này là tổ của một chi.' },
 ] as const;
+
+/** Tiêu đề cũ vẫn đọc được khi nhập file Excel đã tải từ trước. */
+export const HEADER_ALIASES: readonly (readonly [string, 'hometown'])[] = [['Quê quán', 'hometown']];
 
 export type ColumnKey = (typeof COLUMNS)[number]['key'];
 

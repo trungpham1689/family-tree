@@ -1,9 +1,9 @@
 import type { Person } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
-import { CUSTOM_CM_MAX, CUSTOM_CM_MIN, FONT_PX_MAX, FONT_PX_MIN, type PhaDoConfig } from './config';
+import { CUSTOM_CM_MAX, CUSTOM_CM_MIN, FONT_PX_MAX, MEMBER_FONT_PX_MIN, type PhaDoConfig } from './config';
 import { layoutDecoration } from './decoration';
 import { MM_PER_PX } from './drawing';
-import { LAYOUT_NAME_SIZE, legendHeightMm, renderPhaDo, scopeRoot, treeLayout } from './render';
+import { LAYOUT_NAME_SIZE, legendHeightMm, legendWidthMm, renderPhaDo, scopeRoot, treeLayout } from './render';
 
 /** Cỡ chữ tên tối đa trước đây (28 pt ≈ 37 px), dùng làm trần khi tự suy cỡ chữ cho một khổ giấy cố định. */
 const LEGACY_MAX_NAME_PX = 28 / 0.75;
@@ -19,18 +19,21 @@ export const autoMemberFontPx = (
   avatarUrls?: ReadonlyMap<string, string>,
 ): number => {
   const { namePx, personCount } = renderPhaDo(graph, { ...config, memberFontPx: LEGACY_MAX_NAME_PX }, treeName, avatarUrls);
-  return personCount === 0 ? config.memberFontPx : Math.min(FONT_PX_MAX, Math.max(FONT_PX_MIN, Math.floor(namePx)));
+  if (personCount === 0) return config.memberFontPx;
+  // Nhỏ hơn 4 px (cây rất đông) thì giữ một chữ số thập phân để số hiện ra đúng với chữ đang vẽ, không nâng lên mức không chứa nổi.
+  const fit = namePx >= 4 ? Math.floor(namePx) : Math.floor(namePx * 10) / 10;
+  return Math.min(FONT_PX_MAX, Math.max(MEMBER_FONT_PX_MIN, fit));
 };
 
 const REF_SHORT_MM = 1000;
-/** Tỉ lệ cạnh dài / cạnh ngắn được thử: vuông đến 4:1. */
-const ASPECTS = Array.from({ length: 151 }, (_, index) => 1 + index * 0.02);
+/** Tỉ lệ cạnh dài / cạnh ngắn được thử: vuông đến 4:1, quét thô rồi quét mịn quanh tỉ lệ tốt nhất (ít lần dựng khung hơn quét mịn cả khoảng). */
+const COARSE_ASPECTS = Array.from({ length: 31 }, (_, index) => 1 + index * 0.1);
+const FINE_STEP = 0.02;
+const FINE_SPAN = 0.1;
 /** Quá 2:1 thành dải băng khó in, khó treo nên bị phạt nặng; chỉ được chọn khi tiêu đề/câu đối dài không còn cách nào khác. */
 const WIDE_ASPECT = 2;
 const WIDE_PENALTY = 3;
 const IDEAL_ASPECT = Math.SQRT2;
-/** Chú giải (Nam/Nữ/…) rộng khoảng 180 mm trên khổ A1 (cạnh ngắn 594 mm); vùng cây phải rộng hơn thế. */
-const LEGEND_WIDTH_RATIO = 180 / 594;
 
 const roundUpCm = (mm: number) => Math.ceil(mm / 10 * 10 - 1e-9) / 10;
 
@@ -54,18 +57,32 @@ export const fitPaperToFont = (
   const treeHeight = layout.height * mmPerUnit;
   const landscape = config.orientation === 'landscape';
 
-  let best: { cost: number; fit: number; aspect: number; shortMm: number } | null = null;
-  for (const aspect of ASPECTS) {
+  type Candidate = { cost: number; fit: number; aspect: number; shortMm: number };
+  const evaluate = (aspect: number): Candidate | null => {
     const page = landscape ? { width: aspect * REF_SHORT_MM, height: REF_SHORT_MM } : { width: REF_SHORT_MM, height: aspect * REF_SHORT_MM };
     const deco = layoutDecoration(page, config.decoration, treeName);
     const width = deco.content.width;
     const height = deco.content.height - legendHeightMm(page);
-    if (width <= LEGEND_WIDTH_RATIO * REF_SHORT_MM || height <= 0) continue;
+    if (width <= legendWidthMm(page) || height <= 0) return null;
     const shortMm = REF_SHORT_MM * Math.max(treeWidth / width, treeHeight / height);
     const cost = aspect * shortMm * shortMm * (1 + 0.03 * Math.abs(Math.log(aspect / IDEAL_ASPECT))) * (aspect > WIDE_ASPECT ? WIDE_PENALTY : 1);
-    // Ưu tiên tỉ lệ không chữ trang trí nào bị co; nếu không tỉ lệ nào được thì chọn tỉ lệ co ít nhất.
-    const better = !best || (deco.fit >= 0.999 ? best.fit < 0.999 || cost < best.cost : best.fit < 0.999 && deco.fit > best.fit);
-    if (better) best = { cost, fit: deco.fit, aspect, shortMm };
+    return { cost, fit: deco.fit, aspect, shortMm };
+  };
+  // Ưu tiên tỉ lệ không chữ trang trí nào bị co; nếu không tỉ lệ nào được thì chọn tỉ lệ co ít nhất.
+  const isBetter = (candidate: Candidate, current: Candidate | null) =>
+    !current || (candidate.fit >= 0.999 ? current.fit < 0.999 || candidate.cost < current.cost : current.fit < 0.999 && candidate.fit > current.fit);
+
+  let best: Candidate | null = null;
+  for (const aspect of COARSE_ASPECTS) {
+    const candidate = evaluate(aspect);
+    if (candidate && isBetter(candidate, best)) best = candidate;
+  }
+  if (best) {
+    const center = best.aspect;
+    for (let aspect = Math.max(1, center - FINE_SPAN); aspect <= Math.min(4, center + FINE_SPAN) + 1e-9; aspect += FINE_STEP) {
+      const candidate = evaluate(aspect);
+      if (candidate && isBetter(candidate, best)) best = candidate;
+    }
   }
   if (!best) return config;
 
@@ -91,4 +108,22 @@ export const fitPaperToFont = (
     result = next;
   }
   return result;
+};
+
+/**
+ * Một thay đổi cấu hình cần co giãn lại khi nào:
+ * - `none`: không đụng tới bố cục (màu ô, phông chữ);
+ * - `later`: chỉ đổi chữ tiêu đề/phụ đề/câu đối (gõ từng phím), chờ gõ xong mới tính lại;
+ * - `now`: mọi thay đổi khác.
+ */
+export const refitTiming = (config: PhaDoConfig, patch: Partial<PhaDoConfig>): 'none' | 'later' | 'now' => {
+  const keys = Object.keys(patch) as (keyof PhaDoConfig)[];
+  if (keys.every((key) => key === 'memberTextColor' || key === 'memberFillColor' || key === 'fontFamily')) return 'none';
+  const next = patch.decoration;
+  if (keys.length === 1 && next) {
+    // Chỉ khác ở các chữ (không khác khung, cỡ chữ): so các trường còn lại.
+    const sameLayout = (['frame', 'titleSize', 'subtitleSize', 'coupletSize'] as const).every((key) => next[key] === config.decoration[key]);
+    if (sameLayout) return 'later';
+  }
+  return 'now';
 };

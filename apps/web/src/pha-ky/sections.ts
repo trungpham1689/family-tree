@@ -1,7 +1,7 @@
 import type { TreeEvent } from '../data/calendar';
 import { describeEvent } from '../events/event-form';
 import { anniversaryText } from '../people/person-display';
-import type { BranchSummary, NotablePerson, OriginSummary } from './narrative';
+import { cleanFreeText, type BranchSummary, type NotablePerson, type OriginSummary } from './narrative';
 
 /**
  * Các khối trước phần theo Đời của Phả ký, dựng một lần dưới dạng dữ liệu: trang web vẽ chúng bằng JSX, file PDF
@@ -59,6 +59,7 @@ export const buildFrontSections = (input: {
   const sections: PhaKySection[] = [];
   if (description) sections.push({ kind: 'intro', heading: 'Lời mở đầu', text: description });
   if (origin?.progenitorName && origin.progenitorId) {
+    const hometown = cleanFreeText(origin.hometown);
     const anniversary = anniversaryText({ day: origin.anniversaryDay, month: origin.anniversaryMonth }, today);
     const facts = [
       ...(anniversary ? [{ label: 'Giỗ Thuỷ tổ', value: anniversary }] : []),
@@ -73,7 +74,7 @@ export const buildFrontSections = (input: {
       progenitorId: origin.progenitorId,
       progenitorName: origin.progenitorName,
       before: 'Dòng họ tôn ',
-      after: ` làm Thuỷ tổ — người đời đầu tiên còn ghi lại được.${origin.hometown?.trim().replace(/[\s.,;:]+$/u, '') ? ` Nguyên quán: ${origin.hometown.trim().replace(/[\s.,;:]+$/u, '')}.` : ''}`,
+      after: ` làm Thuỷ tổ — người đời đầu tiên còn ghi lại được.${hometown ? ` Nguyên quán: ${hometown}.` : ''}`,
       facts,
     });
   }

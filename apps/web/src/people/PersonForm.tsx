@@ -195,7 +195,7 @@ export const PersonForm = ({
           <section className="space-y-4">
             <h3 className="font-serif text-lg font-bold">Đời sống</h3>
             {field('birthPlace', 'Nơi sinh')}
-            {field('hometown', 'Quê quán')}
+            {field('hometown', 'Nguyên quán')}
             {field('residence', 'Nơi ở')}
             {field('occupation', 'Nghề nghiệp')}
             {field('education', 'Học vấn')}

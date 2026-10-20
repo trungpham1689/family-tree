@@ -22,7 +22,7 @@ export type ExtraLine = 'gio' | 'doi' | 'que';
 export const EXTRA_LINE_LABELS: Record<ExtraLine, string> = {
   gio: 'Ngày giỗ',
   doi: 'Đời',
-  que: 'Quê quán',
+  que: 'Nguyên quán',
 };
 
 /** Vài phông đã nạp sẵn cho cả trang (Google Fonts trong index.html) hoặc phông hệ thống — không cần cài thêm. */
@@ -77,6 +77,8 @@ export type PhaDoConfig = {
 /** Khoảng cỡ chữ cho phép ở mọi ô nhập cỡ chữ. */
 export const FONT_PX_MIN = 4;
 export const FONT_PX_MAX = 300;
+/** Cỡ chữ ô tự suy cho một khổ cố định có thể nhỏ hơn FONT_PX_MIN khi cây rất đông; vẫn đọc lại được từ cấu hình đã lưu. */
+export const MEMBER_FONT_PX_MIN = 1;
 
 /** Khoảng kích thước khổ tự nhập (cm). */
 export const CUSTOM_CM_MIN = 10;
@@ -160,7 +162,7 @@ export const readPhaDoConfig = (stored: unknown, outsideGenerations: number): Ph
       ? [...new Set(stored.extraLines.filter((line): line is ExtraLine => EXTRA_LINES.includes(line as ExtraLine)))].slice(0, 2)
       : [],
     showAvatars: stored.showAvatars === true,
-    memberFontPx: number(stored.memberFontPx, FONT_PX_MIN, FONT_PX_MAX, fallback.memberFontPx),
+    memberFontPx: number(stored.memberFontPx, MEMBER_FONT_PX_MIN, FONT_PX_MAX, fallback.memberFontPx),
     fontFamily:
       stored.fontFamily === 'noto-serif' || stored.fontFamily === 'be-vietnam-pro' || stored.fontFamily === 'system'
         ? stored.fontFamily

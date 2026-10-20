@@ -149,3 +149,43 @@ describe('quan hệ với bé: khi chưa rõ mẹ', () => {
     expect(babyRelation(graph, { fatherId: null, motherId: null }, 'ca')).toBeNull();
   });
 });
+
+describe('quan hệ với bé: họ hàng khác nhánh không so Thứ tự con', () => {
+  it('thiếu năm sinh: chú/bác họ ra "Bác/Chú họ" dù Thứ tự con của hai bên đối nghịch', () => {
+    const p = (id: string, gender: 'nam' | 'nu', order: number | null) => blankPerson({ id, full_name: id, gender, birth_year: null, birth_order: order });
+    // cu ─ ong ─ (cha, bac) ; cu ─ ong2 ─ x : x là anh em họ của cha (khác nhánh), cha sinh sau (Thứ tự 3) còn x Thứ tự 1.
+    const g = buildFamilyGraph({
+      persons: [p('cu', 'nam', null), p('ong', 'nam', 1), p('ong2', 'nam', 2), p('cha', 'nam', 3), p('bac', 'nam', 1), p('x', 'nam', 1)],
+      parentLinks: [
+        { child_id: 'ong', parent_id: 'cu', kind: 'ruot' },
+        { child_id: 'ong2', parent_id: 'cu', kind: 'ruot' },
+        { child_id: 'cha', parent_id: 'ong', kind: 'ruot' },
+        { child_id: 'bac', parent_id: 'ong', kind: 'ruot' },
+        { child_id: 'x', parent_id: 'ong2', kind: 'ruot' },
+      ],
+      unions: [],
+      positions: [],
+    });
+    expect(babyRelation(g, { fatherId: 'cha', motherId: null }, 'x')!.term).toBe('Bác/Chú họ');
+    // anh em ruột của cha vẫn so Thứ tự con.
+    expect(babyRelation(g, { fatherId: 'cha', motherId: null }, 'bac')!.term).toBe('Bác ruột');
+  });
+
+  it('có năm sinh thì phân biệt bác họ và chú họ', () => {
+    const p = (id: string, gender: 'nam' | 'nu', year: number | null) => blankPerson({ id, full_name: id, gender, birth_year: year });
+    const g = buildFamilyGraph({
+      persons: [p('cu', 'nam', 1890), p('ong', 'nam', 1920), p('ong2', 'nam', 1922), p('cha', 'nam', 1950), p('x', 'nam', 1945), p('y', 'nam', 1955)],
+      parentLinks: [
+        { child_id: 'ong', parent_id: 'cu', kind: 'ruot' },
+        { child_id: 'ong2', parent_id: 'cu', kind: 'ruot' },
+        { child_id: 'cha', parent_id: 'ong', kind: 'ruot' },
+        { child_id: 'x', parent_id: 'ong2', kind: 'ruot' },
+        { child_id: 'y', parent_id: 'ong2', kind: 'ruot' },
+      ],
+      unions: [],
+      positions: [],
+    });
+    expect(babyRelation(g, { fatherId: 'cha', motherId: null }, 'x')!.term).toBe('Bác họ');
+    expect(babyRelation(g, { fatherId: 'cha', motherId: null }, 'y')!.term).toBe('Chú họ');
+  });
+});

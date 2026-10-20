@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Person } from '../data/trees';
 import { blankPerson } from '../test-support/person';
 import { buildFamilyGraph } from '../family/family-graph';
+import type { NarrativeItem } from './narrative';
 import { branchSummaries, buildNarrative, closingNote, notablePersons, originSummary } from './narrative';
 
 const sample = () =>
@@ -52,6 +53,10 @@ const sample = () =>
     ],
   });
 
+/** Tiêu đề + các dòng mô tả nối thành một đoạn văn, như đọc liền. */
+const textOf = (item: NarrativeItem) => [`${item.name}${item.lifespan ? ` (${item.lifespan})` : ''}.`, ...item.lines].join(' ');
+const detailOf = (item: NarrativeItem) => item.lines.join(' ');
+
 describe('buildNarrative', () => {
   it('nhóm theo Đời, đúng thứ tự', () => {
     const generations = buildNarrative(sample());
@@ -61,7 +66,7 @@ describe('buildNarrative', () => {
 
   it('Thuỷ tổ: lifespan, câu Thuỷ tổ, hưởng thọ', () => {
     const generations = buildNarrative(sample());
-    const text = generations[0]!.items.find((i) => i.personId === 'to')!.text;
+    const text = textOf(generations[0]!.items.find((i) => i.personId === 'to')!);
     expect(text).toContain('Nguyễn Văn Tổ (1850 – 1920).');
     expect(text).toContain('Thuỷ tổ của dòng họ');
     expect(text).toContain('hưởng thọ 71 tuổi');
@@ -70,7 +75,7 @@ describe('buildNarrative', () => {
 
   it('con: thứ tự con, cha mẹ, chức tước, vai vế, học vấn, nơi ở, nghề nghiệp, tiểu sử', () => {
     const generations = buildNarrative(sample());
-    const text = generations[1]!.items[0]!.text;
+    const text = textOf(generations[1]!.items[0]!);
     expect(text).toContain('Con trưởng.');
     expect(text).toContain('Con của Nguyễn Văn Tổ và Trần Thị Hoa.');
     expect(text).toContain('Liệt sĩ chống Pháp.');
@@ -83,7 +88,7 @@ describe('buildNarrative', () => {
 
   it('Thuỷ tổ: quê quán, mộ tổ, nơi thờ', () => {
     const generations = buildNarrative(sample());
-    const text = generations[0]!.items.find((i) => i.personId === 'to')!.text;
+    const text = textOf(generations[0]!.items.find((i) => i.personId === 'to')!);
     expect(text).toContain('Nguyên quán: Làng Đông, Thái Bình.');
     expect(text).toContain('An táng tại Nghĩa trang dòng họ.');
     expect(text).toContain('Thờ phụng tại Nhà thờ họ Nguyễn.');
@@ -91,18 +96,18 @@ describe('buildNarrative', () => {
 });
 
 describe('mục hồ sơ có nhãn riêng, không dính chùm', () => {
-  const detailOf = (fields: Partial<Person>) => {
+  const detailFor = (fields: Partial<Person>) => {
     const graph = buildFamilyGraph({
       persons: [blankPerson({ ...fields, id: 'p', full_name: 'Phạm Tổ', gender: 'nam', is_progenitor: true })],
       parentLinks: [],
       unions: [],
       positions: [{ person_id: 'p', generation: 1, branch_id: null, kind: 'thuy_to' }],
     });
-    return buildNarrative(graph)[0]!.items[0]!.detail;
+    return detailOf(buildNarrative(graph)[0]!.items[0]!);
   };
 
   it('Nguyên quán và Sinh sống tại là hai câu riêng, mỗi câu có nhãn', () => {
-    const detail = detailOf({ hometown: 'Làng Đông, Thái Bình', residence: 'Hà Nội' });
+    const detail = detailFor({ hometown: 'Làng Đông, Thái Bình', residence: 'Hà Nội' });
     expect(detail).toContain('Nguyên quán: Làng Đông, Thái Bình. Sinh sống tại Hà Nội.');
   });
 
@@ -120,31 +125,30 @@ describe('mục hồ sơ có nhãn riêng, không dính chùm', () => {
       'Sinh sống tại Hà Nội.',
       'Nghề nghiệp: Nông dân.',
     ]);
-    expect(item.lines.join(' ')).toBe(item.detail);
-  });
+      });
 
   it('chỉ có Nguyên quán thì không thêm Sinh sống tại; trùng nơi ở thì không lặp', () => {
-    expect(detailOf({ hometown: 'Làng Đông' })).toContain('Nguyên quán: Làng Đông.');
-    expect(detailOf({ hometown: 'Làng Đông' })).not.toContain('Sinh sống tại');
-    expect(detailOf({ hometown: 'Làng Đông', residence: ' làng Đông '.trim() })).toContain('Sinh sống tại làng Đông.');
-    expect(detailOf({ hometown: 'Làng Đông', residence: 'Làng Đông.' })).not.toContain('Sinh sống tại');
+    expect(detailFor({ hometown: 'Làng Đông' })).toContain('Nguyên quán: Làng Đông.');
+    expect(detailFor({ hometown: 'Làng Đông' })).not.toContain('Sinh sống tại');
+    expect(detailFor({ hometown: 'Làng Đông', residence: ' làng Đông '.trim() })).toContain('Sinh sống tại làng Đông.');
+    expect(detailFor({ hometown: 'Làng Đông', residence: 'Làng Đông.' })).not.toContain('Sinh sống tại');
   });
 
   it('chỉ có nơi ở thì không có nhãn Nguyên quán', () => {
-    const detail = detailOf({ residence: 'Hà Nội' });
+    const detail = detailFor({ residence: 'Hà Nội' });
     expect(detail).toContain('Sinh sống tại Hà Nội.');
     expect(detail).not.toContain('Nguyên quán');
   });
 
   it('dấu câu cuối do người dùng gõ không sinh ".." hay dính vào câu sau', () => {
-    const detail = detailOf({ hometown: 'Làng Đông.  ', residence: 'Hà Nội;', occupation: 'Nông dân,', title: 'Lý trưởng.', role_note: 'Trưởng chi 1' });
+    const detail = detailFor({ hometown: 'Làng Đông.  ', residence: 'Hà Nội;', occupation: 'Nông dân,', title: 'Lý trưởng.', role_note: 'Trưởng chi 1' });
     expect(detail).not.toMatch(/\.\.|[,;:]\./);
     expect(detail).toContain('Nguyên quán: Làng Đông. Sinh sống tại Hà Nội.');
     expect(detail).toContain('Chức vụ / danh hiệu: Lý trưởng. Vai vế: Trưởng chi 1. Nghề nghiệp: Nông dân.');
   });
 
   it('Nơi sinh, Tên tự / hiệu, nơi an táng và thờ phụng đều có nhãn và không bị bỏ sót', () => {
-    const detail = detailOf({ birth_place: 'Huế', courtesy_name: 'Văn Tổ', common_name: 'Cậu Tổ', is_deceased: true, burial_place: 'Nghĩa trang X.', worship_place: 'Từ đường' });
+    const detail = detailFor({ birth_place: 'Huế', courtesy_name: 'Văn Tổ', common_name: 'Cậu Tổ', is_deceased: true, burial_place: 'Nghĩa trang X.', worship_place: 'Từ đường' });
     expect(detail).toContain('Còn gọi là Cậu Tổ. Tên tự / hiệu: Văn Tổ.');
     expect(detail).toContain('Nơi sinh: Huế.');
     expect(detail).toContain('An táng tại Nghĩa trang X. Thờ phụng tại Từ đường.');
