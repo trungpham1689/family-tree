@@ -3,7 +3,13 @@ import { buildDigests, DIGEST_PERIOD_DAYS, isDigestDay } from './digest.ts';
 import { loadReminderData } from './fetch-data.ts';
 import { renderDigestHtml, renderDigestText } from './render-email.ts';
 import { resendSender } from './send.ts';
-import { todayInVietnam } from '@gia-pha/lunar';
+import { todayInVietnam, type SolarDate } from '@gia-pha/lunar';
+
+const parsePinnedDay = (text: string): SolarDate => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  if (!match) throw new Error(`DIGEST_TODAY phải có dạng YYYY-MM-DD, nhận được "${text}".`);
+  return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+};
 
 export interface Env {
   SUPABASE_URL: string;
@@ -11,6 +17,8 @@ export interface Env {
   RESEND_API_KEY: string;
   RESEND_FROM: string;
   APP_URL: string;
+  /** Chỉ để kiểm tra gửi mail: YYYY-MM-DD thay cho "hôm nay" và bỏ qua quy tắc ngày gửi. Không đặt trong production. */
+  DIGEST_TODAY?: string;
 }
 
 /**
@@ -21,8 +29,9 @@ export interface Env {
  */
 export default {
   async scheduled(_event: ScheduledEvent, env: Env): Promise<void> {
-    const today = todayInVietnam();
-    if (!isDigestDay(today)) return;
+    const pinned = env.DIGEST_TODAY ? parsePinnedDay(env.DIGEST_TODAY) : null;
+    const today = pinned ?? todayInVietnam();
+    if (!pinned && !isDigestDay(today)) return;
     const data = await withRetry(() => loadReminderData(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY), (ms) => new Promise((r) => setTimeout(r, ms)), 3);
 
     const report = await deliverDigests(buildDigests({ today, source: data.source, recipientsByTree: data.recipientsByTree }), {
