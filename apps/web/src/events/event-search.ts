@@ -1,5 +1,5 @@
 import { julianDay, type SolarDate } from '@gia-pha/lunar';
-import { occurrencesBetween, type CalendarSource, type Occurrence } from '@gia-pha/reminders';
+import { occurrencesBetween, type CalendarSource, type Occurrence, type OccurrenceKind } from '@gia-pha/reminders';
 import { normalizeName } from '../tree/tree-search';
 
 /** Khoảng tìm tối đa (năm): đủ xem lại cả đời người mà vẫn nhanh với sự kiện âm lịch hằng tháng. */
@@ -18,15 +18,26 @@ export const parseIsoDate = (iso: string): SolarDate | null => {
   return real.getUTCFullYear() === date.year && real.getUTCMonth() === date.month - 1 && real.getUTCDate() === date.day ? date : null;
 };
 
+/** Lọc theo loại: tất cả, hoặc một trong giỗ, sinh nhật, kỷ niệm cưới, sự kiện. */
+export type KindFilter = 'all' | OccurrenceKind;
+
+export const KIND_FILTER_LABELS: Record<KindFilter, string> = {
+  all: 'Tất cả',
+  su_kien: 'Sự kiện',
+  gio: 'Giỗ',
+  sinh_nhat: 'Sinh nhật',
+  cuoi: 'Kỷ niệm cưới',
+};
+
 export type EventSearch = { ok: true; occurrences: Occurrence[]; truncated: boolean } | { ok: false; error: string };
 
 /**
- * Các lần diễn ra của Sự kiện (không gồm giỗ, sinh nhật) trong khoảng [from, to] (ngày YYYY-MM-DD, gồm cả hai đầu),
- * lọc theo từ khoá trong tên (không phân biệt hoa thường, dấu), xếp theo ngày. Sự kiện lặp tính ra từng lần.
+ * Các lần diễn ra của giỗ, sinh nhật, kỷ niệm cưới và Sự kiện trong khoảng [from, to] (ngày YYYY-MM-DD, gồm cả hai đầu),
+ * lọc theo loại và từ khoá trong tên (không phân biệt hoa thường, dấu), xếp theo ngày. Sự kiện lặp tính ra từng lần.
  */
 export const searchEventOccurrences = (
-  source: Pick<CalendarSource, 'trees' | 'events'>,
-  input: { from: string; to: string; query: string },
+  source: CalendarSource,
+  input: { from: string; to: string; query: string; kind?: KindFilter },
 ): EventSearch => {
   const from = parseIsoDate(input.from);
   const to = parseIsoDate(input.to);
@@ -35,8 +46,9 @@ export const searchEventOccurrences = (
   if (to.year - from.year > MAX_SEARCH_YEARS) return { ok: false, error: `Chỉ tìm trong khoảng tối đa ${MAX_SEARCH_YEARS} năm.` };
 
   const needle = normalizeName(input.query);
-  const found = occurrencesBetween({ trees: source.trees, persons: [], events: source.events }, from, to).filter(
-    (occurrence) => occurrence.kind === 'su_kien' && (needle === '' || normalizeName(occurrence.title).includes(needle)),
+  const kind = input.kind ?? 'all';
+  const found = occurrencesBetween(source, from, to).filter(
+    (occurrence) => (kind === 'all' || occurrence.kind === kind) && (needle === '' || normalizeName(occurrence.title).includes(needle)),
   );
   return { ok: true, occurrences: found.slice(0, MAX_SEARCH_RESULTS), truncated: found.length > MAX_SEARCH_RESULTS };
 };

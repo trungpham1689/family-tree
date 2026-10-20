@@ -151,9 +151,9 @@ await step('thêm Sự kiện âm lịch hằng năm', async () => {
   await page.getByRole('button', { name: '+ Thêm sự kiện' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Tên sự kiện').fill('Họp họ đầu xuân');
-  await dialog.getByLabel('Ngày', { exact: true }).fill('10');
-  await dialog.getByLabel('Tháng', { exact: true }).fill('1');
-  await dialog.getByLabel('Từ năm', { exact: true }).fill('2024');
+  await dialog.getByLabel(/^Ngày\s*\*/).fill('10');
+  await dialog.getByLabel(/^Tháng\s*\*/).fill('1');
+  await dialog.getByLabel(/^Từ năm\s*\*/).fill('2024');
   await dialog.getByLabel('Giờ').fill('08:30');
   await dialog.getByLabel('Địa điểm').fill('Nhà thờ họ');
   await dialog.getByRole('button', { name: 'Lưu' }).click();
@@ -161,7 +161,7 @@ await step('thêm Sự kiện âm lịch hằng năm', async () => {
   await shot('25-events');
 });
 
-await step('Sự kiện một lần có mô tả, chủ trì, ảnh: hiện ở Quản lý sự kiện, Dòng thời gian và Phả ký; ảnh quá 5MB bị từ chối', async () => {
+await step('Sự kiện một lần có mô tả, chủ trì, ảnh: hiện ở trang Sự kiện, Dòng thời gian và Phả ký; ảnh quá 5MB bị từ chối', async () => {
   // Giả kho ảnh Drive (/api/photos): lưu thân yêu cầu trong bộ nhớ, trả lại khi đọc.
   const files = new Map();
   await page.route('**/api/photos**', async (route) => {
@@ -184,9 +184,9 @@ await step('Sự kiện một lần có mô tả, chủ trì, ảnh: hiện ở 
   await dialog.getByLabel('Tên sự kiện').fill('Khánh thành nhà thờ họ');
   await dialog.getByText('Dương lịch', { exact: true }).click();
   await dialog.getByText('Một lần', { exact: true }).click();
-  await dialog.getByLabel('Ngày', { exact: true }).fill('20');
-  await dialog.getByLabel('Tháng', { exact: true }).fill('12');
-  await dialog.getByLabel('Năm', { exact: true }).fill('2026');
+  await dialog.getByLabel(/^Ngày\s*\*/).fill('20');
+  await dialog.getByLabel(/^Tháng\s*\*/).fill('12');
+  await dialog.getByLabel(/^Năm\s*\*/).fill('2026');
   await dialog.getByLabel('Mô tả sự kiện').fill('Cả họ về dự lễ khánh thành.');
   await dialog.getByLabel('Tìm người chủ trì (tuỳ chọn)').fill('Tổ');
   await dialog.getByRole('button', { name: /Phạm Văn Tổ/ }).first().click();
@@ -224,19 +224,27 @@ await step('Sự kiện một lần có mô tả, chủ trì, ảnh: hiện ở 
 
   // Xem lại sự kiện cũ theo khoảng thời gian: gồm cả sự kiện hằng năm đã diễn ra nhiều lần từ năm bắt đầu.
   await page.goto(`${treeUrl}/su-kien`);
-  const panel = page.getByRole('region', { name: 'Xem lại và tìm sự kiện' });
+  const panel = page.getByRole('region', { name: 'Tìm sự kiện' });
   await panel.getByLabel('Từ ngày').fill('2024-01-01');
   await panel.getByLabel('Đến ngày').fill('2026-12-31');
   await panel.getByText('Khánh thành nhà thờ họ').waitFor();
   await panel.getByText(/Họp họ đầu xuân/).first().waitFor();
-  await panel.getByLabel('Tên sự kiện').fill('khanh thanh');
-  await panel.getByText('1 lần diễn ra').waitFor();
+  await panel.getByLabel('Tên', { exact: true }).fill('khanh thanh');
+  await panel.getByText('1 kết quả').waitFor();
   await panel.getByText('Họp họ đầu xuân').waitFor({ state: 'detached' });
   await panel.getByLabel('Đến ngày').fill('2025-12-31');
-  await panel.getByText('Không có sự kiện nào trong khoảng này.').waitFor();
+  await panel.getByText('Không có sự kiện nào trong khoảng thời gian này.').waitFor();
+  // Mặc định 30 ngày tới; lọc theo loại Giỗ/Sinh nhật/Sự kiện.
+  await page.goto(`${treeUrl}/su-kien`);
+  await panel.getByLabel('Loại').selectOption('gio');
+  await panel.getByText('Họp họ đầu xuân').waitFor({ state: 'detached' });
 
   // Gỡ cờ hiển thị: sự kiện biến mất khỏi Dòng thời gian (Phả ký vẫn còn).
   await page.goto(`${treeUrl}/su-kien`);
+  const panelAgain = page.getByRole('region', { name: 'Tìm sự kiện' });
+  await panelAgain.getByLabel('Từ ngày').fill('2026-01-01');
+  await panelAgain.getByLabel('Đến ngày').fill('2026-12-31');
+  await panelAgain.getByLabel('Tên', { exact: true }).fill('Khánh thành');
   await page.getByRole('listitem').filter({ hasText: 'Khánh thành nhà thờ họ' }).getByRole('button', { name: 'Sửa' }).click();
   await page.getByRole('dialog').getByLabel('Đưa vào Dòng thời gian').uncheck();
   await page.getByRole('dialog').getByRole('button', { name: 'Lưu' }).click();

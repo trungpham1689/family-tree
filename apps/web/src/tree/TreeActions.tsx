@@ -22,7 +22,7 @@ export const BackupButton = ({ tree }: { tree: TreeWithRole }) => {
   const [failedImages, setFailedImages] = useState<number | null>(null);
 
   const label = !running
-    ? `Tải tất cả dữ liệu của ${tree.name}`
+    ? `Tải dữ liệu của ${tree.name}`
     : progress?.stage === 'images' && progress.total
       ? `Đang tải ảnh ${progress.done}/${progress.total}…`
       : progress?.stage === 'zip'

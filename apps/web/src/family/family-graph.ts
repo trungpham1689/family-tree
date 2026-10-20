@@ -141,39 +141,64 @@ export const buildFamilyGraph = <P extends GraphPerson>(input: {
         .sort((a, b) => compareSiblings(a.person, b.person)),
 
     generations: () => {
-      // Thứ tự trong mỗi Đời theo gia đình: người trong họ, liền sau là vợ/chồng, rồi tới anh chị em kế tiếp
-      // (đi theo cây từ Thuỷ tổ, con xếp theo Thứ tự con). Người không đi tới được thì xếp sau, theo tên.
-      const rank = new Map<string, number>();
-      const visit = (id: string) => {
-        if (rank.has(id)) return;
-        rank.set(id, rank.size);
-        const spouses = (unionsByPerson.get(id) ?? [])
-          .map((union) => (union.partner_a === id ? { id: union.partner_b, order: union.order_for_a } : { id: union.partner_a, order: union.order_for_b }))
-          .sort((a, b) => a.order - b.order);
-        for (const spouse of spouses) if (!parentLinksByChild.has(spouse.id) && !rank.has(spouse.id)) rank.set(spouse.id, rank.size);
-        const kids = (childLinksByParent.get(id) ?? [])
-          .flatMap((link) => persons.get(link.child_id) ?? [])
-          .sort(compareSiblings);
-        for (const kid of kids) visit(kid.id);
-      };
-      for (const person of persons.values()) if (placement(person.id).kind === 'thuy_to') visit(person.id);
-      const familyOrder = (a: P, b: P) =>
-        (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER) || byName(a.full_name, b.full_name);
-
+      // Mỗi Đời xếp theo thứ tự của Đời trước nó (từng Đời một, từ Đời 1): con của người đứng đầu danh sách Đời trước đứng trước,
+      // rồi tới con của người thứ hai… Vợ/chồng của người đó cũng là một mục trong danh sách Đời trước, nên với người có nhiều vợ:
+      // con của vợ cả, rồi con của vợ hai…, cuối cùng là con chỉ ghi cha (chưa rõ mẹ). Cùng cha mẹ thì theo Thứ tự con, rồi năm sinh,
+      // rồi tên. Dâu/rể đứng liền sau người trong họ (theo Thứ tự hôn phối); ai không xếp được thì xuống cuối, theo tên.
       const groups = new Map<number, P[]>();
       for (const person of persons.values()) {
         const generation = placement(person.id).generation;
         if (generation !== null) push(groups, generation, person);
       }
-      return [...groups.entries()]
-        .sort(([a], [b]) => a - b)
-        .map(([generation, members]) => ({
+
+      const result: GenerationGroup<P>[] = [];
+      let previous = new Map<string, number>(); // vị trí trong danh sách của Đời liền trước
+      for (const generation of [...groups.keys()].sort((a, b) => a - b)) {
+        const members = groups.get(generation)!;
+        const memberIds = new Set(members.map((member) => member.id));
+        /** Vị trí của (tối đa hai) cha mẹ trong Đời trước: [nhỏ hơn, lớn hơn hoặc Infinity nếu chỉ có một]; null nếu không có cha mẹ trong cây. */
+        const parentKey = (person: P): [number, number] | null => {
+          const positions = (parentLinksByChild.get(person.id) ?? [])
+            .flatMap((link) => (previous.has(link.parent_id) ? [previous.get(link.parent_id)!] : []))
+            .sort((a, b) => a - b);
+          return positions.length > 0 ? [positions[0]!, positions[1] ?? Number.POSITIVE_INFINITY] : null;
+        };
+        const keys = new Map(members.map((member) => [member.id, parentKey(member)]));
+        const byFamily = (a: P, b: P) => {
+          const [a0, a1] = keys.get(a.id) ?? [-1, -1];
+          const [b0, b1] = keys.get(b.id) ?? [-1, -1];
+          return (a0 === b0 ? 0 : a0 - b0) || (a1 === b1 ? 0 : a1 - b1) || compareSiblings(a, b);
+        };
+
+        const bloodline = members.filter((member) => keys.get(member.id) !== null || placement(member.id).kind === 'thuy_to').sort(byFamily);
+        const ordered: P[] = [];
+        const placed = new Set<string>();
+        for (const member of bloodline) {
+          ordered.push(member);
+          placed.add(member.id);
+          const spouses = (unionsByPerson.get(member.id) ?? [])
+            .map((union) => (union.partner_a === member.id ? { id: union.partner_b, order: union.order_for_a } : { id: union.partner_a, order: union.order_for_b }))
+            .sort((a, b) => a.order - b.order);
+          for (const spouse of spouses) {
+            const other = persons.get(spouse.id);
+            if (other && memberIds.has(other.id) && !placed.has(other.id) && keys.get(other.id) === null) {
+              ordered.push(other);
+              placed.add(other.id);
+            }
+          }
+        }
+        ordered.push(...members.filter((member) => !placed.has(member.id)).sort((a, b) => byName(a.full_name, b.full_name)));
+
+        previous = new Map(ordered.map((member, index) => [member.id, index]));
+        result.push({
           generation,
-          persons: members.sort(familyOrder),
+          persons: ordered,
           male: members.filter((person) => person.gender === 'nam').length,
           female: members.filter((person) => person.gender === 'nu').length,
           total: members.length,
-        }));
+        });
+      }
+      return result;
     },
 
     unconnected: () =>

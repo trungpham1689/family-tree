@@ -7,7 +7,7 @@ import type { Occurrence } from '@gia-pha/reminders';
 const hrefOf = (occurrence: Occurrence) =>
   occurrence.personId
     ? `/gia-pha/${occurrence.treeId}/nguoi/${occurrence.personId}`
-    : `/gia-pha/${occurrence.treeId}/su-kien#${occurrence.eventId ?? ''}`;
+    : `/gia-pha/${occurrence.treeId}/su-kien?xem=${occurrence.eventId ?? ''}`;
 
 /** Trong vòng bao nhiêu ngày tới thì coi là "gần đến ngày", cần nổi bật. */
 const NEAR_DAYS = 7;

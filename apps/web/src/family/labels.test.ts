@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { birthOrderLabel, kindLabel, spouseLabel } from './labels';
+import { birthOrderLabel, kindLabel, spouseCountText, spouseLabel } from './labels';
 
 describe('nhãn quan hệ', () => {
   it('phân biệt Dâu và Rể theo giới tính', () => {
@@ -27,5 +27,16 @@ describe('nhãn quan hệ', () => {
     [null, ''],
   ] as const)('thứ tự con %s → "%s"', (order, expected) => {
     expect(birthOrderLabel(order)).toBe(expected);
+  });
+});
+
+describe('spouseCountText', () => {
+  it('ghi đúng vợ hay chồng theo giới tính của người kia', () => {
+    expect(spouseCountText(['nu'])).toBe('1 vợ');
+    expect(spouseCountText(['nam'])).toBe('1 chồng');
+    expect(spouseCountText(['nu', 'nu', 'nu'])).toBe('3 vợ');
+    expect(spouseCountText(['nu', 'nam'])).toBe('1 vợ, 1 chồng');
+    expect(spouseCountText([null])).toBe('1 vợ/chồng');
+    expect(spouseCountText([])).toBe('');
   });
 });

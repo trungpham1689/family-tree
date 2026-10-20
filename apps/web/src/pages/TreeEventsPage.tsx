@@ -1,14 +1,11 @@
 import { canEditEvent, canEditTree } from '../data/permissions';
 import { useAccountId } from '../data/query-keys';
 import { REMINDER_OFFSETS, type ReminderOffset } from '../data/reminders';
-import { fromJulianDay, julianDay } from '@gia-pha/lunar';
-import { occurrencesBetween, upcoming, type CalendarSource } from '@gia-pha/reminders';
+import type { CalendarSource, Occurrence } from '@gia-pha/reminders';
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
-import { useParams } from 'react-router';
-import { OccurrenceSection } from '../calendar/OccurrenceSection';
-import { todayInVietnam } from '../calendar/month-grid';
+import { useParams, useSearchParams } from 'react-router';
 import type { TreeEvent } from '../data/calendar';
-import { EventSearchPanel } from '../events/EventSearchPanel';
+import { EventSearchPanel, type EventSearchInitial } from '../events/EventSearchPanel';
 import { checkImageFile, MAX_PHOTOS_PER_EVENT, PHOTO_SPECS, type EventPhoto } from '../data/photos';
 import { personLabel } from '../people/person-label';
 import { PersonPicker } from '../people/PersonPicker';
@@ -28,7 +25,6 @@ import {
 } from '../data/tree-queries';
 import { useEventPhotoImages, useEventPhotos, useRemoveEventPhoto, useUploadEventPhoto } from '../data/calendar-queries';
 import {
-  describeEvent,
   EMPTY_EVENT_FORM,
   eventToFormValues,
   parseEventForm,
@@ -47,41 +43,44 @@ import { FullPageMessage } from '../ui/FullPageMessage';
 
 const OFFSET_OPTIONS = REMINDER_OFFSETS.map((value) => ({ value, label: value === 0 ? 'Đúng ngày' : `Trước ${value} ngày` }));
 
-/** Giỗ, sinh nhật, Sự kiện chỉ của một Gia phả — lọc ra từ "Lịch của tôi" đã tải sẵn. */
-const useTreeCalendarSource = (treeId: string): CalendarSource | undefined => {
+/**
+ * Giỗ, sinh nhật, kỷ niệm cưới, Sự kiện chỉ của một Gia phả — lọc ra từ "Lịch của tôi" đã tải sẵn. Luôn có `source` khi đã tải xong
+ * (dù gia phả chưa có gì trong dữ liệu lịch), để trang không bao giờ trống trơn mà không nói gì.
+ */
+const useTreeCalendarSource = (treeId: string, treeName: string | undefined) => {
   const calendar = useMyCalendar(true);
-  return useMemo(() => {
+  const source = useMemo<CalendarSource | undefined>(() => {
     const data = calendar.data;
-    const tree = data?.trees.find((item) => item.id === treeId);
-    if (!data || !tree) return undefined;
+    if (!data || treeName === undefined) return undefined;
     return {
-      trees: [tree],
+      trees: [{ id: treeId, name: treeName }],
       persons: data.persons.filter((person) => person.tree_id === treeId),
       events: data.events.filter((event) => event.tree_id === treeId),
+      marriages: (data.marriages ?? []).filter((marriage) => marriage.tree_id === treeId),
     };
-  }, [calendar.data, treeId]);
+  }, [calendar.data, treeId, treeName]);
+  return { source, loading: calendar.isPending, error: calendar.isError ? calendar.error.message : null };
 };
 
-/** Sự kiện của một Gia phả: họp họ, ngày tự đặt. Ai có vai trò cũng xem; Biên tập viên tạo, sửa, xoá. */
+/**
+ * Sự kiện của một Gia phả: một bộ lọc/tìm kiếm duy nhất (mặc định 30 ngày tới, gồm giỗ, sinh nhật, kỷ niệm cưới và sự kiện),
+ * mỗi sự kiện có Sửa/Xoá ngay trên dòng. Ai có vai trò cũng xem; Biên tập viên tạo, sửa, xoá sự kiện của mình.
+ * `?xem={id sự kiện}` mở sẵn bộ lọc về năm và tên của sự kiện đó (đích của liên kết từ Dòng thời gian, Lịch).
+ */
 export const TreeEventsPage = () => {
   const { treeId = '' } = useParams();
+  const [params] = useSearchParams();
+  const watched = params.get('xem');
   const tree = useTree(treeId);
   const events = useTreeEvents(treeId);
   const family = useFamily(treeId);
   const eventPhotos = useEventPhotos(treeId);
   const photoImages = useEventPhotoImages(eventPhotos.data ?? []);
   const [editing, setEditing] = useState<TreeEvent | 'new' | null>(null);
+  /** Sau khi lưu sự kiện: bộ lọc nhảy tới năm và tên của nó để thấy ngay kết quả. */
+  const [focus, setFocus] = useState<(EventSearchInitial & { n: number }) | null>(null);
 
-  const today = todayInVietnam();
-  const source = useTreeCalendarSource(treeId);
-  const upcomingList = useMemo(() => (source ? upcoming(source, today, 30) : []), [source, today]);
-  const pastList = useMemo(() => {
-    if (!source) return [];
-    const monthAgo = fromJulianDay(julianDay(today) - 30);
-    return occurrencesBetween(source, monthAgo, today)
-      .filter((occurrence) => julianDay(occurrence.date) < julianDay(today))
-      .reverse();
-  }, [source, today]);
+  const { source, loading, error: calendarError } = useTreeCalendarSource(treeId, tree.data?.name);
   const prefs = useReminderPrefs();
   const pref = prefs.data?.get(treeId);
   const setOffset = useSetReminderOffset();
@@ -89,31 +88,58 @@ export const TreeEventsPage = () => {
   const setTienThuong = useSetTienThuong();
   const accountId = useAccountId();
 
+  const initial = useMemo<EventSearchInitial | undefined>(() => {
+    if (focus) return focus;
+    const event = watched ? events.data?.find((item) => item.id === watched) : undefined;
+    return event ? { from: `${event.year ?? new Date().getFullYear()}-01-01`, to: `${event.year ?? new Date().getFullYear()}-12-31`, query: event.title } : undefined;
+  }, [watched, events.data, focus]);
+
   if (tree.isPending) return <FullPageMessage>Đang tải…</FullPageMessage>;
   const canEdit = canEditTree(tree.data?.role);
   const role = tree.data?.role;
+  const eventById = new Map((events.data ?? []).map((event) => [event.id, event]));
+  const photosOf = (eventId: string) => (eventPhotos.data ?? []).filter((photo) => photo.event_id === eventId);
+
+  const eventOf = (occurrence: Occurrence): TreeEvent | undefined => (occurrence.eventId ? eventById.get(occurrence.eventId) : undefined);
 
   return (
     <>
       <AppHeader />
       <TreeTabs treeId={treeId} />
       <main className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="font-serif text-3xl font-bold text-son">Sự kiện</h1>
-
-        <div className="mt-6">
-          <OccurrenceSection title="Sắp tới (30 ngày)" occurrences={upcomingList} today={today} emptyText="30 ngày tới chưa có giỗ, sinh nhật hay sự kiện nào." />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="font-serif text-3xl font-bold text-son">Sự kiện</h1>
+          {canEdit && <Button onClick={() => setEditing('new')}>+ Thêm sự kiện</Button>}
         </div>
 
-        <div className="mt-8">
-          <OccurrenceSection title="Đã qua (30 ngày)" occurrences={pastList} today={today} emptyText="30 ngày qua chưa có giỗ, sinh nhật hay sự kiện nào." />
-        </div>
+        {tree.isError && <ErrorBanner>{tree.error.message}</ErrorBanner>}
+        {events.isError && <ErrorBanner>{events.error.message}</ErrorBanner>}
 
-        <EventSearchPanel source={source} />
+        {/* Chờ danh sách sự kiện khi vào bằng ?xem= để bộ lọc mở sẵn đúng năm và tên. */}
+        {(!watched || events.isSuccess) && (
+          <EventSearchPanel
+            key={focus ? `luu-${focus.n}` : initial ? `xem-${watched}` : 'mac-dinh'}
+            source={source}
+            loading={loading}
+            error={calendarError}
+            initial={initial}
+            extra={(occurrence) => {
+              const event = eventOf(occurrence);
+              return event ? <EventExtras event={event} graph={family.data} photos={photosOf(event.id)} images={photoImages.data} /> : null;
+            }}
+            actions={(occurrence) => {
+              const event = eventOf(occurrence);
+              return event && canEditEvent(role, accountId, event) ? (
+                <EventActions treeId={treeId} event={event} photoCount={photosOf(event.id).length} onEdit={() => setEditing(event)} />
+              ) : null;
+            }}
+          />
+        )}
 
         <section className="mt-8 rounded-xl border border-line bg-surface px-4 py-3">
-          <h2 className="font-serif text-xl font-bold">Độ sớm nhắc</h2>
+          <h2 className="font-serif text-xl font-bold">Thông báo</h2>
           <p className="mt-1 text-ink-muted">
-            Nhắc trước mấy ngày trên chuông nhắc nhở. Email tổng hợp gửi chung cho Chủ sở hữu và Biên tập viên mỗi 5 ngày nếu có giỗ, sinh nhật hay sự kiện sắp tới; bật/tắt email ở đây.
+            Thông báo trước mấy ngày trên chuông thông báo. Email tổng hợp gửi chung cho Chủ sở hữu và Biên tập viên mỗi 5 ngày nếu có giỗ, sinh nhật hay sự kiện sắp tới; bật/tắt email ở đây.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 text-sm">
@@ -137,7 +163,7 @@ export const TreeEventsPage = () => {
               Nhắc cả Tiên thường (hôm trước ngày giỗ)
             </label>
             <Select
-              aria-label="Độ sớm nhắc"
+              aria-label="Thông báo trước"
               value={pref?.offsetDays ?? 0}
               disabled={setOffset.isPending}
               onChange={(event) => setOffset.mutate({ treeId, offsetDays: Number(event.target.value) as ReminderOffset })}
@@ -154,52 +180,18 @@ export const TreeEventsPage = () => {
           )}
         </section>
 
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-serif text-xl font-bold">Quản lý sự kiện</h2>
-          {canEdit && <Button onClick={() => setEditing('new')}>+ Thêm sự kiện</Button>}
-        </div>
-        <p className="mt-1 text-ink-muted">
-          Họp họ, ngày lễ của dòng họ… Một lần, hằng tháng hoặc hằng năm (âm hay dương lịch), có mô tả, người chủ trì và tối đa {MAX_PHOTOS_PER_EVENT} ảnh;
-          chọn đưa vào Phả ký và Dòng thời gian hay không. Giỗ và sinh nhật tự có trên lịch từ hồ sơ từng người, không cần thêm ở đây.
-        </p>
-
-        {tree.isError && <ErrorBanner>{tree.error.message}</ErrorBanner>}
-        {events.isError && <ErrorBanner>{events.error.message}</ErrorBanner>}
-        {events.isSuccess && events.data.length === 0 && (
-          <p className="mt-6 rounded-2xl border border-dashed border-line bg-surface px-6 py-10 text-center text-ink-muted">
-            Chưa có sự kiện nào.
-          </p>
-        )}
-        {events.isSuccess && events.data.length > 0 && (
-          <ul className="mt-6 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
-            {events.data.map((event) => (
-              <EventRow
-                key={event.id}
-                treeId={treeId}
-                event={event}
-                graph={family.data}
-                photos={(eventPhotos.data ?? []).filter((photo) => photo.event_id === event.id)}
-                images={photoImages.data}
-                canEdit={canEditEvent(role, accountId, event)}
-                onEdit={() => setEditing(event)}
-              />
-            ))}
-          </ul>
-        )}
-
-        <Dialog
-          open={editing !== null}
-          title={editing === 'new' ? 'Thêm sự kiện' : 'Sửa sự kiện'}
-          onClose={() => setEditing(null)}
-        >
+        <Dialog open={editing !== null} title={editing === 'new' ? 'Thêm sự kiện' : 'Sửa sự kiện'} onClose={() => setEditing(null)}>
           {editing !== null && (
             <EventForm
               treeId={treeId}
               event={editing === 'new' ? null : editing}
               graph={family.data}
-              photos={editing === 'new' ? [] : (eventPhotos.data ?? []).filter((photo) => photo.event_id === editing.id)}
+              photos={editing === 'new' ? [] : photosOf(editing.id)}
               images={photoImages.data}
-              onDone={() => setEditing(null)}
+              onDone={(saved) => {
+                if (saved?.year) setFocus({ from: `${saved.year}-01-01`, to: `${saved.year}-12-31`, query: saved.title, n: (focus?.n ?? 0) + 1 });
+                setEditing(null);
+              }}
             />
           )}
         </Dialog>
@@ -207,13 +199,6 @@ export const TreeEventsPage = () => {
       <Footer />
     </>
   );
-};
-
-/** "Lần tới: 12/3/2027" theo đúng lịch của sự kiện (âm hay dương, một lần, hằng tháng, hằng năm); null khi không còn lần nào. */
-const nextDateText = (event: TreeEvent): string | null => {
-  const today = todayInVietnam();
-  const [next] = occurrencesBetween({ trees: [], persons: [], events: [event] }, today, fromJulianDay(julianDay(today) + 800));
-  return next ? `Lần tới: ${next.date.day}/${next.date.month}/${next.date.year}` : null;
 };
 
 type Images = Map<string, string> | undefined;
@@ -235,68 +220,58 @@ const PhotoStrip = ({ photos, images }: { photos: readonly EventPhoto[]; images:
 const hostName = (graph: FamilyGraph<Person> | undefined, hostId: string | null) =>
   hostId && graph?.person(hostId) ? personLabel(graph, hostId) : null;
 
-const EventRow = ({
-  treeId,
-  event,
-  graph,
-  photos,
-  images,
-  canEdit,
-  onEdit,
-}: {
-  treeId: string;
-  event: TreeEvent;
-  graph: FamilyGraph<Person> | undefined;
-  photos: readonly EventPhoto[];
-  images: Images;
-  canEdit: boolean;
-  onEdit: () => void;
-}) => {
-  const remove = useRemoveTreeEvent(treeId);
-  const [confirming, setConfirming] = useState(false);
+/** Dưới dòng của một sự kiện: mô tả, người chủ trì, nơi hiển thị và ảnh. */
+const EventExtras = ({ event, graph, photos, images }: { event: TreeEvent; graph: FamilyGraph<Person> | undefined; photos: readonly EventPhoto[]; images: Images }) => {
   const host = hostName(graph, event.host_person_id);
   return (
-    <li id={event.id} className="space-y-2 px-5 py-4 target:bg-kim-soft/40">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-lg font-semibold">{event.title}</p>
-          <p className="text-ink-muted">{describeEvent(event)}</p>
-          {nextDateText(event) && <p className="text-sm text-son">{nextDateText(event)}</p>}
-          {event.year === null && <p className="text-sm text-danger">Chưa có năm: bấm Sửa để thêm, sự kiện mới tìm lại và đưa vào Dòng thời gian được.</p>}
-          {host && <p className="text-sm">Chủ trì: <strong>{host}</strong></p>}
-          {event.note && <p className="mt-1 whitespace-pre-line">{event.note}</p>}
-          {(event.show_in_pha_ky || event.show_in_timeline) && (
-            <p className="mt-1 flex flex-wrap gap-2 text-xs font-semibold text-son">
-              {event.show_in_pha_ky && <span className="rounded-full bg-son/10 px-2 py-0.5">Có trong Phả ký</span>}
-              {event.show_in_timeline && <span className="rounded-full bg-son/10 px-2 py-0.5">Có trong Dòng thời gian</span>}
-            </p>
-          )}
-          <PhotoStrip photos={photos} images={images} />
-        </div>
-        {canEdit && !confirming && (
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={onEdit}>
-              Sửa
-            </Button>
-            <Button variant="ghost" className="text-danger!" onClick={() => setConfirming(true)}>
-              Xoá
-            </Button>
-          </div>
-        )}
-      </div>
-      {confirming && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-danger-soft px-4 py-3">
-          <span className="text-danger">Xoá sự kiện “{event.title}”{photos.length > 0 ? ` và ${photos.length} ảnh` : ''}?</span>
-          <Button variant="secondary" onClick={() => setConfirming(false)}>
-            Huỷ
-          </Button>
-          <Button variant="danger" disabled={remove.isPending} onClick={() => remove.mutate(event.id)}>
-            Xoá
-          </Button>
-        </div>
+    <>
+      {host && (
+        <span className="block text-sm">
+          Chủ trì: <strong>{host}</strong>
+        </span>
       )}
-      {remove.isError && <ErrorBanner>{remove.error.message}</ErrorBanner>}
-    </li>
+      {event.note && <span className="mt-1 block whitespace-pre-line">{event.note}</span>}
+      {(event.show_in_pha_ky || event.show_in_timeline) && (
+        <span className="mt-1 flex flex-wrap gap-2 text-xs font-semibold text-son">
+          {event.show_in_pha_ky && <span className="rounded-full bg-son/10 px-2 py-0.5">Có trong Phả ký</span>}
+          {event.show_in_timeline && <span className="rounded-full bg-son/10 px-2 py-0.5">Có trong Dòng thời gian</span>}
+        </span>
+      )}
+      {event.year === null && <span className="block text-sm text-danger">Chưa có năm: bấm Sửa để thêm.</span>}
+      <PhotoStrip photos={photos} images={images} />
+    </>
+  );
+};
+
+/** Sửa / Xoá (có xác nhận) của một sự kiện, ngay trên dòng kết quả. */
+const EventActions = ({ treeId, event, photoCount, onEdit }: { treeId: string; event: TreeEvent; photoCount: number; onEdit: () => void }) => {
+  const remove = useRemoveTreeEvent(treeId);
+  const [confirming, setConfirming] = useState(false);
+  if (confirming) {
+    return (
+      <div className="flex flex-wrap items-center justify-end gap-2 rounded-xl bg-danger-soft px-3 py-2">
+        <span className="text-danger">
+          Xoá sự kiện “{event.title}”{photoCount > 0 ? ` và ${photoCount} ảnh` : ''}?
+        </span>
+        <Button variant="secondary" onClick={() => setConfirming(false)}>
+          Huỷ
+        </Button>
+        <Button variant="danger" disabled={remove.isPending} onClick={() => remove.mutate(event.id)}>
+          Xoá
+        </Button>
+        {remove.isError && <ErrorBanner>{remove.error.message}</ErrorBanner>}
+      </div>
+    );
+  }
+  return (
+    <div className="flex gap-2">
+      <Button variant="ghost" onClick={onEdit}>
+        Sửa
+      </Button>
+      <Button variant="ghost" className="text-danger!" onClick={() => setConfirming(true)}>
+        Xoá
+      </Button>
+    </div>
   );
 };
 
@@ -313,7 +288,7 @@ const EventForm = ({
   graph: FamilyGraph<Person> | undefined;
   photos: readonly EventPhoto[];
   images: Images;
-  onDone: () => void;
+  onDone: (saved?: { title: string; year: number | null }) => void;
 }) => {
   const save = useSaveTreeEvent(treeId);
   const upload = useUploadEventPhoto(treeId);
@@ -376,7 +351,7 @@ const EventForm = ({
         await upload.mutateAsync({ treeId, eventId, file });
         setPending((current) => current.filter((item) => item !== file));
       }
-      onDone();
+      onDone({ title: result.fields.title, year: result.fields.year });
     } catch (error) {
       // Sự kiện đã lưu; ảnh chưa tải được giữ lại để bấm Lưu thử lại.
       setUploadError((error as Error).message);
@@ -403,25 +378,38 @@ const EventForm = ({
 
   return (
     <form onSubmit={submit} className="space-y-4" noValidate>
-      <TextField label="Tên sự kiện" value={values.title} error={errors.title} onChange={(e) => set('title', e.target.value)} />
+      <TextField label="Tên sự kiện" required value={values.title} error={errors.title} onChange={(e) => set('title', e.target.value)} />
       <fieldset>
-        <legend className="mb-1 font-medium">Lịch</legend>
+        <legend className="mb-1 font-medium">
+          Lịch
+          <span className="text-danger" aria-hidden="true">
+            {' '}
+            *
+          </span>
+        </legend>
         <div className="flex flex-wrap gap-2">
           {choice(values.calendar, 'am', 'Âm lịch', (value) => set('calendar', value))}
           {choice(values.calendar, 'duong', 'Dương lịch', (value) => set('calendar', value))}
         </div>
       </fieldset>
       <fieldset>
-        <legend className="mb-1 font-medium">Lặp lại</legend>
+        <legend className="mb-1 font-medium">
+          Lặp lại
+          <span className="text-danger" aria-hidden="true">
+            {' '}
+            *
+          </span>
+        </legend>
         <div className="flex flex-wrap gap-2">
           {(['once', 'monthly', 'yearly'] as EventRepeat[]).map((repeat) => choice(values.repeat, repeat, REPEAT_LABELS[repeat], (value) => set('repeat', value)))}
         </div>
       </fieldset>
       <div className="grid grid-cols-3 gap-3">
-        <TextField label="Ngày" inputMode="numeric" value={values.day} error={errors.day} onChange={(e) => set('day', e.target.value)} />
-        {!monthly && <TextField label="Tháng" inputMode="numeric" value={values.month} error={errors.month} onChange={(e) => set('month', e.target.value)} />}
+        <TextField label="Ngày" required inputMode="numeric" value={values.day} error={errors.day} onChange={(e) => set('day', e.target.value)} />
+        {!monthly && <TextField label="Tháng" required inputMode="numeric" value={values.month} error={errors.month} onChange={(e) => set('month', e.target.value)} />}
         <TextField
           label={once ? 'Năm' : 'Từ năm'}
+          required
           inputMode="numeric"
           value={values.year}
           error={errors.year}
@@ -515,7 +503,7 @@ const EventForm = ({
       {save.isError && <ErrorBanner>{save.error.message}</ErrorBanner>}
       {uploadError && <ErrorBanner>Sự kiện đã lưu nhưng chưa tải hết ảnh: {uploadError}</ErrorBanner>}
       <div className="flex justify-end gap-3">
-        <Button variant="secondary" onClick={onDone}>
+        <Button variant="secondary" onClick={() => onDone()}>
           Huỷ
         </Button>
         <Button type="submit" disabled={busy}>

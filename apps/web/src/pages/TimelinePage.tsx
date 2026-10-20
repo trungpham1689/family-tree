@@ -99,7 +99,7 @@ const TimelineBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<
                           {entry.text.slice(subject.length)}
                         </>
                       ) : entry.eventId ? (
-                        <Link to={`/gia-pha/${treeId}/su-kien#${entry.eventId}`} className="font-bold hover:text-son hover:underline">
+                        <Link to={`/gia-pha/${treeId}/su-kien?xem=${entry.eventId}`} className="font-bold hover:text-son hover:underline">
                           {entry.text}
                         </Link>
                       ) : (

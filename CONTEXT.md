@@ -37,6 +37,7 @@ Con cháu của con gái trong họ. Luôn được lưu đầy đủ; việc hi
 
 **Thứ tự con**
 Vị trí của một người trong số các con của cùng cha (trưởng, thứ hai…).
+Trong Phả ký và danh sách các Đời, mỗi Đời xếp theo thứ tự của Đời trước (con của người đứng đầu Đời trước trước, rồi con của người thứ hai…; con của vợ cả trước con của vợ hai); Thứ tự con chỉ xếp các con cùng cha mẹ.
 
 **Thứ tự hôn phối**
 Thứ tự vợ/chồng của một người (vợ cả, vợ hai…).

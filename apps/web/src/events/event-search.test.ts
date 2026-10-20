@@ -17,7 +17,7 @@ const event = (extra: Partial<CalendarEvent>): CalendarEvent => ({
   location: null,
   ...extra,
 });
-const source = (events: CalendarEvent[]) => ({ trees: [{ id: 't', name: 'Họ Phạm' }], events });
+const source = (events: CalendarEvent[]) => ({ trees: [{ id: 't', name: 'Họ Phạm' }], persons: [], events });
 
 describe('tìm sự kiện theo khoảng thời gian', () => {
   const events = [
@@ -54,6 +54,25 @@ describe('tìm sự kiện theo khoảng thời gian', () => {
     const many = searchEventOccurrences(source(Array.from({ length: 30 }, (_, index) => ({ ...daily, id: `m${index}` }))), { from: '2020-01-01', to: '2030-12-31', query: '' });
     expect(many).toMatchObject({ ok: true, truncated: true });
     expect(many.ok && many.occurrences).toHaveLength(MAX_SEARCH_RESULTS);
+  });
+
+  it('mặc định gồm cả giỗ, sinh nhật, kỷ niệm cưới; lọc theo loại được', () => {
+    const full = {
+      trees: [{ id: 't', name: 'Họ Phạm' }],
+      persons: [
+        { id: 'p1', tree_id: 't', full_name: 'Bác An', is_deceased: false, anniversary_day: null, anniversary_month: null, birth_solar_date: '1950-06-20' },
+        { id: 'p2', tree_id: 't', full_name: 'Cụ A', is_deceased: true, anniversary_day: 12, anniversary_month: 3, birth_solar_date: null },
+      ],
+      events: [event({ id: 'a', title: 'Khánh thành', year: 2026, month: 6, day: 10 })],
+      marriages: [{ id: 'm1', tree_id: 't', partner_a: 'p1', names: 'A & B', marriage_year: 1975, marriage_month: 6, marriage_day: 15 }],
+    };
+    const range = { from: '2026-06-01', to: '2026-06-30', query: '' };
+    const all = searchEventOccurrences(full, range);
+    expect(all.ok && all.occurrences.map((o) => o.kind).sort()).toEqual(['cuoi', 'sinh_nhat', 'su_kien']);
+    const onlyBirthdays = searchEventOccurrences(full, { ...range, kind: 'sinh_nhat' });
+    expect(onlyBirthdays.ok && onlyBirthdays.occurrences.map((o) => o.title)).toEqual(['Sinh nhật Bác An']);
+    const wide = searchEventOccurrences(full, { from: '2026-01-01', to: '2026-12-31', query: 'giỗ', kind: 'gio' });
+    expect(wide.ok && wide.occurrences).toHaveLength(1);
   });
 
   it('ngày ISO', () => {

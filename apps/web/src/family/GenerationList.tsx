@@ -4,7 +4,7 @@ import { useAddChild, usePersonAvatars } from '../data/tree-queries';
 import type { Person } from '../data/trees';
 import { lifespanText, nameInitial } from '../people/person-display';
 import type { FamilyGraph, GenerationGroup } from './family-graph';
-import { kindLabel } from './labels';
+import { kindLabel, spouseCountText } from './labels';
 import { EMPTY_PERSON_FORM } from '../people/person-form';
 import { LinkPerson } from '../people/LinkPerson';
 import { PersonForm } from '../people/PersonForm';
@@ -56,7 +56,7 @@ export const GenerationList = ({ treeId, graph, canEdit }: { treeId: string; gra
               {activeGroup && (
                 <p className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-ink-muted">
                   <span>
-                    <strong className="text-ink">Đời {activeGroup.generation}</strong> · {activeGroup.total} người
+                    <strong className="text-ink">Đời {activeGroup.generation}</strong> · {activeGroup.total} thành viên
                   </span>
                   <span className="inline-flex items-center gap-1 font-semibold text-tram">
                     <GenderIcon gender="nam" />
@@ -79,9 +79,9 @@ export const GenerationList = ({ treeId, graph, canEdit }: { treeId: string; gra
         <section aria-labelledby="chua-noi">
           <h2 id="chua-noi" className="font-serif text-2xl font-bold">
             Chưa nối vào cây
-            <span className="ml-3 font-sans text-base font-normal text-ink-muted">{unconnected.length} người</span>
+            <span className="ml-3 font-sans text-base font-normal text-ink-muted">{unconnected.length} thành viên</span>
           </h2>
-          <p className="mt-1 text-ink-muted">Những người chưa xác định được cha/mẹ trong gia phả.</p>
+          <p className="mt-1 text-ink-muted">Những thành viên chưa xác định được cha/mẹ trong gia phả.</p>
           <PersonList
             treeId={treeId}
             graph={graph}
@@ -154,12 +154,12 @@ const GenderIcon = ({ gender, className = 'size-4' }: { gender: 'nam' | 'nu'; cl
   </svg>
 );
 
-// Cột dọc ở mọi khổ màn hình: mobile chỉ "Đời" + số (cột hẹp để thẻ người còn rộng), từ sm có thêm số người.
+// Cột dọc ở mọi khổ màn hình: mobile chỉ "Đời" + số (cột hẹp để thẻ thành viên còn rộng), từ sm có thêm số thành viên.
 const GenerationTab = ({ group, active, onSelect }: { group: GenerationGroup<Person>; active: boolean; onSelect: () => void }) => (
   <button
     type="button"
     aria-current={active || undefined}
-    aria-label={`Đời ${group.generation}, ${group.total} người`}
+    aria-label={`Đời ${group.generation}, ${group.total} thành viên`}
     onClick={onSelect}
     className={`flex min-h-14 shrink-0 flex-col items-center justify-center rounded-xl border px-1 py-2 transition-colors sm:flex-row sm:justify-between sm:gap-3 sm:px-4 sm:py-3 ${
       active ? 'border-son bg-son text-white' : 'border-line bg-surface text-ink-muted hover:bg-paper'
@@ -169,7 +169,7 @@ const GenerationTab = ({ group, active, onSelect }: { group: GenerationGroup<Per
       <span className={`text-xs font-semibold sm:font-serif sm:text-xl sm:font-bold ${active ? 'text-white/85 sm:text-white' : 'sm:text-ink'}`}>Đời</span>
       <span className={`font-serif text-xl font-bold ${active ? '' : 'text-ink'}`}>{group.generation}</span>
     </span>
-    <span className={`hidden whitespace-nowrap text-sm sm:inline ${active ? 'text-white/85' : ''}`}>{group.total} người</span>
+    <span className={`hidden whitespace-nowrap text-sm sm:inline ${active ? 'text-white/85' : ''}`}>{group.total} thành viên</span>
   </button>
 );
 
@@ -218,7 +218,7 @@ const GenerationCard = ({
   const parents = graph.parentsOf(person.id);
   const primaryParent = parents[0];
   const adopted = parents.some((parent) => parent.kind === 'nuoi');
-  const spouseCount = graph.spousesOf(person.id).length;
+  const spouseText = spouseCountText(graph.spousesOf(person.id).map((spouse) => spouse.person.gender));
   const childCount = graph.childrenOf(person.id).length;
   const [adding, setAdding] = useState(false);
   const addChild = useAddChild(treeId);
@@ -260,9 +260,9 @@ const GenerationCard = ({
               )}
               {adopted && <span className="rounded-full border border-white/50 px-2.5 py-px text-sm font-semibold leading-5 text-white">Con nuôi</span>}
             </span>
-            {(spouseCount > 0 || childCount > 0) && (
+            {(spouseText !== '' || childCount > 0) && (
               <span className="mt-2 flex flex-wrap gap-x-3 text-sm font-semibold text-kim-soft">
-                {spouseCount > 0 && <span>{spouseCount} vợ/chồng</span>}
+                {spouseText !== '' && <span>{spouseText}</span>}
                 {childCount > 0 && <span>{childCount} con</span>}
               </span>
             )}

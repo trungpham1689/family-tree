@@ -33,3 +33,14 @@ export const birthOrderLabel = (order: number | null): string => {
   const ordinals = ['', '', 'hai', 'ba', 'tư', 'năm', 'sáu', 'bảy', 'tám', 'chín', 'mười'];
   return `Con thứ ${ordinals[order] ?? order}`;
 };
+
+/** "1 vợ", "2 chồng", "1 vợ, 1 chồng"; người chưa rõ giới tính tính là "vợ/chồng". */
+export const spouseCountText = (genders: readonly (string | null)[]): string => {
+  const count = (pick: (gender: string | null) => boolean) => genders.filter(pick).length;
+  const parts: [number, string][] = [
+    [count((gender) => gender === 'nu'), 'vợ'],
+    [count((gender) => gender === 'nam'), 'chồng'],
+    [count((gender) => gender !== 'nu' && gender !== 'nam'), 'vợ/chồng'],
+  ];
+  return parts.filter(([n]) => n > 0).map(([n, word]) => `${n} ${word}`).join(', ');
+};

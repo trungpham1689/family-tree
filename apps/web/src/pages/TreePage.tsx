@@ -88,7 +88,7 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
         </div>
         {isOwner && family.isSuccess && !isEmpty && (
           <p className="mt-2 text-sm text-ink-muted">
-            Nên bấm “Tải tất cả dữ liệu” ở cuối trang (dữ liệu + ảnh) định kỳ để giữ bản sao lưu trên máy — phần mềm chưa có thùng rác để khôi phục.
+            Nên bấm “Tải dữ liệu” ở cuối trang (dữ liệu + ảnh) định kỳ để giữ bản sao lưu trên máy — phần mềm chưa có thùng rác để khôi phục.
           </p>
         )}
       </header>
