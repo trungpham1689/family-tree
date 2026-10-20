@@ -102,6 +102,40 @@ const pushTo = <K, V>(map: Map<K, V[]>, key: K, value: V) => {
   else map.set(key, [value]);
 };
 
+/** Số nhóm con tối đa được thử mọi thứ tự tầng thanh ngang (n! phương án). */
+const MAX_ORDERED_GROUPS = 6;
+/** Hai đường đứng gần hơn mức này (đơn vị bố cục) mà cùng chạy qua một khoảng độ cao thì nhìn như chồng lên nhau. */
+const MIN_PARALLEL_GAP = 5;
+
+const permutations = (items: number[]): number[][] => {
+  if (items.length <= 1) return [items];
+  return items.flatMap((item, index) => permutations([...items.slice(0, index), ...items.slice(index + 1)]).map((rest) => [item, ...rest]));
+};
+
+type Seg = [number, number, number, number];
+
+/** Chi phí của một cách đi dây: đoạn đứng sát nhau nặng gấp nghìn lần một chỗ cắt nhau. */
+const routeCost = (segments: readonly Seg[]): number => {
+  const verticals = segments.filter(([x1, , x2]) => x1 === x2);
+  const horizontals = segments.filter(([, y1, , y2]) => y1 === y2);
+  let close = 0;
+  for (let i = 0; i < verticals.length; i += 1) {
+    for (let j = i + 1; j < verticals.length; j += 1) {
+      const [x1, a1, , b1] = verticals[i]!;
+      const [x2, a2, , b2] = verticals[j]!;
+      const overlap = Math.min(Math.max(a1, b1), Math.max(a2, b2)) - Math.max(Math.min(a1, b1), Math.min(a2, b2));
+      if (Math.abs(x1 - x2) < MIN_PARALLEL_GAP && overlap > 0.5) close += 1;
+    }
+  }
+  let crossings = 0;
+  for (const [x, ya, , yb] of verticals) {
+    for (const [xa, y, xb] of horizontals) {
+      if (x > Math.min(xa, xb) && x < Math.max(xa, xb) && y > Math.min(ya, yb) && y < Math.max(ya, yb)) crossings += 1;
+    }
+  }
+  return close * 1000 + crossings;
+};
+
 export const layoutTree = (
   data: { persons: LayoutPerson[]; parentLinks: LayoutParentLink[]; unions: LayoutUnion[] },
   options: LayoutOptions,
@@ -249,18 +283,27 @@ export const layoutTree = (
     });
 
     const unitBottom = levelStart(unit.depth) + depthSize;
-    const bloodCenter = unitLeft + breadth / 2;
     const spouseCenter = (index: number) => unitLeft + (index + 1) * (breadth + gaps.spouse) + breadth / 2;
 
-    // Đường hôn phối: chữ U dưới cặp vợ chồng, mỗi vợ/chồng một tầng để không chồng lên nhau.
+    // Mỗi cuộc hôn phối một chữ U riêng, mỗi chữ U bắt đầu từ một điểm riêng dưới ô người trong họ (không dùng chung điểm giữa ô) nên các đường
+    // không bao giờ chồng lên nhau. Từ trái sang phải dưới ô: nhóm con chưa rõ cha/mẹ còn lại, rồi vợ/chồng cuối … vợ/chồng đầu; chữ U của
+    // vợ/chồng đầu nông nhất, ôm gọn trong chữ U của vợ/chồng sau nên cột nối của chữ U sau không cắt ngang chữ U trước.
+    const hasUnknown = unit.groups.some((group) => group.spouseIndex === null);
+    const slots = unit.spouses.length + (hasUnknown ? 1 : 0);
+    const unknownOffset = hasUnknown ? 1 : 0;
+    // Một cuộc hôn phối duy nhất: giữa ô như thường. Nhiều hơn: dàn đều từ 30% đến 90% bề ngang ô, chừa góc trái dưới cho nút thu gọn.
+    const attachAt = (slot: number) => unitLeft + breadth * (slots === 1 ? 0.5 : 0.3 + (0.6 * slot) / (slots - 1));
+    const spouseAttach = (index: number) => attachAt(unknownOffset + unit.spouses.length - 1 - index);
+    const unionStep = Math.min(UNION_STEP, Math.max(2, (gaps.generation / 2 - UNION_DROP - 4) / Math.max(1, unit.spouses.length)));
+    const unionLevel = (index: number) => unitBottom + UNION_DROP + index * unionStep;
+
     unit.spouses.forEach((_, index) => {
-      const level = unitBottom + UNION_DROP + index * UNION_STEP;
       lines.push({
         kind: 'union',
         points: [
-          toXY([bloodCenter, unitBottom]),
-          toXY([bloodCenter, level]),
-          toXY([spouseCenter(index), level]),
+          toXY([spouseAttach(index), unitBottom]),
+          toXY([spouseAttach(index), unionLevel(index)]),
+          toXY([spouseCenter(index), unionLevel(index)]),
           toXY([spouseCenter(index), unitBottom]),
         ],
       });
@@ -268,7 +311,10 @@ export const layoutTree = (
 
     let cursor = left + (unit.subtreeBreadth - childrenBreadth) / 2;
     const childLevel = levelStart(unit.depth + 1);
-    unit.groups.forEach((group, groupIndex) => {
+    const busStep = Math.min(UNION_STEP, Math.max(2, (gaps.generation / 2 - 4) / Math.max(1, unit.groups.length)));
+
+    type GroupGeometry = { originB: number; originD: number; childCenters: number[] };
+    const geometry: GroupGeometry[] = unit.groups.map((group, groupIndex) => {
       const childCenters: number[] = [];
       group.children.forEach((child, index) => {
         const previous = index === 0 ? undefined : group.children[index - 1];
@@ -278,20 +324,40 @@ export const layoutTree = (
         childCenters.push(cursor + (child.subtreeBreadth - child.unitBreadth) / 2 + breadth / 2);
         cursor += child.subtreeBreadth;
       });
-
+      // Đường xuống của một vợ/chồng bắt đầu trên chữ U của người đó, ở khoảng trống ngay trước ô vợ/chồng (không phải trung điểm: với vợ/chồng thứ hai,
+      // trung điểm trùng đúng cột nối của vợ/chồng thứ nhất nên con trông như con của người đó). Con chưa rõ cha/mẹ còn lại đi thẳng xuống từ điểm riêng dưới ô.
       const [originB, originD] =
         group.spouseIndex === null
-          ? [bloodCenter, unitBottom]
-          : [(bloodCenter + spouseCenter(group.spouseIndex)) / 2, unitBottom + UNION_DROP + group.spouseIndex * UNION_STEP];
-      const bus = childLevel - gaps.generation / 2 + groupIndex * UNION_STEP;
-      const busFrom = Math.min(originB, ...childCenters);
-      const busTo = Math.max(originB, ...childCenters);
-      lines.push({ kind: 'descent', points: [toXY([originB, originD]), toXY([originB, bus])] });
-      if (busTo > busFrom) lines.push({ kind: 'descent', points: [toXY([busFrom, bus]), toXY([busTo, bus])] });
-      for (const center of childCenters) {
-        lines.push({ kind: 'descent', points: [toXY([center, bus]), toXY([center, childLevel])] });
-      }
+          ? [attachAt(0), unitBottom]
+          : [spouseCenter(group.spouseIndex) - (breadth + gaps.spouse) / 2, unionLevel(group.spouseIndex)];
+      return { originB, originD, childCenters };
     });
+
+    // Mỗi nhóm con một tầng thanh ngang riêng; thứ tự các tầng chọn sao cho ít đoạn đứng sát nhau nhất rồi ít cắt nhau nhất.
+    const segmentsFor = (rank: number[]) => {
+      const out: [number, number, number, number][] = [];
+      geometry.forEach(({ originB, originD, childCenters }, index) => {
+        const bus = childLevel - gaps.generation / 2 + rank[index]! * busStep;
+        const busFrom = Math.min(originB, ...childCenters);
+        const busTo = Math.max(originB, ...childCenters);
+        out.push([originB, originD, originB, bus]);
+        if (busTo > busFrom) out.push([busFrom, bus, busTo, bus]);
+        for (const center of childCenters) out.push([center, bus, center, childLevel]);
+      });
+      return out;
+    };
+    let rank = geometry.map((_, index) => index);
+    if (geometry.length > 1 && geometry.length <= MAX_ORDERED_GROUPS) {
+      let bestCost = Number.POSITIVE_INFINITY;
+      for (const candidate of permutations(rank)) {
+        const cost = routeCost(segmentsFor(candidate));
+        if (cost < bestCost) {
+          bestCost = cost;
+          rank = candidate;
+        }
+      }
+    }
+    segmentsFor(rank).forEach(([x1, y1, x2, y2]) => lines.push({ kind: 'descent', points: [toXY([x1, y1]), toXY([x2, y2])] }));
   };
 
   place(rootUnit, 0);

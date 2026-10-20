@@ -119,6 +119,56 @@ describe('xuất Excel', () => {
     expect(chauGai[header.indexOf('Mã người phụ trách cúng giỗ')]).not.toBe('');
   });
 
+  it('con gái ba đời chồng: mỗi con giữ đúng cha, thứ tự và tình trạng hôn phối đi theo file', () => {
+    const data: ExportData = {
+      persons: [
+        person('cha', { is_progenitor: true, full_name: 'Cha' }),
+        person('me', { full_name: 'Mẹ', gender: 'nu' }),
+        person('lan', { full_name: 'Lan', gender: 'nu', birth_order: 1 }),
+        person('re1', { full_name: 'Rể 1' }),
+        person('re2', { full_name: 'Rể 2' }),
+        person('re3', { full_name: 'Rể 3' }),
+        person('c1', { full_name: 'Con 1', birth_order: 1 }),
+        person('c2', { full_name: 'Con 2', birth_order: 2 }),
+        person('c3', { full_name: 'Con 3', birth_order: 3 }),
+        person('c4', { full_name: 'Con chưa rõ cha', birth_order: 4 }),
+      ],
+      parentLinks: [
+        { child_id: 'lan', parent_id: 'cha', kind: 'ruot' },
+        { child_id: 'lan', parent_id: 'me', kind: 'ruot' },
+        ...['c1:re1', 'c2:re2', 'c3:re3'].flatMap((pair) => {
+          const [child, father] = pair.split(':') as [string, string];
+          return [
+            { child_id: child, parent_id: 'lan', kind: 'ruot' },
+            { child_id: child, parent_id: father, kind: 'ruot' },
+          ];
+        }),
+        { child_id: 'c4', parent_id: 'lan', kind: 'ruot' },
+      ],
+      unions: [
+        { partner_a: 'cha', partner_b: 'me', order_for_a: 1, order_for_b: 1, status: 'con' },
+        { partner_a: 'lan', partner_b: 're1', order_for_a: 1, order_for_b: 1, status: 'ly_hon' },
+        { partner_a: 'lan', partner_b: 're2', order_for_a: 2, order_for_b: 1, status: 'goa' },
+        { partner_a: 'lan', partner_b: 're3', order_for_a: 3, order_for_b: 1, status: 'con' },
+      ],
+    };
+    const { first, second } = roundTrip(data);
+    expect(second).toEqual(first);
+
+    const preview = buildImportPreview(first);
+    const fatherOf = (childName: string) => {
+      const code = (name: string) => preview.payload!.persons.find((p) => (p.fields as { full_name?: string }).full_name === name)!.key;
+      return preview.payload!.parentLinks.filter((l) => l.child === code(childName) && l.parent !== code('Lan')).map((l) => l.parent);
+    };
+    const codeOf = (name: string) => preview.payload!.persons.find((p) => (p.fields as { full_name?: string }).full_name === name)!.key;
+    expect(fatherOf('Con 1')).toEqual([codeOf('Rể 1')]);
+    expect(fatherOf('Con 2')).toEqual([codeOf('Rể 2')]);
+    expect(fatherOf('Con 3')).toEqual([codeOf('Rể 3')]);
+    expect(fatherOf('Con chưa rõ cha')).toEqual([]);
+    const lan = preview.payload!.unions.filter((u) => u.a === codeOf('Lan') || u.b === codeOf('Lan'));
+    expect(lan.map((u) => [u.a === codeOf('Lan') ? u.orderA : u.orderB, u.status]).sort()).toEqual([[1, 'ly_hon'], [2, 'goa'], [3, 'con']]);
+  });
+
   it('gia phả trống thì chỉ có dòng tiêu đề', () => {
     expect(rowsToTable(familyToRows({ persons: [], parentLinks: [], unions: [] }))).toHaveLength(1);
   });

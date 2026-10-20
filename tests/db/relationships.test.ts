@@ -243,4 +243,29 @@ describe('seam B: quan hệ, Đời và Chi', () => {
       await db.admin.query("update app_settings set value = 2000 where key = 'max_persons_per_tree'");
     }
   });
+  it('con gái ba đời chồng: ba Rể cùng Đời với vợ, thứ tự hôn phối 1-2-3, mỗi con nối đúng cha, con của cả ba chồng đánh Thứ tự con liên tục', async () => {
+    const root = await addFirst('Thuỷ tổ');
+    const lan = await addChild(root.id, 'Lan', { gender: 'nu' });
+    const husbands = [] as string[];
+    for (const [index, name] of ['Rể 1', 'Rể 2', 'Rể 3'].entries()) husbands.push(await addSpouse(lan, name, index + 1, 'nam'));
+    const kids = [] as string[];
+    for (const [index, husband] of husbands.entries()) kids.push(await addChild(lan, `Con ${index + 1}`, { otherParentId: husband }));
+    const unknownFather = await addChild(lan, 'Con chưa rõ cha');
+
+    const unions = await me.query<{ partner_b: string; order_for_a: number }>('select partner_b, order_for_a from unions where partner_a = $1 order by order_for_a', [lan]);
+    expect(unions).toEqual(husbands.map((husband, index) => ({ partner_b: husband, order_for_a: index + 1 })));
+
+    const fathers = await me.query<{ child_id: string; parent_id: string }>(
+      'select child_id, parent_id from parent_links where child_id = any($1) and parent_id <> $2',
+      [[...kids, unknownFather], lan],
+    );
+    expect(fathers.map((row) => [row.child_id, row.parent_id]).sort()).toEqual(kids.map((kid, index) => [kid, husbands[index]]).sort());
+
+    const orders = await me.query<{ id: string; birth_order: number }>('select id, birth_order from persons where id = any($1) order by birth_order', [[...kids, unknownFather]]);
+    expect(orders.map((row) => row.birth_order)).toEqual([1, 2, 3, 4]);
+
+    const pos = await positions();
+    for (const husband of husbands) expect(pos.get(husband)).toMatchObject({ generation: 2, kind: 'dau_re' });
+    for (const kid of [...kids, unknownFather]) expect(pos.get(kid)).toMatchObject({ generation: 3 });
+  });
 });

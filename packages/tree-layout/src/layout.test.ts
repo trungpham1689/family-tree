@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { layoutTree, type LayoutNode, type LayoutPerson, type TreeLayout } from './layout.ts';
+import { layoutTree, type LayoutNode, type LayoutPerson, type LayoutUnion, type TreeLayout } from './layout.ts';
 import { randomFamily } from './random-family.ts';
 import { wrapName } from './text.ts';
 
@@ -55,6 +55,95 @@ const sample = () => ({
   ],
 });
 
+/** Một người trong họ có `n` vợ/chồng, mỗi vợ/chồng hai con (con của vợ/chồng cuối có cháu), thêm hai con chưa rõ cha/mẹ còn lại. */
+const manySpouses = (n: number, kidsPerSpouse = 2, unknownFather = 2) => {
+  const persons = [person('goc', { gender: 'nu' })];
+  const parentLinks: { child_id: string; parent_id: string }[] = [];
+  const unions: { partner_a: string; partner_b: string; order_for_a: number; order_for_b: number }[] = [];
+  for (let k = 1; k <= n; k += 1) {
+    persons.push(person(`chong-${k}`));
+    unions.push({ partner_a: 'goc', partner_b: `chong-${k}`, order_for_a: k, order_for_b: 1 });
+    for (const c of ['a', 'b'].slice(0, kidsPerSpouse)) {
+      persons.push(person(`con-${k}${c}`, { birth_order: k * 2 + (c === 'a' ? 0 : 1) }));
+      parentLinks.push({ child_id: `con-${k}${c}`, parent_id: 'goc' }, { child_id: `con-${k}${c}`, parent_id: `chong-${k}` });
+    }
+  }
+  for (const c of ['x', 'y'].slice(0, unknownFather)) {
+    persons.push(person(`mo-coi-${c}`, { birth_order: 100 }));
+    parentLinks.push({ child_id: `mo-coi-${c}`, parent_id: 'goc' });
+  }
+  persons.push(person('chau'));
+  parentLinks.push({ child_id: 'chau', parent_id: `con-${n}a` });
+  return { persons, parentLinks, unions, rootId: 'goc' };
+};
+
+type Segment = { horizontal: boolean; at: number; from: number; to: number };
+/** Các cặp đoạn thẳng cùng nằm trên một đường (ngang cùng y, đứng cùng x) và chung nhau một khoảng dài hơn 0.5. */
+const collinearOverlaps = (layout: TreeLayout): string[] => {
+  const segments: Segment[] = [];
+  for (const line of layout.lines) {
+    for (let i = 1; i < line.points.length; i += 1) {
+      const [x1, y1] = line.points[i - 1]!;
+      const [x2, y2] = line.points[i]!;
+      if (x1 === x2 && y1 === y2) continue;
+      if (y1 === y2) segments.push({ horizontal: true, at: y1, from: Math.min(x1, x2), to: Math.max(x1, x2) });
+      else if (x1 === x2) segments.push({ horizontal: false, at: x1, from: Math.min(y1, y2), to: Math.max(y1, y2) });
+    }
+  }
+  const found: string[] = [];
+  for (let i = 0; i < segments.length; i += 1) {
+    for (let j = i + 1; j < segments.length; j += 1) {
+      const a = segments[i]!;
+      const b = segments[j]!;
+      if (a.horizontal === b.horizontal && Math.abs(a.at - b.at) < 0.01 && Math.min(a.to, b.to) - Math.max(a.from, b.from) > 0.5) {
+        found.push(`${a.horizontal ? 'ngang' : 'đứng'} ${a.at.toFixed(1)}: ${a.from.toFixed(1)}–${a.to.toFixed(1)} với ${b.from.toFixed(1)}–${b.to.toFixed(1)}`);
+      }
+    }
+  }
+  return found;
+};
+
+/** Các cặp đoạn cùng hướng, song song và cách nhau dưới `gap` mà cùng chạy qua một khoảng dài hơn 0.5 (nhìn như chồng lên nhau). */
+const nearParallel = (layout: TreeLayout, gap: number): string[] => {
+  const segments: Segment[] = [];
+  for (const line of layout.lines) {
+    for (let i = 1; i < line.points.length; i += 1) {
+      const [x1, y1] = line.points[i - 1]!;
+      const [x2, y2] = line.points[i]!;
+      if (y1 === y2 && x1 !== x2) segments.push({ horizontal: true, at: y1, from: Math.min(x1, x2), to: Math.max(x1, x2) });
+      else if (x1 === x2 && y1 !== y2) segments.push({ horizontal: false, at: x1, from: Math.min(y1, y2), to: Math.max(y1, y2) });
+    }
+  }
+  const found: string[] = [];
+  for (let i = 0; i < segments.length; i += 1) {
+    for (let j = i + 1; j < segments.length; j += 1) {
+      const a = segments[i]!;
+      const b = segments[j]!;
+      if (a.horizontal === b.horizontal && Math.abs(a.at - b.at) < gap && Math.min(a.to, b.to) - Math.max(a.from, b.from) > 0.5) {
+        found.push(`${a.horizontal ? 'ngang' : 'đứng'} ${a.at.toFixed(1)}/${b.at.toFixed(1)}: ${a.from.toFixed(1)}–${a.to.toFixed(1)} với ${b.from.toFixed(1)}–${b.to.toFixed(1)}`);
+      }
+    }
+  }
+  return found;
+};
+
+/** Đoạn đường đi xuyên qua bên trong một ô (chạm cạnh ô thì không tính). */
+const linesThroughNodes = (layout: TreeLayout): string[] => {
+  const found: string[] = [];
+  for (const line of layout.lines) {
+    for (let i = 1; i < line.points.length; i += 1) {
+      const [x1, y1] = line.points[i - 1]!;
+      const [x2, y2] = line.points[i]!;
+      for (const n of layout.nodes) {
+        const insideX = Math.max(x1, x2) > n.x + 0.5 && Math.min(x1, x2) < n.x + n.width - 0.5;
+        const insideY = Math.max(y1, y2) > n.y + 0.5 && Math.min(y1, y2) < n.y + n.height - 0.5;
+        if (insideX && insideY) found.push(`${n.key}: (${x1},${y1})→(${x2},${y2})`);
+      }
+    }
+  }
+  return found;
+};
+
 const node = (layout: TreeLayout, personId: string) => layout.nodes.find((n) => n.personId === personId)!;
 
 describe('seam C: bố cục cây', () => {
@@ -85,6 +174,42 @@ describe('seam C: bố cục cây', () => {
     const layout = layoutTree(sample(), { rootId: 'to' });
     const children = ['con-ca-1', 'con-ca-2', 'con-hai-1', 'con-khong-ro'].map((id) => node(layout, id).x);
     expect(children).toEqual([...children].sort((a, b) => a - b));
+  });
+
+  it('đường xuống con của mỗi vợ/chồng không nằm thẳng hàng với cột nối của vợ/chồng khác (con khỏi bị nhìn nhầm là con của người đứng giữa)', () => {
+    const layout = layoutTree(sample(), { rootId: 'to' });
+    const spouseDrops = layout.nodes.filter((n) => n.role === 'spouse' && n.depth === 0).map((n) => ({ x: n.x + n.width / 2, bottom: n.y + n.height }));
+    expect(spouseDrops).toHaveLength(3);
+    const lowestUnionLevel = Math.max(...layout.lines.filter((l) => l.kind === 'union').flatMap((l) => l.points.map(([, y]) => y)));
+    for (const line of layout.lines.filter((l) => l.kind === 'descent')) {
+      const [x, y] = line.points[0]!;
+      // Đường xuống bắt đầu từ cạnh hôn phối (dưới ô, trên mức thấp nhất của các cạnh) không được trùng x với cột nối của một vợ/chồng.
+      const startsOnUnionLevel = y > spouseDrops[0]!.bottom && y <= lowestUnionLevel;
+      if (startsOnUnionLevel) expect(spouseDrops.map((drop) => drop.x)).not.toContain(x);
+    }
+  });
+
+  it('không có hai đoạn đường nào nằm chồng lên nhau trên cùng một đường thẳng (nhiều vợ/chồng, con chưa rõ cha/mẹ, cả hai hướng)', () => {
+    const families: { persons: LayoutPerson[]; parentLinks: { child_id: string; parent_id: string }[]; unions: LayoutUnion[]; rootId: string }[] = [
+      { ...sample(), rootId: 'to' },
+      manySpouses(8),
+      manySpouses(2),
+      manySpouses(3, 1, 1),
+      manySpouses(4, 1, 1),
+      manySpouses(4, 2, 0),
+      manySpouses(5, 1, 1),
+      ...Array.from({ length: 40 }, (_, seed) => randomFamily(seed + 1, 60 + seed * 7)),
+    ];
+    const bad: string[] = [];
+    for (const [index, family] of families.entries()) {
+      for (const orientation of ['top-down', 'left-right'] as const) {
+        const layout = layoutTree(family, { rootId: family.rootId, orientation });
+        expect(collinearOverlaps(layout), `gia phả ${index}, ${orientation}`).toEqual([]);
+        expect(linesThroughNodes(layout), `gia phả ${index}, ${orientation}`).toEqual([]);
+        if (index !== 1 && nearParallel(layout, 5).length > 0) bad.push(`${index}/${orientation}:${nearParallel(layout, 5).length}`);
+      }
+    }
+    expect(bad).toEqual([]);
   });
 
   it('mỗi đời một hàng, đời sau thấp hơn đời trước', () => {
