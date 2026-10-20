@@ -28,7 +28,7 @@ describe('seam B: mời bằng email chưa có tài khoản', () => {
   });
 
   const invite = (email: string, role = 'editor') => me.rpc<string>('invite_to_tree', { target_tree: treeId, invite_email: email, new_role: role });
-  const invitations = () => me.rpcRows<Invitation>('list_tree_pending_invites', { target_tree: treeId });
+  const invitations = () => me.rpcRows<Invitation>('list_tree_invitations', { target_tree: treeId });
 
   it('email đã có tài khoản: cấp vai trò ngay, trả "added"', async () => {
     const existing = await db.createUser(unique('co-san'));
@@ -94,7 +94,7 @@ describe('seam B: mời bằng email chưa có tài khoản', () => {
     await invite(editor.email);
     const asEditor = db.as(editor);
     await expect(asEditor.rpc('invite_to_tree', { target_tree: treeId, invite_email: unique('x'), new_role: 'viewer' })).rejects.toThrow(/NOT_ALLOWED/);
-    await expect(asEditor.rpcRows('list_tree_pending_invites', { target_tree: treeId })).rejects.toThrow(/NOT_ALLOWED/);
+    await expect(asEditor.rpcRows('list_tree_invitations', { target_tree: treeId })).rejects.toThrow(/NOT_ALLOWED/);
     await expect(asEditor.rpc('cancel_tree_invitation', { target_tree: treeId, invite_email: 'a@b.co' })).rejects.toThrow(/NOT_ALLOWED/);
 
     await expect(invite('khong-phai-email')).rejects.toThrow(/INVALID_EMAIL/);

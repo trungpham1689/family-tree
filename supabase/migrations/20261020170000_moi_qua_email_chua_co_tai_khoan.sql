@@ -55,7 +55,7 @@ begin
 end;
 $$;
 
-create function public.list_tree_pending_invites(target_tree uuid) returns table (email text, role text, created_at timestamptz)
+create function public.list_tree_invitations(target_tree uuid) returns table (email text, role text, created_at timestamptz)
 language plpgsql stable security definer set search_path = ''
 as $$
 begin
@@ -100,7 +100,7 @@ begin
 end;
 $$;
 
-revoke execute on function public.invite_to_tree(uuid, text, text), public.list_tree_pending_invites(uuid), public.cancel_tree_invitation(uuid, text)
+revoke execute on function public.invite_to_tree(uuid, text, text), public.list_tree_invitations(uuid), public.cancel_tree_invitation(uuid, text)
   from public, anon;
-grant execute on function public.invite_to_tree(uuid, text, text), public.list_tree_pending_invites(uuid), public.cancel_tree_invitation(uuid, text)
+grant execute on function public.invite_to_tree(uuid, text, text), public.list_tree_invitations(uuid), public.cancel_tree_invitation(uuid, text)
   to authenticated;

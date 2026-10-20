@@ -1251,6 +1251,22 @@ begin
 end;
 $function$;
 
+-- public.list_tree_invitations(target_tree uuid)  [anon: không, authenticated: có, service_role: có]
+CREATE OR REPLACE FUNCTION public.list_tree_invitations(target_tree uuid)
+ RETURNS TABLE(email text, role text, created_at timestamp with time zone)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+begin
+  if not public.is_tree_owner(target_tree) then
+    raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
+  end if;
+  return query
+    select i.email, i.role, i.created_at from public.tree_pending_invites i where i.tree_id = target_tree order by i.created_at, i.email;
+end;
+$function$;
+
 -- public.list_tree_members(target_tree uuid)  [anon: không, authenticated: có, service_role: có]
 CREATE OR REPLACE FUNCTION public.list_tree_members(target_tree uuid)
  RETURNS TABLE(account_id uuid, role text, email text, created_at timestamp with time zone)
@@ -1268,22 +1284,6 @@ begin
     from public.tree_roles r
     where r.tree_id = target_tree
     order by (r.role = 'owner') desc, r.created_at;
-end;
-$function$;
-
--- public.list_tree_pending_invites(target_tree uuid)  [anon: không, authenticated: có, service_role: có]
-CREATE OR REPLACE FUNCTION public.list_tree_pending_invites(target_tree uuid)
- RETURNS TABLE(email text, role text, created_at timestamp with time zone)
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-begin
-  if not public.is_tree_owner(target_tree) then
-    raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
-  end if;
-  return query
-    select i.email, i.role, i.created_at from public.tree_pending_invites i where i.tree_id = target_tree order by i.created_at, i.email;
 end;
 $function$;
 
