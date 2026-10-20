@@ -28,7 +28,7 @@ describe('seam B: mời bằng email chưa có tài khoản', () => {
   });
 
   const invite = (email: string, role = 'editor') => me.rpc<string>('invite_to_tree', { target_tree: treeId, invite_email: email, new_role: role });
-  const invitations = () => me.rpcRows<Invitation>('list_tree_invitations', { target_tree: treeId });
+  const invitations = () => me.rpcRows<Invitation>('list_tree_pending_invites', { target_tree: treeId });
 
   it('email đã có tài khoản: cấp vai trò ngay, trả "added"', async () => {
     const existing = await db.createUser(unique('co-san'));
@@ -94,14 +94,14 @@ describe('seam B: mời bằng email chưa có tài khoản', () => {
     await invite(editor.email);
     const asEditor = db.as(editor);
     await expect(asEditor.rpc('invite_to_tree', { target_tree: treeId, invite_email: unique('x'), new_role: 'viewer' })).rejects.toThrow(/NOT_ALLOWED/);
-    await expect(asEditor.rpcRows('list_tree_invitations', { target_tree: treeId })).rejects.toThrow(/NOT_ALLOWED/);
+    await expect(asEditor.rpcRows('list_tree_pending_invites', { target_tree: treeId })).rejects.toThrow(/NOT_ALLOWED/);
     await expect(asEditor.rpc('cancel_tree_invitation', { target_tree: treeId, invite_email: 'a@b.co' })).rejects.toThrow(/NOT_ALLOWED/);
 
     await expect(invite('khong-phai-email')).rejects.toThrow(/INVALID_EMAIL/);
     await expect(invite('a b@c.de')).rejects.toThrow(/INVALID_EMAIL/);
     await expect(invite(unique('x'), 'owner')).rejects.toThrow(/INVALID_ROLE/);
 
-    for (let i = 0; i < 49; i += 1) await db.admin.query("insert into public.tree_invitations (tree_id, email, role) values ($1, $2, 'viewer')", [treeId, `cho-${i}@example.com`]);
+    for (let i = 0; i < 49; i += 1) await db.admin.query("insert into public.tree_pending_invites (tree_id, email, role) values ($1, $2, 'viewer')", [treeId, `cho-${i}@example.com`]);
     await invite(unique('thu-50'));
     await expect(invite(unique('thu-51'))).rejects.toThrow(/TOO_MANY_INVITATIONS/);
     // Mời lại một email đã chờ vẫn được dù đã đủ 50.
@@ -110,13 +110,13 @@ describe('seam B: mời bằng email chưa có tài khoản', () => {
 
   it('không đọc ghi trực tiếp bảng lời mời được', async () => {
     await invite(unique('moi'));
-    await expect(me.query('select * from tree_invitations')).rejects.toThrow();
-    await expect(me.query("insert into tree_invitations (tree_id, email, role) values ($1, 'x@y.zz', 'viewer')", [treeId])).rejects.toThrow();
+    await expect(me.query('select * from tree_pending_invites')).rejects.toThrow();
+    await expect(me.query("insert into tree_pending_invites (tree_id, email, role) values ($1, 'x@y.zz', 'viewer')", [treeId])).rejects.toThrow();
   });
 
   it('xoá gia phả thì lời mời chờ mất theo', async () => {
     await invite(unique('moi'));
     await me.query('delete from family_trees where id = $1', [treeId]);
-    expect(await db.admin.query('select 1 from tree_invitations where tree_id = $1', [treeId]).then((r) => r.rows)).toEqual([]);
+    expect(await db.admin.query('select 1 from tree_pending_invites where tree_id = $1', [treeId]).then((r) => r.rows)).toEqual([]);
   });
 });

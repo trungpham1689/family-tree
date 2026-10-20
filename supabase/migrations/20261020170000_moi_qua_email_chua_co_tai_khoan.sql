@@ -2,7 +2,8 @@
 -- vai trò được cấp ngay lúc tạo tài khoản. Tài khoản vẫn phải được duyệt (private.is_approved) mới thấy gia phả, như mọi vai trò khác.
 -- Đăng nhập sau khi được duyệt là thấy gia phả được mời, không phải mời lại.
 
-create table public.tree_invitations (
+-- Tên riêng `tree_pending_invites`: project Supabase thật còn sót bảng `tree_invitations` cũ (thiết kế Ticket 11, đang trống, không dùng nữa).
+create table public.tree_pending_invites (
   tree_id uuid not null references public.family_trees (id) on delete cascade,
   email text not null check (email = lower(email)),
   role text not null check (role in ('editor', 'viewer')),
@@ -12,8 +13,8 @@ create table public.tree_invitations (
 );
 
 -- Chỉ truy cập qua các hàm bên dưới (security definer); không cho đọc/ghi trực tiếp.
-alter table public.tree_invitations enable row level security;
-revoke all on public.tree_invitations from anon, authenticated;
+alter table public.tree_pending_invites enable row level security;
+revoke all on public.tree_pending_invites from anon, authenticated;
 
 -- Trả 'added' khi email đã có tài khoản (vai trò cấp ngay), 'pending' khi chưa có (lưu lời mời chờ đăng ký).
 drop function public.invite_to_tree(uuid, text, text);
@@ -36,11 +37,11 @@ begin
 
   invitee := private.account_id_by_email(address);
   if invitee is null then
-    if not exists (select 1 from public.tree_invitations where tree_id = target_tree and email = address)
-       and (select count(*) from public.tree_invitations where tree_id = target_tree) >= 50 then
+    if not exists (select 1 from public.tree_pending_invites where tree_id = target_tree and email = address)
+       and (select count(*) from public.tree_pending_invites where tree_id = target_tree) >= 50 then
       raise exception 'TOO_MANY_INVITATIONS' using errcode = 'check_violation';
     end if;
-    insert into public.tree_invitations (tree_id, email, role, invited_by) values (target_tree, address, new_role, auth.uid())
+    insert into public.tree_pending_invites (tree_id, email, role, invited_by) values (target_tree, address, new_role, auth.uid())
       on conflict (tree_id, email) do update set role = excluded.role;
     return 'pending';
   end if;
@@ -54,7 +55,7 @@ begin
 end;
 $$;
 
-create function public.list_tree_invitations(target_tree uuid) returns table (email text, role text, created_at timestamptz)
+create function public.list_tree_pending_invites(target_tree uuid) returns table (email text, role text, created_at timestamptz)
 language plpgsql stable security definer set search_path = ''
 as $$
 begin
@@ -62,7 +63,7 @@ begin
     raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
   end if;
   return query
-    select i.email, i.role, i.created_at from public.tree_invitations i where i.tree_id = target_tree order by i.created_at, i.email;
+    select i.email, i.role, i.created_at from public.tree_pending_invites i where i.tree_id = target_tree order by i.created_at, i.email;
 end;
 $$;
 
@@ -73,7 +74,7 @@ begin
   if not public.is_tree_owner(target_tree) then
     raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
   end if;
-  delete from public.tree_invitations where tree_id = target_tree and email = lower(btrim(coalesce(invite_email, '')));
+  delete from public.tree_pending_invites where tree_id = target_tree and email = lower(btrim(coalesce(invite_email, '')));
 end;
 $$;
 
@@ -92,14 +93,14 @@ begin
   values (new.id, new.email, is_root, is_root, case when is_root then now() end, name_text, birth, phone_text);
 
   insert into public.tree_roles (tree_id, account_id, role, invited_by)
-  select i.tree_id, new.id, i.role, i.invited_by from public.tree_invitations i where i.email = lower(coalesce(new.email, ''))
+  select i.tree_id, new.id, i.role, i.invited_by from public.tree_pending_invites i where i.email = lower(coalesce(new.email, ''))
   on conflict (tree_id, account_id) do nothing;
-  delete from public.tree_invitations where email = lower(coalesce(new.email, ''));
+  delete from public.tree_pending_invites where email = lower(coalesce(new.email, ''));
   return new;
 end;
 $$;
 
-revoke execute on function public.invite_to_tree(uuid, text, text), public.list_tree_invitations(uuid), public.cancel_tree_invitation(uuid, text)
+revoke execute on function public.invite_to_tree(uuid, text, text), public.list_tree_pending_invites(uuid), public.cancel_tree_invitation(uuid, text)
   from public, anon;
-grant execute on function public.invite_to_tree(uuid, text, text), public.list_tree_invitations(uuid), public.cancel_tree_invitation(uuid, text)
+grant execute on function public.invite_to_tree(uuid, text, text), public.list_tree_pending_invites(uuid), public.cancel_tree_invitation(uuid, text)
   to authenticated;

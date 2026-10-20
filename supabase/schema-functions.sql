@@ -587,9 +587,9 @@ begin
   values (new.id, new.email, is_root, is_root, case when is_root then now() end, name_text, birth, phone_text);
 
   insert into public.tree_roles (tree_id, account_id, role, invited_by)
-  select i.tree_id, new.id, i.role, i.invited_by from public.tree_invitations i where i.email = lower(coalesce(new.email, ''))
+  select i.tree_id, new.id, i.role, i.invited_by from public.tree_pending_invites i where i.email = lower(coalesce(new.email, ''))
   on conflict (tree_id, account_id) do nothing;
-  delete from public.tree_invitations where email = lower(coalesce(new.email, ''));
+  delete from public.tree_pending_invites where email = lower(coalesce(new.email, ''));
   return new;
 end;
 $function$;
@@ -1053,7 +1053,7 @@ begin
   if not public.is_tree_owner(target_tree) then
     raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
   end if;
-  delete from public.tree_invitations where tree_id = target_tree and email = lower(btrim(coalesce(invite_email, '')));
+  delete from public.tree_pending_invites where tree_id = target_tree and email = lower(btrim(coalesce(invite_email, '')));
 end;
 $function$;
 
@@ -1141,11 +1141,11 @@ begin
 
   invitee := private.account_id_by_email(address);
   if invitee is null then
-    if not exists (select 1 from public.tree_invitations where tree_id = target_tree and email = address)
-       and (select count(*) from public.tree_invitations where tree_id = target_tree) >= 50 then
+    if not exists (select 1 from public.tree_pending_invites where tree_id = target_tree and email = address)
+       and (select count(*) from public.tree_pending_invites where tree_id = target_tree) >= 50 then
       raise exception 'TOO_MANY_INVITATIONS' using errcode = 'check_violation';
     end if;
-    insert into public.tree_invitations (tree_id, email, role, invited_by) values (target_tree, address, new_role, auth.uid())
+    insert into public.tree_pending_invites (tree_id, email, role, invited_by) values (target_tree, address, new_role, auth.uid())
       on conflict (tree_id, email) do update set role = excluded.role;
     return 'pending';
   end if;
@@ -1251,22 +1251,6 @@ begin
 end;
 $function$;
 
--- public.list_tree_invitations(target_tree uuid)  [anon: không, authenticated: có, service_role: có]
-CREATE OR REPLACE FUNCTION public.list_tree_invitations(target_tree uuid)
- RETURNS TABLE(email text, role text, created_at timestamp with time zone)
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-begin
-  if not public.is_tree_owner(target_tree) then
-    raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
-  end if;
-  return query
-    select i.email, i.role, i.created_at from public.tree_invitations i where i.tree_id = target_tree order by i.created_at, i.email;
-end;
-$function$;
-
 -- public.list_tree_members(target_tree uuid)  [anon: không, authenticated: có, service_role: có]
 CREATE OR REPLACE FUNCTION public.list_tree_members(target_tree uuid)
  RETURNS TABLE(account_id uuid, role text, email text, created_at timestamp with time zone)
@@ -1284,6 +1268,22 @@ begin
     from public.tree_roles r
     where r.tree_id = target_tree
     order by (r.role = 'owner') desc, r.created_at;
+end;
+$function$;
+
+-- public.list_tree_pending_invites(target_tree uuid)  [anon: không, authenticated: có, service_role: có]
+CREATE OR REPLACE FUNCTION public.list_tree_pending_invites(target_tree uuid)
+ RETURNS TABLE(email text, role text, created_at timestamp with time zone)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+begin
+  if not public.is_tree_owner(target_tree) then
+    raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
+  end if;
+  return query
+    select i.email, i.role, i.created_at from public.tree_pending_invites i where i.tree_id = target_tree order by i.created_at, i.email;
 end;
 $function$;
 
