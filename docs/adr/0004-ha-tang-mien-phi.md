@@ -22,3 +22,6 @@ Lý do không dùng Supabase Storage cho ảnh: chỉ 1 GB; một dòng họ 800
 - Email gom thành **một bản tin/ngày cho mỗi tài khoản** để không vượt 100 email/ngày; thông báo trong app không giới hạn.
 - Khi vượt giới hạn: Supabase Pro ($25/tháng) và Resend Pro ($20/tháng) là bước nâng cấp, không phải viết lại.
 - Cần có tên miền riêng để gửi email qua Resend (khoảng 250–300 nghìn đồng/năm, phần duy nhất có thể tốn tiền).
+
+## Cập nhật 2026-10-20 (app mobile và đăng ký trả phí)
+Ràng buộc "hạ tầng hoàn toàn miễn phí" **vẫn giữ cho tới khi có khoảng 50 tài khoản trả phí** ([ADR 0006](0006-dang-ky-theo-tai-khoan-chu-so-huu.md)); khi đó mới nâng Supabase/Resend Pro. Các khoản chi mới đã chấp nhận cho app mobile ([ADR 0007](0007-hai-ung-dung-web-va-mobile.md)): Apple Developer $99/năm, Google Play $25 một lần, tên miền riêng (cần sớm hơn, để deep link và URL chính sách quyền riêng tư cho store). Cron hằng ngày thêm việc gửi push qua Expo Push (miễn phí).

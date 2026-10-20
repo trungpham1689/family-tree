@@ -15,7 +15,7 @@ _Tránh dùng:_ "thành viên" để chỉ người trong cây (dễ nhầm vớ
 Một người dùng đăng nhập vào webapp. Một tài khoản có thể được *liên kết* với đúng một Người trong mỗi gia phả.
 
 **Siêu quản trị**
-Tài khoản quản lý hệ thống: vào được trang quản trị để duyệt hoặc thu hồi tài khoản khác. Khác với vai trò trong một gia phả. Siêu quản trị *gốc* không bị thu hồi và là người duy nhất cấp quyền này.
+Tài khoản quản lý hệ thống: vào được trang quản trị để chặn, xoá hoặc gỡ chặn tài khoản khác. Tài khoản mới đăng ký xong dùng được ngay, không chờ duyệt. Khác với vai trò trong một gia phả. Siêu quản trị *gốc* không bị thu hồi và là người duy nhất cấp quyền này.
 
 **Đinh**
 Người sinh ra trong họ (có cha hoặc mẹ là người trong họ), được nối với cha mẹ.
@@ -98,3 +98,19 @@ Biên tập viên: Người, ảnh tư liệu, Sự kiện — chỉ thêm/sửa
 
 **Thông tin riêng tư**
 Những thông tin của Người còn sống bị ẩn khỏi Link chia sẻ công khai; chỉ tài khoản có vai trò mới thấy.
+
+## Đăng ký trả phí
+
+**Gói**
+Mức dịch vụ của một Tài khoản Chủ sở hữu: Gói miễn phí hoặc một gói trả phí. Gói áp dụng cho mọi Gia phả tài khoản đó sở hữu; giới hạn và tính năng của gói được tính trên từng Gia phả.
+
+Có ba gói: **Gói miễn phí**, **Gói Gia đình**, **Gói Dòng họ**. Tên "Gói Dòng họ" chỉ là tên một gói, không phải một Gia phả.
+
+**Dùng thử**
+30 ngày dùng Gói Dòng họ khi tạo Gia phả đầu tiên, không cần thẻ; hết hạn thì về Gói miễn phí.
+
+**Đăng ký**
+Việc Chủ sở hữu trả tiền định kỳ để nâng Gói của tài khoản mình. Chỉ Chủ sở hữu mới đăng ký; Biên tập viên và Người xem không phải trả gì và không bị giới hạn bởi gói.
+
+**Hết hạn**
+Đăng ký không được gia hạn: Tài khoản về Gói miễn phí. Dữ liệu không bị xoá; phần vượt giới hạn của Gói miễn phí chỉ xem được, không thêm được.
