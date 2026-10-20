@@ -3,7 +3,7 @@
  * tiêu đề được so khớp không phân biệt dấu, hoa thường, nên cột có thể xếp theo thứ tự bất kỳ.
  */
 export const COLUMNS = [
-  { key: 'code', header: 'Mã', guide: 'Bắt buộc. Mã tự đặt cho từng người, không trùng nhau (ví dụ T1, A2, B15).' },
+  { key: 'code', header: 'Mã', guide: 'Bắt buộc. Mã tự đặt cho từng người, không trùng nhau (ví dụ T1, A2, B15). Mã chỉ dùng để nối quan hệ trong file này, không được lưu vào hệ thống: sau khi nhập, mỗi người có id riêng do hệ thống tạo.' },
   { key: 'fullName', header: 'Họ và tên', guide: 'Bắt buộc.' },
   { key: 'gender', header: 'Giới tính', guide: 'Nam hoặc Nữ. Để trống nếu chưa rõ.' },
   { key: 'fatherCode', header: 'Mã cha', guide: 'Mã của người cha trong file (nếu có).' },

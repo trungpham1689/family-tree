@@ -23,6 +23,7 @@ export const templateSheets = (): { sheet: string; data: SheetData; columns: { w
       [header('Cách điền file gia phả'), null],
       ['Mỗi dòng', 'Một người trong gia phả, kể cả dâu, rể.'],
       ['Nối quan hệ', 'Dùng mã: ghi "Mã cha", "Mã mẹ" cho con; ghi "Mã vợ/chồng" cho dâu, rể.'],
+      ['Mã chỉ để nối', 'Mã chỉ có tác dụng trong file này để các dòng trỏ tới nhau. Hệ thống không lưu mã; mỗi người sau khi nhập có id riêng.'],
       ['Thuỷ tổ', 'Tự nhận ra: người không có cha mẹ trong file và có nhiều con cháu nhất.'],
       ['Ví dụ', 'Sheet "Gia phả" đang có sẵn một gia phả 4 đời làm ví dụ. Xoá các dòng ví dụ rồi điền gia phả của bạn.'],
       ['Kiểm tra', 'Khi tải lên, app hiện bản xem trước và báo lỗi từng dòng. Chưa lưu gì cho tới khi bạn bấm "Xác nhận & lưu".'],

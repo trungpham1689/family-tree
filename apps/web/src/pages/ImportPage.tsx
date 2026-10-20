@@ -65,6 +65,8 @@ const ImportFlow = ({ treeId, treeName }: { treeId: string | null; treeName: str
     }
   };
 
+  const cancel = () => navigate(treeId ? `/gia-pha/${treeId}` : '/gia-pha');
+
   const confirm = () => {
     if (!preview?.payload) return;
     save.mutate(
@@ -150,6 +152,9 @@ const ImportFlow = ({ treeId, treeName }: { treeId: string | null; treeName: str
                   </li>
                 ))}
               </ul>
+              <Button variant="secondary" className="mt-4" onClick={cancel}>
+                Huỷ
+              </Button>
             </div>
           ) : (
             <div className="space-y-4 rounded-2xl border border-line bg-surface p-5">
@@ -164,9 +169,14 @@ const ImportFlow = ({ treeId, treeName }: { treeId: string | null; treeName: str
                 <TextField label="Tên gia phả mới" maxLength={120} value={name} onChange={(event) => setName(event.target.value)} />
               )}
               {save.isError && <ErrorBanner>{save.error.message}</ErrorBanner>}
-              <Button disabled={save.isPending || (!treeId && !name.trim())} onClick={confirm}>
-                {save.isPending ? 'Đang lưu…' : 'Xác nhận & lưu'}
-              </Button>
+              <div className="flex flex-wrap gap-3">
+                <Button disabled={save.isPending || (!treeId && !name.trim())} onClick={confirm}>
+                  {save.isPending ? 'Đang lưu…' : 'Xác nhận & lưu'}
+                </Button>
+                <Button variant="secondary" disabled={save.isPending} onClick={cancel}>
+                  Huỷ
+                </Button>
+              </div>
             </div>
           )}
 
@@ -176,7 +186,9 @@ const ImportFlow = ({ treeId, treeName }: { treeId: string | null; treeName: str
                 <thead>
                   <tr className="border-b border-line text-sm text-ink-muted">
                     <th className="px-4 py-2 font-medium">Dòng</th>
-                    <th className="px-4 py-2 font-medium">Mã</th>
+                    <th className="px-4 py-2 font-medium" title="Mã chỉ để nối quan hệ trong file này, không được lưu vào hệ thống">
+                      Mã (chỉ để nối)
+                    </th>
                     <th className="px-4 py-2 font-medium">Họ và tên</th>
                     <th className="px-4 py-2 font-medium">Đời</th>
                     <th className="px-4 py-2 font-medium">Quan hệ</th>

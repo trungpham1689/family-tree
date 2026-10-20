@@ -193,6 +193,37 @@ describe('findAncestorCycles', () => {
   });
 });
 
+describe('Thuỷ tổ và vợ/chồng: ghi quan hệ ở dòng của bên nào cũng được', () => {
+  const husband: RawRow = { code: 'H', fullName: 'Chồng', gender: 'Nam' };
+  const wife: RawRow = { code: 'W', fullName: 'Vợ', gender: 'Nữ' };
+  const child: RawRow = { code: 'K', fullName: 'Con', gender: 'Nam', fatherCode: 'H' };
+  const expectHusbandFounder = (rows: RawRow[]) => {
+    const result = preview(rows);
+    expect(result.errors).toEqual([]);
+    expect(result.progenitorName).toBe('Chồng');
+    expect(result.unconnected).toBe(0);
+    expect(result.people.find((p) => p.code === 'W')).toMatchObject({ generation: 1, relation: 'Dâu của Chồng' });
+    expect(result.people.find((p) => p.code === 'K')).toMatchObject({ generation: 2 });
+  };
+
+  it('vợ ghi Mã vợ/chồng (cách thường dùng)', () => expectHusbandFounder([husband, { ...wife, spouseCode: 'H' }, child]));
+  it('chồng ghi Mã vợ/chồng của vợ (ngược lại) vẫn là Thuỷ tổ', () => expectHusbandFounder([{ ...husband, spouseCode: 'W' }, wife, child]));
+  it('cả hai cùng ghi nhau vẫn chọn được Thuỷ tổ', () =>
+    expectHusbandFounder([{ ...husband, spouseCode: 'W' }, { ...wife, spouseCode: 'H' }, child]));
+  it('vợ đứng dòng đầu tiên cũng không thành Thuỷ tổ', () => expectHusbandFounder([{ ...wife, spouseCode: 'H' }, husband, child]));
+  it('dâu của người trong họ không bao giờ là Thuỷ tổ dù có nhiều con cháu', () => {
+    const result = preview([
+      { code: 'T', fullName: 'Tổ', gender: 'Nam' },
+      { code: 'A', fullName: 'Con A', gender: 'Nam', fatherCode: 'T' },
+      { code: 'D', fullName: 'Dâu', gender: 'Nữ', spouseCode: 'A' },
+      { code: 'X1', fullName: 'Cháu 1', gender: 'Nam', fatherCode: 'A', motherCode: 'D' },
+      { code: 'X2', fullName: 'Cháu 2', gender: 'Nam', fatherCode: 'A', motherCode: 'D' },
+    ]);
+    expect(result.progenitorName).toBe('Tổ');
+    expect(result.unconnected).toBe(0);
+  });
+});
+
 describe('layoutGenerations', () => {
   const groups = (pairs: [string, string][]) => {
     const m = new Map<string, string[]>();

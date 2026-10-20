@@ -265,13 +265,18 @@ export const layoutGenerations = (input: {
     }
     return seen.size;
   };
-  const roots = skip ? [] : codes.filter((code) => !parentsOf.has(code) && !(marriedIn(code) && !parentsOf.has(code)));
+  // Người gốc: không có cha mẹ trong file. Dâu/rể (có ghi Mã vợ/chồng) chỉ được xét khi vợ/chồng cũng là người gốc,
+  // vì cặp vợ chồng ở gốc có thể ghi quan hệ ở dòng của bên nào cũng được; dâu/rể của người trong họ thì không bao giờ là Thuỷ tổ.
+  const eligible = (code: string) =>
+    !parentsOf.has(code) && (!marriedIn(code) || (spousesOf.get(code) ?? []).every((spouse) => !parentsOf.has(spouse)));
+  const roots = skip ? [] : codes.filter(eligible);
   let progenitorCode: string | null = null;
   let best = -1;
   for (const root of roots) {
-    const count = countDescendants(root);
-    if (count > best) {
-      best = count;
+    // Nhiều hậu duệ nhất thắng; bằng nhau thì người không ghi Mã vợ/chồng (bên "trong họ") thắng.
+    const score = countDescendants(root) * 2 + (marriedIn(root) ? 0 : 1);
+    if (score > best) {
+      best = score;
       progenitorCode = root;
     }
   }
