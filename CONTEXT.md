@@ -89,10 +89,10 @@ Cách xem gia phả tương tác trên màn hình (phóng to, thu gọn nhánh, 
 Bản trình bày gia phả để in (khổ giấy, khung, tiêu đề), xuất ra PDF/ảnh. Cách trình bày phả đồ được lưu riêng, không thay đổi dữ liệu gia phả.
 
 **Vai trò**
-Quyền của một tài khoản trên một gia phả: **Chủ sở hữu** (toàn quyền, duy nhất, người mời), **Biên tập viên** (chỉ sửa/xoá Người, ảnh và Sự kiện do chính mình tạo; xoá Người phải gửi yêu cầu, chờ Chủ sở hữu duyệt; không mời được người khác), **Người xem** (chỉ xem bản đầy đủ).
+Quyền của một tài khoản trên một gia phả: **Chủ sở hữu** (toàn quyền, duy nhất, người mời), **Biên tập viên** (thêm và sửa mọi Người và ảnh của họ; chỉ sửa/xoá Sự kiện do chính mình tạo; xoá Người phải gửi yêu cầu, chờ Chủ sở hữu duyệt; không mời được người khác), **Người xem** (chỉ xem bản đầy đủ).
 
 **Quy tắc ghi**
-Biên tập viên: Người, ảnh tư liệu, Sự kiện — chỉ thêm/sửa/xoá cái do mình tạo. Quan hệ cha mẹ và hôn phối — thêm và sửa mọi cái, không xoá (chỉ Chủ sở hữu xoá; xoá Người thì quan hệ mất theo). Cấu hình Phả đồ — lưu chung, Biên tập viên nào cũng lưu được. Chủ sở hữu: mọi thứ. Người xem: không ghi gì. Kiểm bằng tests/db/write-rules.test.ts.
+Biên tập viên: Người và ảnh tư liệu — thêm và sửa mọi cái (ảnh đi theo quyền sửa Người), xoá Người phải gửi yêu cầu cho Chủ sở hữu duyệt; Sự kiện — chỉ sửa/xoá cái do mình tạo. Quan hệ cha mẹ và hôn phối — thêm và sửa mọi cái, không xoá (chỉ Chủ sở hữu xoá; xoá Người thì quan hệ mất theo). Cấu hình Phả đồ — lưu chung, Biên tập viên nào cũng lưu được. Chủ sở hữu: mọi thứ. Người xem: không ghi gì. Kiểm bằng tests/db/write-rules.test.ts.
 
 **Link chia sẻ công khai**
 Đường dẫn ai có cũng xem được bản rút gọn của gia phả mà không cần đăng nhập. Chủ sở hữu bật/tắt và tạo lại được.

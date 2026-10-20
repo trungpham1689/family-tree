@@ -120,7 +120,7 @@ const InviteForm = ({ treeId, onDone }: { treeId: string; onDone: () => void }) 
       <label className="block">
         <span className="mb-1 block font-medium">Vai trò</span>
         <Select className="w-full" value={role} onChange={(event) => setRole(event.target.value as InvitableRole)}>
-          <option value="editor">{ROLE_LABELS.editor} — thêm/sửa/xoá Người do mình tạo</option>
+          <option value="editor">{ROLE_LABELS.editor} — thêm, sửa Người; xoá phải chờ Chủ sở hữu duyệt</option>
           <option value="viewer">{ROLE_LABELS.viewer} — chỉ xem bản đầy đủ</option>
         </Select>
       </label>

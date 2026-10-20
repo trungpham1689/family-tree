@@ -115,7 +115,7 @@ const withPhotoCleanup = (remove: (personId: string) => Promise<void>) => async 
 
 export const useDeletePerson = (treeId: string) => useMutationWithEffects(withPhotoCleanup(deletePerson), () => effects.deletion(treeId));
 
-/** Biên tập viên gửi yêu cầu xoá (Người mình tạo), chờ Chủ sở hữu duyệt. */
+/** Biên tập viên gửi yêu cầu xoá một Người, chờ Chủ sở hữu duyệt. */
 export const useRequestDeletePerson = (treeId: string) => useMutationWithEffects(requestDeletePerson, () => effects.deletion(treeId));
 
 export const useApproveDeletePerson = (treeId: string) =>

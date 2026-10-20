@@ -56,11 +56,13 @@ describe('seam B: siết an toàn (rà soát)', () => {
     await expect(owner.query('update person_photos set person_id = $2 where id = $1', [photo!.id, other!.id])).rejects.toThrow(/PHOTO_IMMUTABLE/);
   });
 
-  it('ảnh: Biên tập viên chỉ thêm/xoá ảnh của Người mình tạo', async () => {
+  it('ảnh: Biên tập viên thêm/xoá được ảnh của mọi Người (đi theo quyền sửa Người); Người xem thì không', async () => {
     const asEditor = await editor();
     const [foreign] = await owner.query<{ id: string }>('insert into person_photos (person_id, storage_path) values ($1, $2) returning id', [rootId, `${treeId}/ownerphoto1`]);
-    await expect(asEditor.query('insert into person_photos (person_id, storage_path) values ($1, $2)', [rootId, `${treeId}/editorphoto`])).rejects.toThrow();
-    expect(await asEditor.query('delete from person_photos where id = $1 returning id', [foreign!.id])).toEqual([]);
+    // Người do Chủ sở hữu tạo: Biên tập viên thêm và xoá được ảnh của họ.
+    const [added] = await asEditor.query<{ id: string }>('insert into person_photos (person_id, storage_path) values ($1, $2) returning id', [rootId, `${treeId}/editorphoto0`]);
+    expect(await asEditor.query('delete from person_photos where id = $1 returning id', [added!.id])).toHaveLength(1);
+    expect(await asEditor.query('delete from person_photos where id = $1 returning id', [foreign!.id])).toHaveLength(1);
 
     const mineId = await asEditor.rpc<string>('add_child', { parent_id: rootId, other_parent_id: null, link_kind: 'ruot', person: { full_name: 'Của BTV' } });
     const [mine] = await asEditor.query<{ id: string }>('insert into person_photos (person_id, storage_path) values ($1, $2) returning id', [mineId, `${treeId}/editorphoto`]);

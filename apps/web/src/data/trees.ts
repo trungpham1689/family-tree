@@ -109,7 +109,7 @@ export const deletePerson = async (personId: string): Promise<void> => {
   if (count === 0) throw new DataError({ code: 'PGRST116' });
 };
 
-/** Biên tập viên gửi yêu cầu xoá Người mình tạo; chờ Chủ sở hữu duyệt (không xoá ngay). */
+/** Biên tập viên gửi yêu cầu xoá Người; chờ Chủ sở hữu duyệt (không xoá ngay). */
 export const requestDeletePerson = async (personId: string): Promise<void> => {
   const { error } = await supabase.rpc('request_delete_person', { target_person: personId });
   if (error) throw new DataError(error);

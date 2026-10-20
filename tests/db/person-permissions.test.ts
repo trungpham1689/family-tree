@@ -51,7 +51,7 @@ describe('seam B: phân quyền Biên tập viên trên Người', () => {
     expect((await readPerson(childId)).created_by).toBe(editor.id);
   });
 
-  it('Biên tập viên sửa được Người mình tạo, không sửa được Người người khác tạo', async () => {
+  it('Biên tập viên sửa được mọi Người: cả Người mình tạo lẫn Người do Chủ sở hữu tạo; created_by không đổi được', async () => {
     const editor = await inviteEditor();
     const asEditor = db.as(editor);
     const childId = await asEditor.rpc<string>('add_child', {
@@ -67,8 +67,21 @@ describe('seam B: phân quyền Biên tập viên trên Người', () => {
     );
     expect(updated?.full_name).toBe('Con đã sửa');
 
-    // RLS lọc theo using-clause: không khớp dòng nào thì không sửa được gì, không báo lỗi.
-    expect(await asEditor.query("update persons set full_name = 'Chiếm quyền' where id = $1", [rootId])).toEqual([]);
+    // Người do Chủ sở hữu tạo cũng sửa được.
+    expect(await asEditor.query("update persons set full_name = 'Thuỷ tổ (đã sửa)' where id = $1 returning id", [rootId])).toHaveLength(1);
+    expect((await readPerson(rootId)).full_name).toBe('Thuỷ tổ (đã sửa)');
+
+    // Người tạo là thông tin ghi nhận: sửa Người của người khác không cướp được quyền tác giả.
+    await asEditor.query('update persons set created_by = $1 where id = $2', [editor.id, rootId]);
+    expect((await readPerson(rootId)).created_by).toBe(owner.id);
+    await asEditor.query('update persons set created_by = $1 where id = $2', [owner.id, childId]);
+    expect((await readPerson(childId)).created_by).toBe(editor.id);
+  });
+
+  it('Người xem không sửa được Người nào', async () => {
+    const viewer = await db.createUser(`xem-${crypto.randomUUID()}@example.com`);
+    await me.rpc('invite_to_tree', { target_tree: treeId, invite_email: viewer.email, new_role: 'viewer' });
+    expect(await db.as(viewer).query("update persons set full_name = 'Chiếm quyền' where id = $1", [rootId])).toEqual([]);
     expect((await readPerson(rootId)).full_name).toBe('Thuỷ tổ');
   });
 
@@ -105,9 +118,25 @@ describe('seam B: phân quyền Biên tập viên trên Người', () => {
     expect(pending).toContainEqual(expect.objectContaining({ person_id: childId, full_name: 'Con', requested_by_email: editor.email }));
   });
 
-  it('Biên tập viên không gửi được yêu cầu xoá Người người khác tạo', async () => {
+  it('Biên tập viên gửi được yêu cầu xoá cả Người do Chủ sở hữu tạo: chưa mất, chờ Chủ sở hữu duyệt', async () => {
     const editor = await inviteEditor();
-    await expect(db.as(editor).rpc('request_delete_person', { target_person: rootId })).rejects.toThrow(/NOT_ALLOWED/);
+    await db.as(editor).rpc('request_delete_person', { target_person: rootId });
+    expect((await readPerson(rootId)).pending_delete_by).toBe(editor.id);
+    expect(await me.query('select 1 from persons where id = $1', [rootId])).toHaveLength(1);
+  });
+
+  it('Người xem không gửi được yêu cầu xoá', async () => {
+    const viewer = await db.createUser(`xem-${crypto.randomUUID()}@example.com`);
+    await me.rpc('invite_to_tree', { target_tree: treeId, invite_email: viewer.email, new_role: 'viewer' });
+    await expect(db.as(viewer).rpc('request_delete_person', { target_person: rootId })).rejects.toThrow(/NOT_ALLOWED/);
+  });
+
+  it('yêu cầu xoá thứ hai không ghi đè người gửi đầu tiên', async () => {
+    const first = await inviteEditor();
+    const second = await inviteEditor();
+    await db.as(first).rpc('request_delete_person', { target_person: rootId });
+    await db.as(second).rpc('request_delete_person', { target_person: rootId });
+    expect((await readPerson(rootId)).pending_delete_by).toBe(first.id);
   });
 
   it('Chủ sở hữu gọi request_delete_person thì xoá ngay, không qua hàng chờ', async () => {

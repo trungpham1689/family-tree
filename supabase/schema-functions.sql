@@ -72,9 +72,7 @@ CREATE OR REPLACE FUNCTION private.can_edit_person(target_person uuid)
 AS $function$
   select exists (
     select 1 from public.persons p
-    where p.id = target_person
-      and (private.tree_role(p.tree_id) = 'owner'
-           or (private.tree_role(p.tree_id) = 'editor' and p.created_by = auth.uid()))
+    where p.id = target_person and private.tree_role(p.tree_id) in ('owner', 'editor')
   )
 $function$;
 
@@ -522,6 +520,18 @@ CREATE OR REPLACE FUNCTION private.is_superadmin()
  SET search_path TO ''
 AS $function$
   select coalesce((select is_superadmin and approved from public.account_approvals where account_id = auth.uid()), false)
+$function$;
+
+-- private.keep_person_creator()  [anon: không, authenticated: không, service_role: không]
+CREATE OR REPLACE FUNCTION private.keep_person_creator()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+begin
+  new.created_by := old.created_by;
+  return new;
+end;
 $function$;
 
 -- private.lock_person_photo()  [anon: không, authenticated: không, service_role: không]
@@ -1485,15 +1495,12 @@ begin
     delete from public.persons where id = request_delete_person.target_person;
     return;
   end if;
-  if not exists (
-    select 1 from public.persons
-    where id = request_delete_person.target_person and created_by = auth.uid()
-  ) then
+  if not public.can_edit_tree(target_tree) then
     raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
   end if;
   update public.persons
   set pending_delete_by = auth.uid(), pending_delete_at = now()
-  where id = request_delete_person.target_person;
+  where id = request_delete_person.target_person and pending_delete_by is null;
 end;
 $function$;
 

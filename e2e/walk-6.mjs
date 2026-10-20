@@ -215,6 +215,47 @@ await step('nút gọi API khoá ngay khi bấm: bấm đúp "Lưu cấu hình" 
   assert(writes.length === 1, `bấm đúp gửi ${writes.length} lần (${writes.join(',')})`);
 });
 
+await step('Biên tập viên sửa được Người do Chủ sở hữu tạo; xoá thì gửi yêu cầu chờ Chủ sở hữu duyệt', async () => {
+  const editorEmail = `bt-${Date.now()}@example.com`;
+  const editor = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'vi-VN' });
+  const editorPage = await editor.newPage();
+  await editorPage.goto(`${APP}/dang-nhap`);
+  await editorPage.getByRole('tab', { name: 'Tạo tài khoản' }).click();
+  await editorPage.getByLabel('Email').fill(editorEmail);
+  await editorPage.getByLabel('Họ và tên').fill('Biên Tập');
+  await editorPage.getByLabel('Ngày sinh').fill('1990-01-01');
+  await editorPage.getByLabel('Số điện thoại').fill('0901234567');
+  await editorPage.locator('input[type=password]').first().fill('matkhau123');
+  await editorPage.getByRole('button', { name: 'Tạo tài khoản' }).last().click();
+  await editorPage.waitForURL(/\/gia-pha$/);
+
+  await page.goto(treeUrl);
+  await page.getByRole('button', { name: '+ Thêm quản trị' }).click();
+  await page.getByLabel('Email tài khoản').fill(editorEmail);
+  await page.getByLabel('Vai trò').selectOption('editor');
+  await page.getByRole('button', { name: 'Mời', exact: true }).click();
+  await page.getByText(editorEmail).waitFor();
+
+  await editorPage.goto(treeUrl);
+  await editorPage.getByText('Vai trò của bạn: Biên tập viên').waitFor();
+  // Con A do Chủ sở hữu tạo: Biên tập viên vẫn sửa được.
+  await editorPage.getByRole('link', { name: /Cha Tổ/ }).first().click();
+  await editorPage.getByRole('link', { name: /Con A/ }).first().click();
+  await editorPage.getByRole('button', { name: 'Sửa thông tin' }).click();
+  const dialog = editorPage.getByRole('dialog');
+  const more = dialog.getByRole('button', { name: /Thêm thông tin/ });
+  if (await more.count()) await more.click();
+  await dialog.getByLabel('Nghề nghiệp').fill('Thợ mộc');
+  await dialog.getByRole('button', { name: 'Lưu thay đổi' }).click();
+  await editorPage.getByText('Thợ mộc').waitFor();
+  // Xoá: chỉ gửi yêu cầu, Người vẫn còn.
+  assert((await editorPage.getByRole('button', { name: 'Xoá người này' }).count()) === 0, 'Biên tập viên thấy nút xoá ngay');
+  await editorPage.getByRole('button', { name: 'Gửi yêu cầu xoá' }).click();
+  await editorPage.getByRole('dialog').getByRole('button', { name: 'Gửi yêu cầu xoá' }).click();
+  await editorPage.getByText(/Đang chờ Chủ sở hữu duyệt/).waitFor();
+  await editor.close();
+});
+
 await step('Người phụ trách cúng giỗ: không liệt kê sẵn, gõ tên mới có kết quả', async () => {
   await page.goto(treeUrl);
   await page.getByRole('link', { name: /Cha Tổ/ }).first().click();

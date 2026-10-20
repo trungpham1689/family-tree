@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { canEditEvent, canEditTree, isTreeOwner, personPermissions } from './permissions';
 
-const person = (extra: Partial<{ created_by: string | null; pending_delete_by: string | null }> = {}) => ({ created_by: 'bt1', pending_delete_by: null, ...extra });
+const person = (extra: Partial<{ pending_delete_by: string | null }> = {}) => ({ pending_delete_by: null, ...extra });
 
 describe('quyền theo Vai trò', () => {
   it('Chủ sở hữu và Biên tập viên sửa được gia phả; Người xem và người ngoài thì không', () => {
@@ -16,14 +16,14 @@ describe('personPermissions (khớp luật RLS của persons)', () => {
     expect(personPermissions('owner', 'chu', person())).toMatchObject({ edit: true, deleteNow: true, requestDelete: false });
   });
 
-  it('Biên tập viên: chỉ Người mình tạo; xoá phải gửi yêu cầu, một lần', () => {
+  it('Biên tập viên: sửa mọi Người (không phân biệt ai tạo); xoá phải gửi yêu cầu, một lần', () => {
     expect(personPermissions('editor', 'bt1', person())).toMatchObject({ edit: true, deleteNow: false, requestDelete: true });
-    expect(personPermissions('editor', 'bt2', person())).toMatchObject({ edit: false, requestDelete: false });
+    expect(personPermissions('editor', 'bt2', person())).toMatchObject({ edit: true, deleteNow: false, requestDelete: true });
     expect(personPermissions('editor', 'bt1', person({ pending_delete_by: 'bt1' }))).toMatchObject({ edit: true, requestDelete: false, involvedInDeletion: true });
   });
 
   it('Người xem và người chưa đăng nhập không có quyền nào', () => {
-    for (const rights of [personPermissions('viewer', 'bt1', person()), personPermissions('editor', null, person({ created_by: null }))]) {
+    for (const rights of [personPermissions('viewer', 'bt1', person()), personPermissions('editor', null, person())]) {
       expect(rights).toMatchObject({ edit: false, deleteNow: false, requestDelete: false, reviewDeletion: false });
     }
   });

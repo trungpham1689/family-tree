@@ -5,11 +5,11 @@ export const canEditTree = (role: TreeRole | undefined): boolean => role === 'ow
 export const isTreeOwner = (role: TreeRole | undefined): boolean => role === 'owner';
 
 export type PersonRights = {
-  /** Sửa hồ sơ, ảnh, cờ hiển thị của Người này (cùng luật với RLS bảng persons / person_photos). */
+  /** Sửa hồ sơ, ảnh, cờ hiển thị của Người này: Chủ sở hữu và Biên tập viên (cùng luật với RLS bảng persons / person_photos). */
   edit: boolean;
   /** Xoá ngay: chỉ Chủ sở hữu. */
   deleteNow: boolean;
-  /** Gửi yêu cầu xoá chờ duyệt: Biên tập viên đã tạo Người này, chưa có yêu cầu nào. */
+  /** Gửi yêu cầu xoá chờ duyệt: Biên tập viên, khi chưa có yêu cầu nào. */
   requestDelete: boolean;
   /** Duyệt hoặc từ chối yêu cầu xoá đang chờ: chỉ Chủ sở hữu. */
   reviewDeletion: boolean;
@@ -18,16 +18,16 @@ export type PersonRights = {
 };
 
 /**
- * Quyền trên một Người cụ thể: Chủ sở hữu mọi Người; Biên tập viên chỉ Người mình tạo; Người xem không gì cả.
- * Giao diện chỉ ẩn/hiện nút theo đây; RLS và các hàm quyền trong database mới là nơi quyết định thật (tests/db khớp với luật này).
+ * Quyền trên một Người cụ thể: Chủ sở hữu và Biên tập viên thêm, sửa mọi Người; xoá ngay chỉ Chủ sở hữu, Biên tập viên gửi yêu cầu chờ Chủ sở hữu
+ * duyệt; Người xem không gì cả. Giao diện chỉ ẩn/hiện nút theo đây; RLS và các hàm quyền trong database mới là nơi quyết định thật (tests/db khớp với luật này).
  */
 export const personPermissions = (
   role: TreeRole | undefined,
   accountId: string | null,
-  person: { created_by: string | null; pending_delete_by: string | null },
+  person: { pending_delete_by: string | null },
 ): PersonRights => {
   const owner = isTreeOwner(role);
-  const edit = owner || (canEditTree(role) && accountId !== null && person.created_by === accountId);
+  const edit = canEditTree(role) && accountId !== null;
   return {
     edit,
     deleteNow: owner,

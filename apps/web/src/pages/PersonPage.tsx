@@ -92,7 +92,7 @@ const PersonDetail = ({ treeId, graph, person, viewer }: DetailProps) => {
   const setProgenitor = useSetProgenitor(treeId);
   const setFoundsBranch = useSetFoundsBranch(treeId);
   const close = () => setAction('none');
-  // Biên tập viên chỉ thêm/sửa/xoá Người do chính mình tạo; Chủ sở hữu sửa/xoá được mọi Người.
+  // Biên tập viên thêm, sửa mọi Người; xoá phải gửi yêu cầu chờ Chủ sở hữu duyệt. Chủ sở hữu xoá ngay.
   const rights = personPermissions(viewer.role, accountId, person);
   const canEditThisPerson = rights.edit;
 

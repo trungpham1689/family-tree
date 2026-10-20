@@ -165,7 +165,7 @@ describe('seam B: ngày cưới, lịch đăng ký, gộp người trùng', () =
   });
 
   describe('quyền sửa Người (dùng cho Pages Function ảnh)', () => {
-    it('can_edit_person: Chủ sở hữu mọi Người; Biên tập viên chỉ Người mình tạo; Người xem không', async () => {
+    it('can_edit_person: Chủ sở hữu và Biên tập viên mọi Người; Người xem không', async () => {
       const editorUser = await db.createUser(`bt-${crypto.randomUUID()}@example.com`);
       const viewerUser = await db.createUser(`xem-${crypto.randomUUID()}@example.com`);
       await owner.rpc('invite_to_tree', { target_tree: treeId, invite_email: editorUser.email, new_role: 'editor' });
@@ -173,9 +173,10 @@ describe('seam B: ngày cưới, lịch đăng ký, gộp người trùng', () =
       const editorsOwn = await db.as(editorUser).rpc<string>('add_child', { parent_id: rootId, other_parent_id: null, link_kind: 'ruot', person: { full_name: 'Của BTV' } });
 
       expect(await owner.rpc('can_edit_person', { target_person: rootId })).toBe(true);
-      expect(await db.as(editorUser).rpc('can_edit_person', { target_person: rootId })).toBe(false);
+      expect(await db.as(editorUser).rpc('can_edit_person', { target_person: rootId })).toBe(true);
       expect(await db.as(editorUser).rpc('can_edit_person', { target_person: editorsOwn })).toBe(true);
       expect(await db.as(viewerUser).rpc('can_edit_person', { target_person: editorsOwn })).toBe(false);
+      expect(await db.as(viewerUser).rpc('can_edit_person', { target_person: rootId })).toBe(false);
       expect(await db.asAnon().rpc('can_edit_person', { target_person: rootId }).catch(() => 'denied')).toBe('denied');
     });
   });
