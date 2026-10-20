@@ -295,6 +295,9 @@ await step('Phả ký: tuỳ chọn nội dung tóm tắt, nhớ lựa chọn kh
   const lines = () => page.locator('article p').count();
   const all = await lines();
   assert(all >= 4, 'thiếu dòng tóm tắt');
+  // Khối tuỳ chọn gập sẵn (đỡ chiếm màn hình điện thoại): mở ra trước khi bấm chip.
+  const openOptions = () => page.getByText('Hiển thị trong tóm tắt từng người').click();
+  await openOptions();
   // Mặc định chỉ bật Tên gọi khác, Cha mẹ, Chức vụ & vai vế; Thứ tự con không chọn sẵn.
   const pressed = async (name) => (await page.getByRole('button', { name, exact: true }).getAttribute('aria-pressed')) === 'true';
   assert((await pressed('Cha mẹ')) && (await pressed('Tên gọi khác')) && (await pressed('Chức vụ & vai vế')), 'mặc định thiếu nhóm');
@@ -306,6 +309,7 @@ await step('Phả ký: tuỳ chọn nội dung tóm tắt, nhớ lựa chọn kh
   await page.reload();
   await page.locator('article').first().waitFor();
   assert((await lines()) === 0, 'lựa chọn không được nhớ sau khi tải lại');
+  await openOptions();
   await page.getByRole('button', { name: 'Chọn tất cả' }).click();
   assert((await pressed('Nghề nghiệp')) && (await pressed('Thứ tự con')), 'Chọn tất cả chưa bật hết');
   await page.getByText('Con trưởng.').first().waitFor();

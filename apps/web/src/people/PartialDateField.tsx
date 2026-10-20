@@ -28,7 +28,7 @@ export const PartialDateField = ({ label, value, error, onChange }: Props) => {
         {(['duong', 'am'] as const).map((calendar) => (
           <label
             key={calendar}
-            className={`flex min-h-11 cursor-pointer items-center rounded-xl border px-4 ${
+            className={`flex min-h-11 flex-1 cursor-pointer items-center justify-center rounded-xl border px-4 sm:flex-none ${
               value.calendar === calendar ? 'border-son bg-son/5 font-semibold text-son' : 'border-line'
             }`}
           >
@@ -43,7 +43,7 @@ export const PartialDateField = ({ label, value, error, onChange }: Props) => {
         ))}
         <Select
           aria-label="Độ chính xác"
-          className="min-h-11"
+          className="min-h-11 w-full sm:w-auto"
           value={value.precision}
           onChange={(event) => set('precision', PRECISIONS.find(([key]) => key === event.target.value)?.[0] ?? 'nam')}
         >

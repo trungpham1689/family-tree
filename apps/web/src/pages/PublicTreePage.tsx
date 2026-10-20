@@ -53,7 +53,7 @@ const PublicShell = ({ children }: { children: (data: PublicTree, token: string)
     <div className="flex min-h-dvh flex-col">
       <PublicHeader />
       {result.isError && (
-        <main className="mx-auto max-w-3xl px-4 py-8">
+        <main className="mx-auto max-w-4xl px-4 py-8">
           <ErrorBanner>{result.error.message}</ErrorBanner>
         </main>
       )}
@@ -75,6 +75,8 @@ const PublicShell = ({ children }: { children: (data: PublicTree, token: string)
   );
 };
 
+const isTouchScreen = () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+
 const PasswordGate = ({
   treeName,
   wrong,
@@ -92,14 +94,15 @@ const PasswordGate = ({
   };
 
   return (
-    <main className="mx-auto w-full max-w-sm px-4 py-16">
-      <h1 className="font-serif text-2xl font-bold text-son">{treeName ? `Gia phả ${treeName}` : 'Gia phả'}</h1>
-      <p className="mt-2 text-ink-muted">Nhập mật khẩu chủ gia phả đã chia sẻ để xem.</p>
-      <form onSubmit={submit} className="mt-4 space-y-3">
+    <main className="mx-auto w-full max-w-md px-4 py-10 sm:py-16">
+      <h1 className="font-serif text-3xl font-bold text-son">{treeName ? `Gia phả ${treeName}` : 'Gia phả'}</h1>
+      <p className="mt-2 text-ink-muted">Gia phả này được chia sẻ riêng. Nhập mật khẩu mà chủ gia phả đã gửi kèm link để xem.</p>
+      <form onSubmit={submit} className="mt-6 space-y-3 rounded-2xl border border-line bg-surface p-5 shadow-sm">
         <TextField
           label="Mật khẩu"
           type="password"
-          autoFocus
+          // Màn cảm ứng: không tự focus, kẻo bàn phím ảo bật lên che mất tên gia phả và nút xem.
+          autoFocus={!isTouchScreen()}
           required
           value={value}
           error={wrong ? 'Sai mật khẩu, hãy thử lại.' : undefined}
@@ -149,8 +152,8 @@ const PublicPersonView = ({ data, token }: { data: PublicTree; token: string }) 
 
   if (!person) {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-8">
-        <Link to={`/p/${token}`} className="text-ink-muted hover:text-son">
+      <main className="mx-auto max-w-4xl px-4 py-8">
+        <Link to={`/p/${token}`} className="inline-flex min-h-11 items-center text-ink-muted hover:text-son">
           ← {data.tree.name}
         </Link>
         <ErrorBanner>Không tìm thấy người này trong gia phả.</ErrorBanner>
@@ -173,8 +176,8 @@ const PublicPersonView = ({ data, token }: { data: PublicTree; token: string }) 
   const captions = coParentCaptions(graph, person.id);
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-8">
-      <Link to={`/p/${token}`} className="text-ink-muted hover:text-son">
+    <main className="mx-auto w-full max-w-4xl px-4 py-8">
+      <Link to={`/p/${token}`} className="inline-flex min-h-11 items-center text-ink-muted hover:text-son">
         ← {data.tree.name}
       </Link>
       <h1 className="mt-3 font-serif text-3xl font-bold">{person.full_name}</h1>

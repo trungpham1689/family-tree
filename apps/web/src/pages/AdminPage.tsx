@@ -140,7 +140,7 @@ export const AdminPage = () => {
     <>
       <AppHeader />
       <main className="mx-auto max-w-4xl px-4 py-8">
-        <Link to="/gia-pha" className="text-ink-muted hover:text-son">
+        <Link to="/gia-pha" className="inline-flex min-h-11 items-center text-ink-muted hover:text-son">
           ← Gia phả của tôi
         </Link>
         <h1 className="mt-3 font-serif text-3xl font-bold text-son">Quản lý tài khoản</h1>

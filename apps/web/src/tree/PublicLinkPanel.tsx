@@ -129,13 +129,13 @@ export const PublicLinkPanel = ({ tree }: { tree: TreeWithRole }) => {
 
           {mode === 'none' && (
             <div className="flex flex-wrap gap-2">
-              <Button variant="ghost" onClick={() => setMode('change-password')}>
+              <Button variant="secondary" onClick={() => setMode('change-password')}>
                 Đổi mật khẩu
               </Button>
-              <Button variant="ghost" onClick={() => setMode('rotate')}>
+              <Button variant="secondary" onClick={() => setMode('rotate')}>
                 Tạo lại link
               </Button>
-              <Button variant="ghost" className="text-danger!" onClick={() => setMode('disable')}>
+              <Button variant="secondary" className="border-danger/40 text-danger! sm:ml-auto" onClick={() => setMode('disable')}>
                 Tắt link
               </Button>
             </div>

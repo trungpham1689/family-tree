@@ -41,7 +41,7 @@ export const PhaDoPage = () => {
     <>
       <AppHeader />
       <TreeTabs treeId={treeId} />
-      <main className="w-full px-4 py-6 lg:px-8">
+      <main className="w-full px-4 pb-24 pt-6 lg:px-8 lg:pb-6">
         <h1 className="font-serif text-3xl font-bold text-son">Phả đồ</h1>
         {error && <ErrorBanner>{error.message}</ErrorBanner>}
         {tree.data && family.data && saved.isSuccess && (
@@ -107,16 +107,21 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
         </div>
 
         {/* Thanh xuất luôn hiện, bất kể đang ở tab nào. */}
+        {/* Điện thoại: nút Xuất PDF/PNG nằm ở thanh dính đáy màn hình (cuối trang), ở đây chỉ còn Lưu cấu hình. */}
         <div className="space-y-2 border-t border-line bg-paper/60 px-5 pb-4 pt-3">
-          {exportError && <ErrorBanner>{exportError}</ErrorBanner>}
+          <div className="hidden lg:block">{exportError && <ErrorBanner>{exportError}</ErrorBanner>}</div>
           {save.isError && <ErrorBanner>{save.error.message}</ErrorBanner>}
-          <Button className="w-full" disabled={exporting !== null || result.personCount === 0} onClick={exportPdf}>
-            {exporting === 'pha-do-pdf' ? 'Đang tạo PDF…' : 'Xuất PDF (in ấn)'}
-          </Button>
-          <div className="flex gap-2">
-            <Button variant="secondary" className="min-w-0 flex-1 px-3" disabled={exporting !== null || result.personCount === 0} onClick={exportPng}>
-              {exporting === 'pha-do-png' ? 'Đang vẽ…' : 'Xuất ảnh PNG'}
+          <div className="hidden lg:block">
+            <Button className="w-full" disabled={exporting !== null || result.personCount === 0} onClick={exportPdf}>
+              {exporting === 'pha-do-pdf' ? 'Đang tạo PDF…' : 'Xuất PDF (in ấn)'}
             </Button>
+          </div>
+          <div className="flex gap-2">
+            <div className="hidden min-w-0 flex-1 lg:block">
+              <Button variant="secondary" className="w-full px-3" disabled={exporting !== null || result.personCount === 0} onClick={exportPng}>
+                {exporting === 'pha-do-png' ? 'Đang vẽ…' : 'Xuất ảnh PNG'}
+              </Button>
+            </div>
             {canEdit && (
               <Button
                 variant="secondary"
@@ -128,7 +133,7 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
               </Button>
             )}
           </div>
-          <p className="text-xs text-ink-muted">
+          <p className="text-sm text-ink-muted">
             Ảnh PNG {pngPlan.width} × {pngPlan.height} px ({pngPlan.dpi} dpi).
             {pngPlan.reduced && ` Khổ này vượt giới hạn ảnh của trình duyệt nên xuất ở ${pngPlan.dpi} dpi thay vì 300 dpi; PDF vẫn sắc nét ở mọi cỡ.`}
           </p>
@@ -140,17 +145,19 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
           <p className="text-ink-muted">
             {result.personCount} người · {result.drawing.width} × {result.drawing.height} mm · chữ tên ~{result.namePx.toFixed(1)} px
           </p>
-          <div className="flex flex-wrap gap-1" role="group" aria-label="Phóng to">
+          <div className="flex w-full gap-1 sm:w-auto" role="group" aria-label="Phóng to">
             {(['fit', 1, 2, 4] as const).map((level) => (
               <Button
                 key={String(level)}
                 variant={zoom === level ? 'primary' : 'secondary'}
+                className="min-h-11 min-w-0 flex-1 px-2 text-sm sm:min-h-12 sm:flex-none sm:px-5 sm:text-base"
                 onClick={() => setZoom(level)}
               >
                 {level === 'fit' ? 'Vừa khung' : `${level * 100}%`}
               </Button>
             ))}
           </div>
+          <p className="text-sm text-ink-muted sm:hidden">Bản xem trước đang thu nhỏ vừa màn hình. Chọn 100% trở lên rồi vuốt để đọc rõ chữ.</p>
         </div>
         {result.missingRoot && (
           <ErrorBanner>Người được chọn làm gốc không còn trong gia phả. Hãy chọn lại phạm vi.</ErrorBanner>
@@ -169,6 +176,22 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
           />
         </div>
       </section>
+
+      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-surface px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
+        {exportError && (
+          <p role="alert" className="mb-2 text-sm text-danger">
+            {exportError}
+          </p>
+        )}
+        <div className="flex gap-2">
+          <Button className="min-w-0 flex-1 px-3" disabled={exporting !== null || result.personCount === 0} onClick={exportPdf}>
+            {exporting === 'pha-do-pdf' ? 'Đang tạo PDF…' : 'Xuất PDF'}
+          </Button>
+          <Button variant="secondary" className="min-w-0 flex-1 px-3" disabled={exporting !== null || result.personCount === 0} onClick={exportPng}>
+            {exporting === 'pha-do-png' ? 'Đang vẽ…' : 'Xuất PNG'}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };

@@ -151,7 +151,7 @@ export const NameCheckPanel = ({ treeId, graph }: { treeId: string; graph: Famil
                         {conflict.deceased ? 'đã mất' : 'còn sống'}
                       </span>
                       {conflict.personKind === 'dau_re' && (
-                        <span className="rounded-full bg-son/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-son">
+                        <span className="rounded-full bg-son/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-son">
                           {kindLabel(conflict.personKind, graph.person(conflict.personId)?.gender ?? null)}
                         </span>
                       )}

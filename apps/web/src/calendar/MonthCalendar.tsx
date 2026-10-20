@@ -82,7 +82,7 @@ export const MonthCalendar = ({ year, month, today, selected, onSelect, onShiftM
                     {cell.date.day}
                   </span>
                   <span
-                    className={`text-xs tabular-nums ${
+                    className={`text-sm tabular-nums ${
                       !cell.inMonth
                         ? 'text-ink-muted'
                         : cell.lunar.day === 1

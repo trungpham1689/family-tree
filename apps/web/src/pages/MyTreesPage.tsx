@@ -63,7 +63,9 @@ export const MyTreesPage = () => {
                   >
                     <h2 className="font-serif text-xl font-bold text-son">{tree.name}</h2>
                     {tree.description && <p className="mt-1 line-clamp-2 text-ink-muted">{tree.description}</p>}
-                    <p className="mt-3 text-sm text-ink-muted">{ROLE_LABELS[tree.role]}</p>
+                    <p className="mt-3 text-sm text-ink-muted">
+                      {ROLE_LABELS[tree.role]} · tạo ngày {new Date(tree.created_at).toLocaleDateString('vi-VN')}
+                    </p>
                   </Link>
                 </li>
               ))}
@@ -78,7 +80,8 @@ export const MyTreesPage = () => {
               {trees.data.map((tree) => (
                 <OccurrenceSection
                   key={tree.id}
-                  title={tree.name}
+                  // Chỉ một gia phả thì không cần nhắc lại tên ngay dưới tiêu đề "Sự kiện trong tháng".
+                  title={trees.data.length > 1 ? tree.name : ''}
                   occurrences={monthByTree.get(tree.id) ?? []}
                   today={today}
                   emptyText="Tháng này chưa có giỗ, sinh nhật hay sự kiện nào."

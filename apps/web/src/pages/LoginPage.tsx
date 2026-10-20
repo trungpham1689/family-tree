@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase';
 import { Button } from '../ui/Button';
 import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
+import { PasswordInput } from '../ui/fields';
 
 type Mode = 'sign-in' | 'sign-up';
 
@@ -256,7 +257,7 @@ export const LoginPage = () => {
                   {mode === 'sign-in' && (
                     <button
                       type="button"
-                      className="font-semibold text-son hover:underline"
+                      className="inline-flex min-h-11 items-center font-semibold text-son hover:underline"
                       onClick={() => {
                         setForgotPassword(true);
                         setError(null);
@@ -267,8 +268,7 @@ export const LoginPage = () => {
                     </button>
                   )}
                 </span>
-                <input
-                  type="password"
+                <PasswordInput
                   required
                   minLength={mode === 'sign-up' ? MIN_PASSWORD_LENGTH : undefined}
                   autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'}

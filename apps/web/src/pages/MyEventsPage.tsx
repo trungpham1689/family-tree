@@ -34,7 +34,7 @@ export const MyEventsPage = () => {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-3xl px-4 py-8">
+      <main className="mx-auto w-full max-w-4xl px-4 py-8">
         <h1 className="font-serif text-3xl font-bold text-son">Sự kiện</h1>
 
         <section className="mt-6">

@@ -66,7 +66,7 @@ const TimelineBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<
       {exportError && <ErrorBanner>{exportError}</ErrorBanner>}
 
       <label className="mt-4 flex min-h-11 items-center gap-3">
-        <input type="checkbox" className="size-5" checked={withHistory} onChange={(event) => setWithHistory(event.target.checked)} />
+        <input type="checkbox" className="size-5 shrink-0 accent-son" checked={withHistory} onChange={(event) => setWithHistory(event.target.checked)} />
         <span>Hiện mốc lịch sử Việt Nam</span>
       </label>
 
@@ -78,28 +78,29 @@ const TimelineBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<
 
       <ol className="mt-6 border-b border-line">
         {years.map(([year, items]) => (
-          <li key={year} className="grid grid-cols-[4.5rem_1fr] border-t border-line sm:grid-cols-[5.75rem_1fr] [contain-intrinsic-size:auto_96px] [content-visibility:auto]">
-            <h2 className="border-r border-line py-3 font-serif text-2xl font-bold text-son">{year}</h2>
-            <ul className="py-1.5 pl-3 sm:pl-5">
+          // Điện thoại: năm là tiêu đề dính trên từng nhóm, nội dung chiếm cả chiều ngang; từ sm là hai cột năm | mốc.
+          <li key={year} className="border-t border-line sm:grid sm:grid-cols-[5.75rem_1fr] [contain-intrinsic-size:auto_96px] [content-visibility:auto]">
+            <h2 className="py-2 font-serif text-2xl font-bold text-son max-sm:sticky max-sm:top-0 max-sm:z-[1] max-sm:bg-paper sm:border-r sm:border-line sm:py-3">{year}</h2>
+            <ul className="pb-2 sm:py-1.5 sm:pl-5">
               {items.map((entry, index) => {
                 const history = entry.kind === 'lich_su';
                 const subject = entry.subject ?? '';
                 return (
                   <li
                     key={`${entry.kind}-${entry.personId ?? entry.eventId ?? ''}-${index}`}
-                    className={`grid grid-cols-[4.75rem_1fr] items-baseline gap-x-3 py-1.5 sm:grid-cols-[5.25rem_1fr] ${history ? '-ml-2 bg-[#f7f2e8] px-2' : ''}`}
+                    className={`py-1.5 sm:grid sm:grid-cols-[5.25rem_1fr] sm:items-baseline sm:gap-x-3 ${history ? '-ml-2 bg-[#f7f2e8] px-2' : ''}`}
                   >
-                    <span className={`text-[11px] font-bold uppercase tracking-[0.14em] ${KIND_COLOR[entry.kind]}`}>{KIND_LABEL[entry.kind]}</span>
+                    <span className={`block text-xs font-bold uppercase tracking-[0.14em] ${KIND_COLOR[entry.kind]}`}>{KIND_LABEL[entry.kind]}</span>
                     <span className={history ? 'text-ink-muted' : ''}>
                       {entry.personId && subject ? (
                         <>
-                          <Link to={`/gia-pha/${treeId}/nguoi/${entry.personId}`} className="font-bold hover:text-son hover:underline">
+                          <Link to={`/gia-pha/${treeId}/nguoi/${entry.personId}`} className="py-2.5 font-bold hover:text-son hover:underline">
                             {subject}
                           </Link>
                           {entry.text.slice(subject.length)}
                         </>
                       ) : entry.eventId ? (
-                        <Link to={`/gia-pha/${treeId}/su-kien?xem=${entry.eventId}`} className="font-bold hover:text-son hover:underline">
+                        <Link to={`/gia-pha/${treeId}/su-kien?xem=${entry.eventId}`} className="py-2.5 font-bold hover:text-son hover:underline">
                           {entry.text}
                         </Link>
                       ) : (
@@ -107,7 +108,7 @@ const TimelineBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<
                       )}
                       {entry.detail && <span className="text-sm text-ink-muted"> — {entry.detail}</span>}
                       {entry.description && <span className="mt-0.5 block whitespace-pre-line text-[15px] text-ink-muted">{entry.description}</span>}
-                      {entry.photo && <img src={entry.photo} alt={entry.text} className="mt-1.5 max-h-32 max-w-56 border border-line object-cover" />}
+                      {entry.photo && <img src={entry.photo} alt={entry.text} onError={(event) => event.currentTarget.classList.add('hidden')} className="mt-1.5 max-h-32 max-w-56 border border-line object-cover" />}
                     </span>
                   </li>
                 );

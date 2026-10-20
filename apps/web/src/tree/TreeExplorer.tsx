@@ -53,6 +53,7 @@ export const TreeExplorer = <P extends Person>({
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [showAvatars, setShowAvatars] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const avatars = usePersonAvatars(graph.persons, allowAvatars && showAvatars);
 
   const marriageLines = useMemo(() => marriageExtraLines(graph), [graph]);
@@ -120,39 +121,53 @@ export const TreeExplorer = <P extends Person>({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-64 flex-1">
-          <PersonSearch persons={graph.persons} placement={graph.placement} onPick={reveal} />
-        </div>
-        <label className="flex flex-col">
-          <span className="mb-1 font-medium">Hiển thị</span>
-          <Select value={outsideGenerations} onChange={(event) => setOutsideOverride(Number(event.target.value))}>
-            {OUTSIDE_OPTIONS.map((n) => (
-              <option key={n} value={n}>
-                {outsideLabel(n)}
-                {n === defaultOutside ? ' (mặc định)' : ''}
-              </option>
-            ))}
-          </Select>
-        </label>
-        {saveDefault && differsFromDefault && (
+      {/* Điện thoại: một hàng tìm kiếm + nút "Tuỳ chọn", các tuỳ chọn còn lại gập lại để Cây có chỗ; từ sm trở lên trải một hàng như cũ. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:gap-3">
+        <div className="flex items-end gap-2 sm:min-w-64 sm:flex-1">
+          <div className="min-w-0 flex-1">
+            <PersonSearch persons={graph.persons} placement={graph.placement} onPick={reveal} />
+          </div>
           <Button
-            variant="ghost"
-            disabled={saveDefault.busy}
-            onClick={() => saveDefault.save(outsideGenerations, () => setOutsideOverride(null))}
+            variant="secondary"
+            className="sm:hidden"
+            aria-expanded={optionsOpen}
+            aria-controls="tree-options"
+            onClick={() => setOptionsOpen((value) => !value)}
           >
-            Đặt làm mặc định
+            Tuỳ chọn
           </Button>
-        )}
-        {allowAvatars && (
-          <label className="flex min-h-12 items-center gap-2">
-            <input type="checkbox" className="size-5 accent-son" checked={showAvatars} onChange={(event) => setShowAvatars(event.target.checked)} />
-            Ảnh đại diện
+        </div>
+        <div id="tree-options" className={`${optionsOpen ? 'flex' : 'hidden'} flex-col gap-2 sm:contents`}>
+          <label className="flex flex-col">
+            <span className="mb-1 font-medium">Hiển thị</span>
+            <Select value={outsideGenerations} onChange={(event) => setOutsideOverride(Number(event.target.value))}>
+              {OUTSIDE_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {outsideLabel(n)}
+                  {n === defaultOutside ? ' (mặc định)' : ''}
+                </option>
+              ))}
+            </Select>
           </label>
-        )}
-        <Button variant="secondary" onClick={changeOrientation}>
-          {orientation === 'top-down' ? 'Xếp trái → phải' : 'Xếp trên → dưới'}
-        </Button>
+          {saveDefault && differsFromDefault && (
+            <Button
+              variant="ghost"
+              disabled={saveDefault.busy}
+              onClick={() => saveDefault.save(outsideGenerations, () => setOutsideOverride(null))}
+            >
+              Đặt làm mặc định
+            </Button>
+          )}
+          {allowAvatars && (
+            <label className="flex min-h-12 items-center gap-2">
+              <input type="checkbox" className="size-5 accent-son" checked={showAvatars} onChange={(event) => setShowAvatars(event.target.checked)} />
+              Ảnh đại diện
+            </label>
+          )}
+          <Button variant="secondary" onClick={changeOrientation}>
+            {orientation === 'top-down' ? 'Xếp trái → phải' : 'Xếp trên → dưới'}
+          </Button>
+        </div>
       </div>
 
       {saveDefault?.error && <ErrorBanner>{saveDefault.error}</ErrorBanner>}

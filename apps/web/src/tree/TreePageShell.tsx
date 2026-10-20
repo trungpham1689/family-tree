@@ -24,11 +24,11 @@ export type TreePageContext = {
  */
 export const TreePageShell = ({
   treeId,
-  width = 'max-w-2xl',
+  width = 'max-w-4xl',
   children,
 }: {
   treeId: string;
-  /** Lớp độ rộng của <main>; mặc định cột hẹp. */
+  /** Lớp độ rộng của <main>; mặc định max-w-4xl như thanh đầu trang và thanh tab. */
   width?: string;
   children: (context: TreePageContext) => ReactNode;
 }) => {

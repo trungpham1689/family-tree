@@ -88,7 +88,7 @@ const MarriageDateRow = ({
     return (
       <p className="basis-full text-sm text-ink-muted">
         {text ?? 'Chưa có ngày cưới'}{' '}
-        <button type="button" className="font-semibold text-son hover:underline" onClick={open}>
+        <button type="button" className="inline-flex min-h-11 items-center font-semibold text-son hover:underline" onClick={open}>
           {text ? 'Sửa' : 'Thêm ngày cưới'}
         </button>
       </p>
@@ -155,14 +155,15 @@ export const ReorderableSpouses = ({
               <button
                 type="button"
                 aria-label="Kéo để đổi thứ tự vợ/chồng"
-                className="cursor-grab touch-none select-none px-1 text-xl text-ink-muted active:cursor-grabbing"
+                className="grid min-h-11 min-w-9 cursor-grab touch-none select-none place-items-center text-xl text-ink-muted active:cursor-grabbing"
                 {...dragHandleProps(unionId)}
               >
                 ⠿
               </button>
             )}
-            <Link to={`/gia-pha/${treeId}/nguoi/${spouse.person.id}`} className="group min-w-0 flex-1">
-              <span className="block text-sm text-ink-muted">{spouseLabel(spouse.person.gender, index + 1)}</span>
+            {/* Cơ sở rộng 10rem: khổ hẹp thì ô trạng thái xuống hàng riêng thay vì bóp tên còn vài chục px. */}
+            <Link to={`/gia-pha/${treeId}/nguoi/${spouse.person.id}`} className="group min-w-0 flex-[1_1_10rem]">
+              <span className="block whitespace-nowrap text-sm text-ink-muted">{spouseLabel(spouse.person.gender, index + 1)}</span>
               <span className="text-lg font-semibold group-hover:text-son group-hover:underline">{spouse.person.full_name}</span>
               <span className="ml-2 text-ink-muted">{lifespanText(spouse.person)}</span>
             </Link>

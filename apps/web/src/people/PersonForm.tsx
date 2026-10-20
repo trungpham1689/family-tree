@@ -225,11 +225,11 @@ export const PersonForm = ({
       {Object.keys(errors).length > 0 && <ErrorBanner>Còn ô chưa hợp lệ, hãy xem các dòng báo đỏ.</ErrorBanner>}
       {mutation.error && <ErrorBanner>{mutation.error.message}</ErrorBanner>}
 
-      <div className="sticky bottom-0 -mx-6 flex justify-end gap-3 border-t border-line bg-surface px-6 py-3">
-        <Button variant="secondary" onClick={onCancel}>
+      <div className="sticky bottom-0 -mx-4 flex gap-3 border-t border-line bg-surface px-4 py-3 sm:-mx-6 sm:justify-end sm:px-6">
+        <Button variant="secondary" className="flex-1 sm:flex-none" onClick={onCancel}>
           Huỷ
         </Button>
-        <Button type="submit" disabled={mutation.isPending}>
+        <Button type="submit" className="flex-1 sm:flex-none" disabled={mutation.isPending}>
           {mutation.isPending ? 'Đang lưu…' : submitLabel}
         </Button>
       </div>

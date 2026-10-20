@@ -107,7 +107,7 @@ export const TreeEventsPage = () => {
     <>
       <AppHeader />
       <TreeTabs treeId={treeId} />
-      <main className="mx-auto max-w-3xl px-4 py-8">
+      <main className="mx-auto w-full max-w-4xl px-4 py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="font-serif text-3xl font-bold text-son">Sự kiện</h1>
           <div className="flex flex-wrap items-center gap-2">

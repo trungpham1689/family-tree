@@ -2,7 +2,7 @@ import { MARRIAGE_LINE_HEIGHT, wrapName, type LayoutNode, type TreeLayout } from
 import { select } from 'd3-selection';
 import 'd3-transition';
 import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom';
-import { memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { marriageNote } from '../family/labels';
 import { Button } from '../ui/Button';
 
@@ -62,6 +62,7 @@ export const FamilyTreeCanvas = ({
   const svgRef = useRef<SVGSVGElement>(null);
   const groupRef = useRef<SVGGElement>(null);
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const [legendOpen, setLegendOpen] = useState(false);
 
   useEffect(() => {
     const svg = svgRef.current;
@@ -168,7 +169,21 @@ export const FamilyTreeCanvas = ({
         </g>
       </svg>
 
-      <p className="absolute left-2 top-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line bg-surface/95 px-3 py-1.5 text-xs text-ink-muted shadow-sm">
+      {/* Điện thoại: chú giải gập sau nút, khỏi che đầu cây; từ sm trở lên luôn hiện. */}
+      <div className="absolute left-2 top-2 flex max-w-[calc(100%-1rem)] flex-col items-start gap-1">
+      <Button
+        variant="secondary"
+        aria-expanded={legendOpen}
+        aria-controls="tree-legend"
+        className="min-h-11 px-4 text-sm shadow-sm sm:hidden"
+        onClick={() => setLegendOpen((value) => !value)}
+      >
+        Chú giải
+      </Button>
+      <p
+        id="tree-legend"
+        className={`${legendOpen ? 'flex' : 'hidden'} flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line bg-surface/95 px-3 py-1.5 text-sm text-ink-muted shadow-sm sm:flex`}
+      >
         <span className="flex items-center gap-1">
           <span aria-hidden="true" className="size-2.5 rounded-full border-2" style={{ borderColor: 'var(--color-kim)' }} /> Nam
         </span>
@@ -185,7 +200,7 @@ export const FamilyTreeCanvas = ({
           Dâu/Rể (viền đứt)
         </span>
         <span className="flex items-center gap-1">
-          <span aria-hidden="true" className="text-[10px] leading-none text-son">Vợ hai · goá</span> = thứ tự · tình trạng hôn phối
+          <span aria-hidden="true" className="text-xs leading-none text-son">Vợ hai · goá</span> = thứ tự · tình trạng hôn phối
         </span>
         <span className="flex items-center gap-1">
           <svg aria-hidden="true" viewBox="0 0 10 10" className="size-2.5">
@@ -194,6 +209,7 @@ export const FamilyTreeCanvas = ({
           Con nuôi
         </span>
       </p>
+      </div>
 
       {/* Một hàng sát góc dưới: chiếm ít chỗ của cây, nhất là trên điện thoại. */}
       <div
@@ -317,7 +333,7 @@ const PersonBox = memo(({ node, person, marriageLabel, marriageAlso, highlighted
           </text>
         ))}
         {person.lifespan && (
-          <text x={centerX} y={nameTop + lines.length * 18} textAnchor="middle" fontSize={13} fill="var(--color-ink-muted)">
+          <text x={centerX} y={nameTop + lines.length * 18} textAnchor="middle" fontSize={14} fill="var(--color-ink-muted)">
             {person.is_deceased ? `† ${person.lifespan}` : person.lifespan}
           </text>
         )}
@@ -352,6 +368,8 @@ const PersonBox = memo(({ node, person, marriageLabel, marriageAlso, highlighted
           }}
         >
           {/* Đặt ở góc trái dưới để không che chỗ bắt đầu đường hôn phối và đường xuống con. */}
+          {/* Vòng trong suốt nới vùng chạm lên 44px; nút vẽ vẫn 26px. */}
+          <circle cx={toggleX} cy={node.y + node.height} r={22} fill="transparent" />
           <circle cx={toggleX} cy={node.y + node.height} r={13} fill="var(--color-son)" />
           <text x={toggleX} y={node.y + node.height + 5} textAnchor="middle" fontSize={node.collapsed ? 12 : 16} fontWeight={700} fill="white">
             {node.collapsed ? `+${node.hiddenChildren}` : '−'}

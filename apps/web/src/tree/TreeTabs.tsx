@@ -17,11 +17,12 @@ const isTabActive = (tab: (typeof TABS)[number], treeId: string, pathname: strin
   return tab.end ? pathname === to : pathname === to || pathname.startsWith(`${to}/`);
 };
 
-/** Thanh tab chuyển giữa các phần của một gia phả: menu hamburger trên mobile (khỏi cuộn ngang), hàng tab từ sm trở lên. */
+/** Thanh tab chuyển giữa các phần của một gia phả: menu hamburger dưới 900px (8 tab cần ~840px, hẹp hơn sẽ bị cắt tab cuối), hàng tab từ 900px trở lên. */
 export const TreeTabs = ({ treeId }: { treeId: string }) => {
   const location = useLocation();
   const [open, setOpen] = useState(false);
-  const active = TABS.find((tab) => isTabActive(tab, treeId, location.pathname)) ?? TABS[0]!;
+  // Trang không thuộc tab nào (như trang một Người) thì không tô tab nào cả.
+  const active = TABS.find((tab) => isTabActive(tab, treeId, location.pathname));
 
   useEffect(() => setOpen(false), [location.pathname]);
   useEffect(() => {
@@ -40,15 +41,15 @@ export const TreeTabs = ({ treeId }: { treeId: string }) => {
           aria-controls="tree-tabs-menu"
           aria-label="Menu các phần của gia phả"
           onClick={() => setOpen((value) => !value)}
-          className="flex min-h-12 w-full items-center gap-3 font-semibold text-son sm:hidden"
+          className="flex min-h-12 w-full items-center gap-3 font-semibold text-son min-[900px]:hidden"
         >
           <svg aria-hidden="true" viewBox="0 0 24 24" className="size-6 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
           </svg>
-          {active.label}
+          {active?.label ?? 'Các phần của gia phả'}
         </button>
         {open && (
-          <div id="tree-tabs-menu" className="flex flex-col pb-2 sm:hidden">
+          <div id="tree-tabs-menu" className="flex flex-col pb-2 min-[900px]:hidden">
             {TABS.map((tab) => (
               <NavLink
                 key={tab.label}
@@ -63,7 +64,7 @@ export const TreeTabs = ({ treeId }: { treeId: string }) => {
             ))}
           </div>
         )}
-        <div className="hidden gap-1 overflow-x-auto sm:flex [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="hidden gap-1 overflow-x-auto min-[900px]:flex [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TABS.map((tab) => (
             <NavLink
               key={tab.label}

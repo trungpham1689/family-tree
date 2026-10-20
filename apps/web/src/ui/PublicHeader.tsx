@@ -6,7 +6,7 @@ export const PublicHeader = () => {
   const { state } = useAuth();
   return (
     <header className="border-b border-line bg-surface">
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
+      <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-4 py-3">
         <Link to="/" className="flex items-center gap-2 font-serif text-2xl font-bold text-son">
           <img src="/logo-mark.svg" alt="" className="h-7 w-7" />
           Gia Phả

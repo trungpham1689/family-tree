@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { Button } from '../ui/Button';
 import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
+import { PasswordInput } from '../ui/fields';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -78,8 +79,7 @@ export const ResetPasswordPage = () => {
             <form onSubmit={submit} className="space-y-4">
               <label className="block">
                 <span className="mb-1 block font-medium">Mật khẩu mới</span>
-                <input
-                  type="password"
+                <PasswordInput
                   required
                   autoFocus
                   minLength={MIN_PASSWORD_LENGTH}
@@ -92,8 +92,7 @@ export const ResetPasswordPage = () => {
               </label>
               <label className="block">
                 <span className="mb-1 block font-medium">Nhập lại mật khẩu mới</span>
-                <input
-                  type="password"
+                <PasswordInput
                   required
                   autoComplete="new-password"
                   value={confirm}

@@ -1,5 +1,5 @@
 import { fromJulianDay, julianDay, type SolarDate } from '@gia-pha/lunar';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { DayDetails } from '../calendar/DayDetails';
@@ -22,6 +22,7 @@ export const CalendarPage = () => {
   const { state } = useAuth();
   const signedIn = state.status === 'signed-in';
   const calendar = useMyCalendar(signedIn);
+  const detailsRef = useRef<HTMLDivElement>(null);
   const today = todayInVietnam();
   const selected = parseIsoDate(params.get('ngay')) ?? today;
   const viewed = parseMonth(params.get('thang')) ?? { year: selected.year, month: selected.month };
@@ -46,12 +47,12 @@ export const CalendarPage = () => {
   return (
     <>
       {signedIn ? <AppHeader /> : <PublicHeader />}
-      <main className="mx-auto grid max-w-5xl gap-6 px-4 py-8 lg:grid-cols-[1fr_22rem]">
+      <main className="mx-auto grid max-w-4xl gap-6 px-4 py-8 lg:grid-cols-[1fr_22rem]">
         <div>
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
             <h1 className="font-serif text-3xl font-bold">{signedIn ? 'Lịch của tôi' : 'Lịch âm dương'}</h1>
             {signedIn && (
-              <Link to="/su-kien" className="font-semibold text-son hover:underline">
+              <Link to="/su-kien" className="inline-flex min-h-11 items-center font-semibold text-son hover:underline">
                 Xem Sự kiện →
               </Link>
             )}
@@ -62,14 +63,18 @@ export const CalendarPage = () => {
             today={today}
             selected={selected}
             marks={signedIn ? marks : undefined}
-            onSelect={(date) => update({ ngay: toIsoDate(date), thang: monthKey(date) })}
+            onSelect={(date) => {
+              update({ ngay: toIsoDate(date), thang: monthKey(date) });
+              // Một cột (dưới lg): chi tiết ngày nằm dưới lưới, ngoài màn hình — đưa vào tầm nhìn để chạm có phản hồi.
+              if (!window.matchMedia('(min-width: 1024px)').matches) detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
             onShiftMonth={(delta) => update({ thang: monthKey(shiftMonth(viewed, delta)) })}
             onToday={() => update({ ngay: toIsoDate(today), thang: monthKey(today) })}
           />
           {signedIn && <Legend />}
           {calendar.isError && <ErrorBanner>{calendar.error.message}</ErrorBanner>}
         </div>
-        <div className="space-y-4">
+        <div ref={detailsRef} className="scroll-mt-4 space-y-4">
           <DayDetails date={selected} />
           {signedIn && selectedOccurrences.length > 0 && (
             <section aria-label="Trong gia phả của bạn">

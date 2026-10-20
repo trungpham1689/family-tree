@@ -41,6 +41,7 @@ export const EventSearchPanel = ({
   const [to, setTo] = useState(initial?.to ?? inDays(DEFAULT_DAYS));
   const [query, setQuery] = useState(initial?.query ?? '');
   const [kind, setKind] = useState<KindFilter>('all');
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const result = useMemo(() => (source ? searchEventOccurrences(source, { from, to, query, kind }) : null), [source, from, to, query, kind]);
   const preset = (fromDate: string, toDate: string) => {
@@ -50,32 +51,48 @@ export const EventSearchPanel = ({
 
   return (
     <section className="mt-6" aria-label="Tìm sự kiện">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <TextField label="Từ ngày" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
-        <TextField label="Đến ngày" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
-        <TextField label="Tên" type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
-        <label className="block">
-          <span className="mb-1 block font-medium">Loại</span>
-          <Select className="w-full" value={kind} onChange={(event) => setKind(event.target.value as KindFilter)}>
-            {(Object.keys(KIND_FILTER_LABELS) as KindFilter[]).map((key) => (
-              <option key={key} value={key}>
-                {KIND_FILTER_LABELS[key]}
-              </option>
-            ))}
-          </Select>
-        </label>
+      {/* Điện thoại: Từ/Đến cạnh nhau, khoảng nhanh một hàng cuộn ngang, Tên và Loại gập sau nút để kết quả lên màn hình đầu. */}
+      {/* minmax(0,…): ô ngày có độ rộng tối thiểu riêng, không ép cột nở quá khung điện thoại. */}
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+        <TextField label="Từ ngày" type="date" className="px-3 text-sm sm:text-base" value={from} onChange={(event) => setFrom(event.target.value)} />
+        <TextField label="Đến ngày" type="date" className="px-3 text-sm sm:text-base" value={to} onChange={(event) => setTo(event.target.value)} />
+        <Button
+          variant="secondary"
+          className="col-span-2 justify-between sm:hidden"
+          aria-expanded={filtersOpen}
+          aria-controls="event-name-kind-filters"
+          onClick={() => setFiltersOpen((value) => !value)}
+        >
+          <span>Lọc theo tên, loại{query.trim() !== '' || kind !== 'all' ? ' · đang lọc' : ''}</span>
+          <span aria-hidden="true">{filtersOpen ? '▴' : '▾'}</span>
+        </Button>
+        <div id="event-name-kind-filters" className={`${filtersOpen ? 'contents' : 'hidden'} sm:contents`}>
+          <div className="col-span-2 sm:col-span-1">
+            <TextField label="Tên" type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
+          </div>
+          <label className="col-span-2 block sm:col-span-1">
+            <span className="mb-1 block font-medium">Loại</span>
+            <Select className="w-full" value={kind} onChange={(event) => setKind(event.target.value as KindFilter)}>
+              {(Object.keys(KIND_FILTER_LABELS) as KindFilter[]).map((key) => (
+                <option key={key} value={key}>
+                  {KIND_FILTER_LABELS[key]}
+                </option>
+              ))}
+            </Select>
+          </label>
+        </div>
       </div>
-      <div className="mt-2 flex flex-wrap gap-2">
-        <Button variant="secondary" onClick={() => preset(todayIso, inDays(DEFAULT_DAYS))}>
+      <div className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <Button variant="secondary" className="shrink-0" onClick={() => preset(todayIso, inDays(DEFAULT_DAYS))}>
           30 ngày tới
         </Button>
-        <Button variant="secondary" onClick={() => preset(inDays(-DEFAULT_DAYS), todayIso)}>
+        <Button variant="secondary" className="shrink-0" onClick={() => preset(inDays(-DEFAULT_DAYS), todayIso)}>
           30 ngày qua
         </Button>
-        <Button variant="secondary" onClick={() => preset(`${today.year}-01-01`, `${today.year}-12-31`)}>
+        <Button variant="secondary" className="shrink-0" onClick={() => preset(`${today.year}-01-01`, `${today.year}-12-31`)}>
           Năm nay
         </Button>
-        <Button variant="secondary" onClick={() => preset(`${today.year - 1}-01-01`, `${today.year - 1}-12-31`)}>
+        <Button variant="secondary" className="shrink-0" onClick={() => preset(`${today.year - 1}-01-01`, `${today.year - 1}-12-31`)}>
           Năm ngoái
         </Button>
       </div>
@@ -110,7 +127,7 @@ export const EventSearchPanel = ({
                               {daysAway === 0 ? ' · Hôm nay' : daysAway < 0 ? ' · Đã qua' : ''}
                             </p>
                             {occurrence.personId ? (
-                              <Link to={`/gia-pha/${occurrence.treeId}/nguoi/${occurrence.personId}`} className="block font-semibold hover:text-son hover:underline">
+                              <Link to={`/gia-pha/${occurrence.treeId}/nguoi/${occurrence.personId}`} className="block py-1.5 font-semibold hover:text-son hover:underline">
                                 {occurrence.title}
                               </Link>
                             ) : (

@@ -20,7 +20,7 @@ import { ErrorBanner } from '../ui/fields';
 export const PhaKyPage = () => {
   const { treeId = '' } = useParams();
   return (
-    <TreePageShell treeId={treeId} width="max-w-3xl">
+    <TreePageShell treeId={treeId}>
       {({ tree, graph }) => <PhaKyBody tree={tree} graph={graph} />}
     </TreePageShell>
   );
@@ -102,7 +102,7 @@ const PhaKyBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Per
           <section key={group.generation} className="mt-9">
             <div className="flex flex-wrap items-baseline justify-between gap-2 border-b-[3px] border-double border-son pb-2">
               <h2 className="font-serif text-3xl font-bold text-son">Đời {group.generation}</h2>
-              <p className="text-[13px] text-ink-muted">
+              <p className="text-sm text-ink-muted">
                 {group.total} người
                 {group.male + group.female > 0 ? ` · ${group.male} nam · ${group.female} nữ` : ''}
               </p>
@@ -126,7 +126,7 @@ const PhaKyBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Per
                         {item.adopted && <span role="img" aria-label="Con nuôi" title="Con nuôi" className="size-2 self-center rounded-full bg-ink-muted" />}
                         {item.lifespan && <span className="text-sm font-normal text-ink-muted">({item.lifespan})</span>}
                         {item.kind !== 'dinh' && (
-                          <span className="rounded-full bg-son/10 px-2 py-0.5 font-sans text-[11px] font-bold uppercase tracking-[0.12em] text-son">
+                          <span className="rounded-full bg-son/10 px-2 py-0.5 font-sans text-xs font-bold uppercase tracking-[0.12em] text-son">
                             {kindLabel(item.kind, item.gender)}
                           </span>
                         )}
@@ -150,7 +150,7 @@ const PhaKyBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Per
         {generations.length > 0 && (
           <section aria-label="Chú giải" className="mt-10">
             <p className="text-xs font-bold tracking-[0.14em] text-ink-muted uppercase">Chú giải</p>
-            <ul className="mt-1.5 grid border-t border-line text-[13px] text-ink-muted sm:grid-cols-2 [&>li]:flex [&>li]:items-center [&>li]:gap-2.5 [&>li]:border-b [&>li]:border-line [&>li]:py-2">
+            <ul className="mt-1.5 grid border-t border-line text-sm text-ink-muted sm:grid-cols-2 [&>li]:flex [&>li]:items-center [&>li]:gap-2.5 [&>li]:border-b [&>li]:border-line [&>li]:py-2">
               <li>
                 <span aria-hidden="true" className={`size-3 rounded-full border-2 ${genderDot('nam')}`} /> Nam
               </li>
@@ -213,7 +213,7 @@ const FrontSection = ({ section, numeral, eventImages }: { section: PhaKySection
               <dl className="mt-3 divide-y divide-line border-y border-line">
                 {section.facts.map((fact) => (
                   <div key={fact.label} className="grid grid-cols-[6.5rem_1fr] items-baseline gap-3 py-2 sm:grid-cols-[9.9rem_1fr]">
-                    <dt className="text-[11px] font-bold tracking-[0.14em] text-kim-text uppercase">{fact.label}</dt>
+                    <dt className="text-xs font-bold tracking-[0.14em] text-kim-text uppercase">{fact.label}</dt>
                     <dd>{fact.value}</dd>
                   </div>
                 ))}
@@ -226,7 +226,7 @@ const FrontSection = ({ section, numeral, eventImages }: { section: PhaKySection
           <>
             <table className="mt-3 w-full text-left">
               <thead>
-                <tr className="border-t-2 border-son border-b border-line text-[11px] tracking-[0.14em] text-ink-muted uppercase">
+                <tr className="border-t-2 border-son border-b border-line text-xs tracking-[0.14em] text-ink-muted uppercase">
                   <th scope="col" className="w-20 py-1.5 pr-3 font-bold">Chi</th>
                   <th scope="col" className="py-1.5 pr-3 font-bold">Người đứng đầu chi</th>
                   <th scope="col" className="py-1.5 text-right font-bold">Thành viên</th>
@@ -276,7 +276,8 @@ const FrontSection = ({ section, numeral, eventImages }: { section: PhaKySection
                   {item.description && <p className="mt-1 whitespace-pre-line text-justify text-[15px] leading-relaxed">{item.description}</p>}
                 </div>
                 {eventImages.get(item.id) && (
-                  <img src={eventImages.get(item.id)} alt={item.title} className="mt-2 max-h-28 max-w-40 border border-line object-cover sm:mt-0" />
+                  // Ảnh không tải được thì ẩn đi, khỏi hiện chữ alt thô trong khung và đẩy bố cục.
+                  <img src={eventImages.get(item.id)} alt={item.title} onError={(event) => event.currentTarget.classList.add('hidden')} className="mt-2 max-h-28 max-w-40 border border-line object-cover sm:mt-0" />
                 )}
               </li>
             ))}

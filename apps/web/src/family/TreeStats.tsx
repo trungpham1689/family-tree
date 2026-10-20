@@ -40,7 +40,7 @@ export const TreeStats = ({ graph }: { graph: FamilyGraph<Person> }) => {
 
   return (
     <div className="space-y-3">
-      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <dl className={`grid grid-cols-2 gap-3 ${stats.length > 4 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}>
         {stats.map((stat) => (
           <div key={stat.label} className="rounded-xl border border-line bg-surface px-4 py-3">
             <dt className="text-sm text-ink-muted">{stat.label}</dt>

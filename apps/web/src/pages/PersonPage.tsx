@@ -9,6 +9,7 @@ import { birthOrderLabel, kindLabel } from '../family/labels';
 import { lifespanText } from '../people/person-display';
 import { PhotoGallery } from '../people/PersonPhotos';
 import { ProfileInfo } from '../people/ProfileInfo';
+import { TreeTabs } from '../tree/TreeTabs';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { ErrorBanner } from '../ui/fields';
@@ -41,8 +42,9 @@ export const PersonPage = () => {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-3xl px-4 py-8">
-        <Link to={`/gia-pha/${treeId}`} className="text-ink-muted hover:text-son">
+      <TreeTabs treeId={treeId} />
+      <main className="mx-auto max-w-4xl px-4 py-8">
+        <Link to={`/gia-pha/${treeId}`} className="inline-flex min-h-11 items-center text-ink-muted hover:text-son">
           ← {tree.data?.name ?? 'Gia phả'}
         </Link>
         {error && <ErrorBanner>{error.message}</ErrorBanner>}

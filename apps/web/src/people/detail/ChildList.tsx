@@ -39,7 +39,7 @@ export const ReorderableChildren = ({
               <button
                 type="button"
                 aria-label="Kéo để đổi thứ tự con"
-                className="cursor-grab touch-none select-none px-1 text-xl text-ink-muted active:cursor-grabbing"
+                className="grid min-h-11 min-w-9 cursor-grab touch-none select-none place-items-center text-xl text-ink-muted active:cursor-grabbing"
                 {...dragHandleProps(id)}
               >
                 ⠿

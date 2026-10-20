@@ -65,11 +65,11 @@ export const ProfileInfo = ({ person, graph }: { person: Person; graph: FamilyGr
   return (
     <>
       {visible.length > 0 && (
-        <dl className="mt-6 grid grid-cols-1 gap-x-6 gap-y-3 rounded-2xl border border-line bg-surface p-5 sm:grid-cols-[max-content_1fr]">
+        <dl className="mt-6 grid grid-cols-1 gap-x-3 gap-y-1 rounded-2xl border border-line bg-surface p-4 min-[360px]:grid-cols-[6rem_minmax(0,1fr)] min-[360px]:gap-y-3 sm:grid-cols-[max-content_1fr] sm:gap-x-6 sm:p-5">
           {visible.map(([label, value]) => (
             <div key={label} className="contents">
               <dt className="text-ink-muted">{label}</dt>
-              <dd className="font-medium">{value}</dd>
+              <dd className="break-words font-medium">{value}</dd>
             </div>
           ))}
         </dl>

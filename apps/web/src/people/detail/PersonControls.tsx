@@ -91,7 +91,7 @@ export const ReminderControls = ({ treeId, person, linkedPersonId }: { treeId: s
           <Tag>Đây là bạn</Tag>
           <button
             type="button"
-            className="font-semibold text-son hover:underline disabled:text-ink-muted"
+            className="inline-flex min-h-11 items-center rounded-xl border border-line bg-surface px-3 font-semibold text-son hover:bg-paper disabled:text-ink-muted"
             disabled={link.isPending}
             onClick={() => link.mutate(null)}
           >
@@ -102,7 +102,7 @@ export const ReminderControls = ({ treeId, person, linkedPersonId }: { treeId: s
         linkedPersonId === null && (
           <button
             type="button"
-            className="font-semibold text-son hover:underline disabled:text-ink-muted"
+            className="inline-flex min-h-11 items-center rounded-xl border border-line bg-surface px-3 font-semibold text-son hover:bg-paper disabled:text-ink-muted"
             disabled={link.isPending}
             onClick={() => link.mutate(person.id)}
           >
@@ -113,7 +113,7 @@ export const ReminderControls = ({ treeId, person, linkedPersonId }: { treeId: s
       {person.is_deceased && mutedList.isSuccess && (
         <button
           type="button"
-          className="font-semibold text-son hover:underline disabled:text-ink-muted"
+          className="inline-flex min-h-11 items-center rounded-xl border border-line bg-surface px-3 font-semibold text-son hover:bg-paper disabled:text-ink-muted"
           disabled={toggle.mute.isPending || toggle.unmute.isPending}
           onClick={() => (muted ? toggle.unmute.mutate(person.id) : toggle.mute.mutate(person.id))}
         >

@@ -33,12 +33,13 @@ export const Dialog = ({ open, title, onClose, children }: DialogProps) => {
         pressedOnBackdrop.current = false;
       }}
       aria-labelledby="dialog-title"
-      className="m-auto max-h-[92dvh] w-[min(36rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-2xl border border-line bg-surface p-0 text-ink shadow-xl backdrop:bg-ink/40"
+      // Điện thoại: tờ trượt sát đáy, rộng hết màn; từ sm là hộp giữa màn.
+      className="m-auto max-h-[92dvh] w-[min(36rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-2xl border border-line bg-surface p-0 text-ink shadow-xl backdrop:bg-ink/40 max-sm:mx-0 max-sm:mb-0 max-sm:mt-auto max-sm:w-full max-sm:max-w-full max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0"
     >
       {open && (
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <div className="mb-4 flex items-start justify-between gap-3">
-            <h2 id="dialog-title" className="font-serif text-2xl font-bold">
+            <h2 id="dialog-title" className="font-serif text-xl font-bold sm:text-2xl">
               {title}
             </h2>
             <button

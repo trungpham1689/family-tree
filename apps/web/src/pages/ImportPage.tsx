@@ -18,7 +18,7 @@ export const ImportPage = () => {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-5xl px-4 py-8">
+      <main className="mx-auto max-w-4xl px-4 py-8">
         {targetTreeId ? <ImportIntoExisting treeId={targetTreeId} /> : <ImportFlow treeId={null} treeName={null} />}
       </main>
       <Footer />
@@ -79,7 +79,7 @@ const ImportFlow = ({ treeId, treeName }: { treeId: string | null; treeName: str
 
   return (
     <>
-      <Link to={treeId ? `/gia-pha/${treeId}` : '/gia-pha'} className="text-ink-muted hover:text-son">
+      <Link to={treeId ? `/gia-pha/${treeId}` : '/gia-pha'} className="inline-flex min-h-11 items-center text-ink-muted hover:text-son">
         ← {treeName ?? 'Gia phả của tôi'}
       </Link>
       <h1 className="mt-3 font-serif text-3xl font-bold text-son">Nhập gia phả từ Excel</h1>
