@@ -222,8 +222,8 @@ const MemberRow = ({ treeId, member, canManage }: MemberRowProps) => {
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 py-3">
-      <div>
-        <p className="font-medium">{member.email}</p>
+      <div className="min-w-0">
+        <p className="text-sm font-medium [overflow-wrap:anywhere] sm:text-base">{member.email}</p>
         {error && (
           <div className="mt-1">
             <ErrorBanner>{error.message}</ErrorBanner>

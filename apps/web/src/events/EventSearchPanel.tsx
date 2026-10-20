@@ -54,8 +54,8 @@ export const EventSearchPanel = ({
       {/* Điện thoại: Từ/Đến cạnh nhau, khoảng nhanh một hàng cuộn ngang, Tên và Loại gập sau nút để kết quả lên màn hình đầu. */}
       {/* minmax(0,…): ô ngày có độ rộng tối thiểu riêng, không ép cột nở quá khung điện thoại. */}
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
-        <TextField label="Từ ngày" type="date" className="px-3 text-sm sm:text-base" value={from} onChange={(event) => setFrom(event.target.value)} />
-        <TextField label="Đến ngày" type="date" className="px-3 text-sm sm:text-base" value={to} onChange={(event) => setTo(event.target.value)} />
+        <TextField label="Từ ngày" type="date" className="px-2! text-sm sm:px-3! sm:text-base" value={from} onChange={(event) => setFrom(event.target.value)} />
+        <TextField label="Đến ngày" type="date" className="px-2! text-sm sm:px-3! sm:text-base" value={to} onChange={(event) => setTo(event.target.value)} />
         <Button
           variant="secondary"
           className="col-span-2 justify-between sm:hidden"

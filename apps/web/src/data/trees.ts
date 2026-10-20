@@ -10,7 +10,7 @@ import type { PersonFields } from '../people/person-form';
 
 export type TreeRole = 'owner' | 'editor' | 'viewer';
 export type Tree = Pick<Row<'family_trees'>, 'id' | 'name' | 'description' | 'owner_id' | 'created_at' | 'outside_generations' | 'public_token' | 'photo_path'>;
-export type TreeWithRole = Tree & { role: TreeRole; linkedPersonId: string | null };
+export type TreeWithRole = Tree & { role: TreeRole; linkedPersonId: string | null; /** Số người trong gia phả; chỉ có ở danh sách gia phả của tôi. */ personCount?: number | undefined };
 export type Person = Row<'persons'>;
 
 /** Lỗi đã có sẵn câu tiếng Việt để hiển thị. */
@@ -42,13 +42,15 @@ export const listMyTrees = async (accountId: string): Promise<TreeWithRole[]> =>
   const rows = unwrap(
     await supabase
       .from('tree_roles')
-      .select(`role, linked_person_id, family_trees (${TREE_COLUMNS})`)
+      .select(`role, linked_person_id, family_trees (${TREE_COLUMNS}, persons(count))`)
       .eq('account_id', accountId)
       .order('created_at', { ascending: true }),
   );
-  return rows.flatMap(({ role, linked_person_id, family_trees: tree }) =>
-    tree && isTreeRole(role) ? [{ ...tree, role, linkedPersonId: linked_person_id }] : [],
-  );
+  return rows.flatMap(({ role, linked_person_id, family_trees: tree }) => {
+    if (!tree || !isTreeRole(role)) return [];
+    const { persons, ...columns } = tree;
+    return [{ ...columns, role, linkedPersonId: linked_person_id, personCount: persons[0]?.count }];
+  });
 };
 
 export const getTree = async (treeId: string, accountId: string): Promise<TreeWithRole> => {
