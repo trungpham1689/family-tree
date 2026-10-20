@@ -16,6 +16,7 @@ import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
 import { Section, RelativeRow, Empty, Tag } from '../people/detail/detail-bits';
 import { ReorderableChildren } from '../people/detail/ChildList';
+import { CoParentOffers } from '../people/detail/CoParentOffers';
 import { coParentCaptions } from '../family/co-parent';
 import { ReorderableSpouses } from '../people/detail/SpouseList';
 import {
@@ -163,6 +164,7 @@ const PersonDetail = ({ treeId, graph, person, viewer }: DetailProps) => {
         title="Con"
         action={canEdit && <Button variant="ghost" onClick={() => setAction('add-child')}>+ Thêm con</Button>}
       >
+        {canEdit && <CoParentOffers treeId={treeId} graph={graph} person={person} />}
         {children.length === 0 ? (
           <Empty>Chưa ghi con.</Empty>
         ) : (

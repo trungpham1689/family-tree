@@ -9,6 +9,7 @@ import {
   addParent,
   addSpouse,
   linkParent,
+  linkCoParent,
   linkSpouse,
   loadFamily,
   type FamilyData,
@@ -185,6 +186,7 @@ export const useUpdateParentLinkKind = (treeId: string) => useFamilyMutation(tre
 export const useSetProgenitor = (treeId: string) => useFamilyMutation(treeId, setProgenitor);
 export const useSetFoundsBranch = (treeId: string) => useFamilyMutation(treeId, setFoundsBranch);
 export const useLinkParent = (treeId: string) => useFamilyMutation(treeId, linkParent);
+export const useLinkCoParent = (treeId: string) => useFamilyMutation(treeId, linkCoParent);
 export const useLinkSpouse = (treeId: string) => useFamilyMutation(treeId, linkSpouse);
 export const useMergePersons = (treeId: string) => useFamilyMutation(treeId, mergePersons);
 

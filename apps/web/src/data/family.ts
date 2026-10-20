@@ -133,6 +133,10 @@ export const linkParent = async (input: { childId: string; parentId: string; kin
   check(await supabase.rpc('link_parent', { child_id: input.childId, parent_id: input.parentId, link_kind: input.kind }));
 };
 
+/** Ghi `coParentId` là cha/mẹ còn lại của các con ruột của `parentId` chưa có cha/mẹ ruột nào khác (con khác bị bỏ qua). Trả số con đã ghi. */
+export const linkCoParent = async (input: { parentId: string; coParentId: string; childIds: string[] }): Promise<number> =>
+  check(await supabase.rpc('link_co_parent', { parent_id: input.parentId, co_parent_id: input.coParentId, child_ids: input.childIds }));
+
 /** Nối hai Người đã có thành vợ chồng. */
 export const linkSpouse = async (input: { personId: string; spouseId: string }): Promise<void> => {
   check(await supabase.rpc('link_spouse', { person_id: input.personId, spouse_id: input.spouseId }));

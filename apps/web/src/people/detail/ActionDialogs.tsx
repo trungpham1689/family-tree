@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useAddChild, useAddParent, useAddSpouse, useUpdateParentLinkKind } from '../../data/tree-queries';
+import { useAddChild, useAddParent, useAddSpouse, useLinkCoParent, useUpdateParentLinkKind } from '../../data/tree-queries';
 import type { Person } from '../../data/trees';
 import type { FamilyGraph, ParentLinkKind, SpouseRelative } from '../../family/family-graph';
 import { LINK_KIND_LABELS, spouseLabel } from '../../family/labels';
@@ -8,8 +8,12 @@ import { DeletePerson } from '../DeletePerson';
 import { EditPerson } from '../EditPerson';
 import { EMPTY_PERSON_FORM } from '../person-form';
 import { PersonForm } from '../PersonForm';
+import { childrenWithoutCoParent, coParentWord } from '../../family/co-parent';
+import { Button } from '../../ui/Button';
 import { Dialog } from '../../ui/Dialog';
-import { Select } from '../../ui/fields';
+import { ErrorBanner, Select } from '../../ui/fields';
+
+const NO_CO_PARENT = 'none';
 
 export type Action = 'none' | 'edit' | 'add-child' | 'add-parent' | 'add-spouse' | 'delete';
 
@@ -34,15 +38,25 @@ export const ActionDialogs = ({
   const addChild = useAddChild(treeId);
   const addParent = useAddParent(treeId);
   const addSpouse = useAddSpouse(treeId);
-  // null = chưa chọn: mặc định là vợ/chồng thứ nhất *tại lúc mở form* (danh sách có thể vừa thay đổi).
+  const linkCoParent = useLinkCoParent(treeId);
+  // null = chưa chọn: có đúng một vợ/chồng thì mặc định là người đó; từ hai vợ/chồng trở lên thì PHẢI chọn (không tự lấy người đầu, dễ ghi nhầm).
+  // NO_CO_PARENT = chủ động chọn "không rõ".
   const [chosenOtherParent, setOtherParentId] = useState<string | null>(null);
-  const otherParentId = chosenOtherParent ?? spouses[0]?.person.id ?? '';
+  const mustChoose = spouses.length >= 2;
+  const otherParentId = chosenOtherParent ?? (mustChoose ? '' : (spouses[0]?.person.id ?? NO_CO_PARENT));
+  const [otherParentMissing, setOtherParentMissing] = useState(false);
+  // Sau khi thêm vợ/chồng cho người đã có con chưa rõ cha/mẹ còn lại: hỏi có ghi người mới là cha/mẹ của các con đó không.
+  const [followUp, setFollowUp] = useState<{ spouseId: string; name: string; checked: Set<string> } | null>(null);
+  const orphans = childrenWithoutCoParent(graph, person.id);
   const [linkKind, setLinkKind] = useState<ParentLinkKind>('ruot');
 
 
   const finish = () => {
     for (const mutation of [addChild, addParent, addSpouse]) mutation.reset();
     setOtherParentId(null);
+    setOtherParentMissing(false);
+    setFollowUp(null);
+    linkCoParent.reset();
     setLinkKind('ruot');
     onClose();
   };
@@ -52,7 +66,7 @@ export const ActionDialogs = ({
     edit: `Sửa: ${person.full_name}`,
     'add-child': `Thêm con của ${person.full_name}`,
     'add-parent': `Thêm cha/mẹ của ${person.full_name}`,
-    'add-spouse': `Thêm vợ/chồng của ${person.full_name}`,
+    'add-spouse': followUp ? `Ghi ${followUp.name} là ${coParentWord(person.gender).toLowerCase()} của các con?` : `Thêm vợ/chồng của ${person.full_name}`,
     delete: 'Xoá Người',
   };
 
@@ -78,14 +92,23 @@ export const ActionDialogs = ({
   const otherParentPicker = spouses.length > 0 && (
     <label className="block">
       <span className="mb-1 block font-medium">{person.gender === 'nu' ? 'Cha của con' : 'Mẹ của con'}</span>
-      <Select className="w-full" value={otherParentId} onChange={(event) => setOtherParentId(event.target.value)}>
+      <Select
+        className="w-full"
+        value={otherParentId}
+        onChange={(event) => {
+          setOtherParentId(event.target.value);
+          setOtherParentMissing(false);
+        }}
+      >
+        {mustChoose && <option value="">Chọn {coParentWord(person.gender).toLowerCase()} của con…</option>}
         {spouses.map((spouse) => (
           <option key={spouse.person.id} value={spouse.person.id}>
             {person.gender === 'nu' && spouses.length >= 2 ? `${spouseLabel(spouse.person.gender, spouse.order)}: ${spouse.person.full_name}` : spouse.person.full_name}
           </option>
         ))}
-        <option value="">Không rõ / không ghi</option>
+        <option value={NO_CO_PARENT}>Không rõ / không ghi</option>
       </Select>
+      {otherParentMissing && <span className="mt-1 block text-sm text-danger">Hãy chọn {coParentWord(person.gender).toLowerCase()} của con (hoặc “Không rõ”).</span>}
     </label>
   );
 
@@ -115,12 +138,13 @@ export const ActionDialogs = ({
           submitLabel="Thêm con"
           mutation={addChild}
           onCancel={finish}
-          onSubmit={(fields) =>
+          onSubmit={(fields) => {
+            if (otherParentId === '') return setOtherParentMissing(true);
             addChild.mutate(
-              { parentId: person.id, otherParentId: otherParentId || null, kind: linkKind, fields },
+              { parentId: person.id, otherParentId: otherParentId === NO_CO_PARENT ? null : otherParentId, kind: linkKind, fields },
               { onSuccess: finish },
-            )
-          }
+            );
+          }}
         />
       )}
       {action === 'add-parent' && (
@@ -135,7 +159,48 @@ export const ActionDialogs = ({
           onSubmit={(fields) => addParent.mutate({ childId: person.id, kind: linkKind, fields }, { onSuccess: finish })}
         />
       )}
-      {action === 'add-spouse' && (
+      {action === 'add-spouse' && followUp && (
+        <div className="space-y-4">
+          <p>
+            {person.full_name} đã có {orphans.length} con chưa ghi {coParentWord(person.gender).toLowerCase()}. Chọn những con là con của {followUp.name}:
+          </p>
+          <ul className="space-y-1">
+            {orphans.map((child) => (
+              <li key={child.id}>
+                <label className="flex min-h-11 cursor-pointer items-center gap-3">
+                  <input
+                    type="checkbox"
+                    className="size-5 accent-son"
+                    checked={followUp.checked.has(child.id)}
+                    onChange={(event) => {
+                      const next = new Set(followUp.checked);
+                      if (event.target.checked) next.add(child.id);
+                      else next.delete(child.id);
+                      setFollowUp({ ...followUp, checked: next });
+                    }}
+                  />
+                  {child.full_name}
+                </label>
+              </li>
+            ))}
+          </ul>
+          {linkCoParent.isError && <ErrorBanner>{linkCoParent.error.message}</ErrorBanner>}
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" disabled={linkCoParent.isPending} onClick={finish}>
+              Để sau
+            </Button>
+            <Button
+              disabled={linkCoParent.isPending || followUp.checked.size === 0}
+              onClick={() =>
+                linkCoParent.mutate({ parentId: person.id, coParentId: followUp.spouseId, childIds: [...followUp.checked] }, { onSuccess: finish })
+              }
+            >
+              {linkCoParent.isPending ? 'Đang ghi…' : `Ghi ${followUp.checked.size} con`}
+            </Button>
+          </div>
+        </div>
+      )}
+      {action === 'add-spouse' && !followUp && (
         <PersonForm
           initial={{ ...EMPTY_PERSON_FORM, gender: person.gender === 'nam' ? 'nu' : person.gender === 'nu' ? 'nam' : '' }}
           showBirthOrder={false}
@@ -143,7 +208,18 @@ export const ActionDialogs = ({
           submitLabel="Thêm"
           mutation={addSpouse}
           onCancel={finish}
-          onSubmit={(fields) => addSpouse.mutate({ personId: person.id, order: null, fields }, { onSuccess: finish })}
+          onSubmit={(fields) =>
+            addSpouse.mutate(
+              { personId: person.id, order: null, fields },
+              {
+                onSuccess: (spouseId) => {
+                  if (orphans.length === 0) return finish();
+                  // Vợ/chồng đầu tiên: mặc định ghi cho mọi con chưa rõ; từ vợ/chồng thứ hai, con có thể là của người trước nên để người dùng tự tích.
+                  setFollowUp({ spouseId, name: fields.full_name, checked: new Set(spouses.length === 0 ? orphans.map((child) => child.id) : []) });
+                },
+              },
+            )
+          }
         />
       )}
     </Dialog>

@@ -475,6 +475,7 @@ export type Database = {
       set_avatar_photo: { Args: { photo_id: string }; Returns: undefined };
       link_account_to_person: { Args: { target_tree: string; person_id: string | null }; Returns: undefined };
       link_parent: { Args: { child_id: string; parent_id: string; link_kind: string }; Returns: undefined };
+      link_co_parent: { Args: { parent_id: string; co_parent_id: string; child_ids: string[] }; Returns: number };
       link_spouse: { Args: { person_id: string; spouse_id: string }; Returns: undefined };
       rotate_public_link: { Args: { target_tree: string; password: string }; Returns: string };
       set_public_link_password: { Args: { target_tree: string; password: string }; Returns: undefined };

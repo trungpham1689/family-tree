@@ -1201,6 +1201,41 @@ begin
 end;
 $function$;
 
+-- public.link_co_parent(parent_id uuid, co_parent_id uuid, child_ids uuid[])  [anon: không, authenticated: có, service_role: có]
+CREATE OR REPLACE FUNCTION public.link_co_parent(parent_id uuid, co_parent_id uuid, child_ids uuid[])
+ RETURNS integer
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+declare
+  linked integer := 0;
+  child uuid;
+  added integer;
+begin
+  if link_co_parent.parent_id = link_co_parent.co_parent_id then
+    raise exception 'SAME_PERSON' using errcode = 'check_violation';
+  end if;
+  if private.tree_of(link_co_parent.parent_id) <> private.tree_of(link_co_parent.co_parent_id) then
+    raise exception 'SAME_TREE_REQUIRED' using errcode = 'check_violation';
+  end if;
+
+  foreach child in array coalesce(link_co_parent.child_ids, '{}'::uuid[]) loop
+    if exists (select 1 from public.parent_links l where l.child_id = child and l.parent_id = link_co_parent.parent_id and l.kind = 'ruot')
+       and not exists (select 1 from public.parent_links l where l.child_id = child and l.parent_id <> link_co_parent.parent_id and l.kind = 'ruot') then
+      insert into public.parent_links (child_id, parent_id, kind) values (child, link_co_parent.co_parent_id, 'ruot')
+        on conflict on constraint parent_links_pkey do nothing;
+      get diagnostics added = row_count;
+      linked := linked + added;
+    end if;
+  end loop;
+
+  if linked > 0 then
+    perform private.ensure_union(link_co_parent.parent_id, link_co_parent.co_parent_id);
+  end if;
+  return linked;
+end;
+$function$;
+
 -- public.link_parent(child_id uuid, parent_id uuid, link_kind text)  [anon: không, authenticated: có, service_role: có]
 CREATE OR REPLACE FUNCTION public.link_parent(child_id uuid, parent_id uuid, link_kind text)
  RETURNS void
