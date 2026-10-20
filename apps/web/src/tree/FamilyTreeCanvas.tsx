@@ -1,8 +1,8 @@
 import { MARRIAGE_LINE_HEIGHT, wrapName, type LayoutNode, type TreeLayout } from '@gia-pha/tree-layout';
 import { select } from 'd3-selection';
 import 'd3-transition';
-import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom';
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { zoom, zoomIdentity, zoomTransform, type ZoomBehavior } from 'd3-zoom';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type FocusEvent } from 'react';
 import { marriageNote } from '../family/labels';
 import { Button } from '../ui/Button';
 
@@ -47,6 +47,11 @@ export type FocusRequest = {
 const READABLE_FIT_SCALE = 0.6;
 
 const PADDING = 48;
+/** Khoảng đệm giữ ô đang focus cách mép khung Cây khi tự cuộn tới nó. */
+const FOCUS_MARGIN = 24;
+
+/** Người dùng bật "giảm chuyển động" trong hệ điều hành: nhảy thẳng tới chỗ cần xem, không trượt. */
+const animationMs = (ms: number) => (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : ms);
 const MIN_SCALE = 0.05;
 const MAX_SCALE = 2.5;
 
@@ -62,6 +67,7 @@ export const FamilyTreeCanvas = ({
   const svgRef = useRef<SVGSVGElement>(null);
   const groupRef = useRef<SVGGElement>(null);
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
   const [legendOpen, setLegendOpen] = useState(false);
 
   useEffect(() => {
@@ -87,7 +93,7 @@ export const FamilyTreeCanvas = ({
     if (!svg || !behavior) return;
     const { width, height } = svg.getBoundingClientRect();
     const transform = zoomIdentity.translate(width / 2 - centerX * scale, height / 2 - centerY * scale).scale(scale);
-    select(svg).transition().duration(350).call(behavior.transform, transform);
+    select(svg).transition().duration(animationMs(350)).call(behavior.transform, transform);
   }, []);
 
   const fitToScreen = useCallback(() => {
@@ -101,7 +107,23 @@ export const FamilyTreeCanvas = ({
   const zoomBy = (factor: number) => {
     const svg = svgRef.current;
     const behavior = zoomRef.current;
-    if (svg && behavior) select(svg).transition().duration(200).call(behavior.scaleBy, factor);
+    if (svg && behavior) select(svg).transition().duration(animationMs(200)).call(behavior.scaleBy, factor);
+  };
+
+  // Bàn phím: Tab tới ô nằm ngoài khung nhìn thì kéo Cây để ô đó hiện ra (người dùng bàn phím không kéo bằng chuột được).
+  const revealFocused = (event: FocusEvent<SVGSVGElement>) => {
+    const svg = svgRef.current;
+    const behavior = zoomRef.current;
+    if (!svg || !behavior || event.target === svg) return;
+    const view = svg.getBoundingClientRect();
+    const box = (event.target as Element).getBoundingClientRect();
+    const shift = (start: number, end: number, viewStart: number, viewEnd: number) =>
+      start < viewStart + FOCUS_MARGIN ? viewStart + FOCUS_MARGIN - start : end > viewEnd - FOCUS_MARGIN ? viewEnd - FOCUS_MARGIN - end : 0;
+    const dx = shift(box.left, box.right, view.left, view.right);
+    const dy = shift(box.top, box.bottom, view.top, view.bottom);
+    if (dx === 0 && dy === 0) return;
+    const { k } = zoomTransform(svg);
+    select(svg).transition().duration(animationMs(150)).call(behavior.translateBy, dx / k, dy / k);
   };
 
   const layoutRef = useRef(layout);
@@ -134,8 +156,9 @@ export const FamilyTreeCanvas = ({
       <svg
         ref={svgRef}
         className="block h-full w-full cursor-grab touch-none select-none active:cursor-grabbing"
-        role="img"
+        role="group"
         aria-label="Cây gia phả"
+        onFocus={revealFocused}
       >
         <g ref={groupRef}>
           <g transform={`translate(${PADDING} ${PADDING})`}>
@@ -169,6 +192,15 @@ export const FamilyTreeCanvas = ({
         </g>
       </svg>
 
+      {/* Cây có thể có hàng trăm ô: cho người dùng bàn phím nhảy qua tới nút thu phóng. */}
+      <button
+        type="button"
+        className="sr-only focus:not-sr-only focus:absolute focus:bottom-16 focus:left-2 focus:z-10 focus:rounded-xl focus:border focus:border-control focus:bg-surface focus:px-4 focus:py-3 focus:font-semibold"
+        onClick={() => toolbarRef.current?.focus()}
+      >
+        Bỏ qua cây, tới nút thu phóng
+      </button>
+
       {/* Điện thoại: chú giải gập sau nút, khỏi che đầu cây; từ sm trở lên luôn hiện. */}
       <div className="absolute left-2 top-2 flex max-w-[calc(100%-1rem)] flex-col items-start gap-1">
       <Button
@@ -185,7 +217,7 @@ export const FamilyTreeCanvas = ({
         className={`${legendOpen ? 'flex' : 'hidden'} flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line bg-surface/95 px-3 py-1.5 text-sm text-ink-muted shadow-sm sm:flex`}
       >
         <span className="flex items-center gap-1">
-          <span aria-hidden="true" className="size-2.5 rounded-full border-2" style={{ borderColor: 'var(--color-kim)' }} /> Nam
+          <span aria-hidden="true" className="size-2.5 rounded-full border-2" style={{ borderColor: 'var(--color-kim-text)' }} /> Nam
         </span>
         <span className="flex items-center gap-1">
           <span aria-hidden="true" className="size-2.5 rounded-full border-2" style={{ borderColor: 'var(--color-son)' }} /> Nữ
@@ -213,6 +245,8 @@ export const FamilyTreeCanvas = ({
 
       {/* Một hàng sát góc dưới: chiếm ít chỗ của cây, nhất là trên điện thoại. */}
       <div
+        ref={toolbarRef}
+        tabIndex={-1}
         role="toolbar"
         aria-label="Thu phóng cây"
         className="absolute bottom-2 right-2 flex items-center gap-1 rounded-2xl border border-line bg-surface/95 p-1 shadow-sm"
@@ -247,7 +281,7 @@ type BoxProps = {
 
 const NAME_CHARS = 18;
 /** Dòng "cũng là chồng của …" dài hơn mức này thì cắt đuôi, để chữ không tràn ô. */
-const MARRIAGE_CHARS = 31;
+const MARRIAGE_CHARS = 27;
 
 const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text);
 
@@ -255,7 +289,21 @@ const PersonBox = memo(({ node, person, marriageLabel, marriageAlso, highlighted
   const lines = wrapName(person.full_name, NAME_CHARS);
   const isSpouse = node.role === 'spouse';
   // Viền theo giới tính (nam/nữ/chưa rõ) để nhận ra ngay không cần đọc chữ.
-  const genderColor = person.gender === 'nu' ? 'var(--color-son)' : person.gender === 'nam' ? 'var(--color-kim)' : 'var(--color-line)';
+  const genderColor = person.gender === 'nu' ? 'var(--color-son)' : person.gender === 'nam' ? 'var(--color-kim-text)' : 'var(--color-control)';
+  // Trình đọc màn hình không thấy màu viền, lifespan "†" hay chú thích hôn phối: đọc ra bằng lời.
+  const genderWord = person.gender === 'nam' ? 'nam' : person.gender === 'nu' ? 'nữ' : null;
+  const spokenLabel = [
+    person.full_name,
+    genderWord,
+    person.lifespan,
+    person.is_deceased ? 'đã mất' : null,
+    person.marriedIn ? 'dâu/rể' : null,
+    marriageLabel,
+    marriageAlso,
+    person.adopted ? 'con nuôi' : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
   // Viền ảnh đại diện: cũng theo giới tính, nhưng đã mất thì chuyển xám để thấy ngay trạng thái.
   const avatarBorderColor = person.is_deceased ? 'var(--color-ink-muted)' : genderColor;
   const fill = isSpouse ? 'var(--color-paper)' : 'var(--color-surface)';
@@ -273,8 +321,8 @@ const PersonBox = memo(({ node, person, marriageLabel, marriageAlso, highlighted
       <g
         role="button"
         tabIndex={0}
-        aria-label={`${person.full_name}${person.lifespan ? `, ${person.lifespan}` : ''}`}
-        className="cursor-pointer focus:outline-none [&:focus-visible>rect]:stroke-[3]"
+        aria-label={spokenLabel}
+        className="group/box cursor-pointer focus:outline-none"
         onClick={() => onOpen(person.id)}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
@@ -293,6 +341,18 @@ const PersonBox = memo(({ node, person, marriageLabel, marriageAlso, highlighted
           stroke={highlighted ? 'var(--color-son)' : genderColor}
           strokeWidth={highlighted ? 3 : 2}
           strokeDasharray={person.marriedIn ? '6 3' : undefined}
+        />
+        {/* Vòng focus vẽ rời, ngoài viền ô, cho thấy rõ dù viền ô cùng màu. */}
+        <rect
+          x={node.x - 5}
+          y={node.y - 5}
+          width={node.width + 10}
+          height={node.height + 10}
+          rx={14}
+          fill="none"
+          stroke="var(--color-focus)"
+          strokeWidth={3}
+          className="opacity-0 group-focus-visible/box:opacity-100"
         />
         {person.adopted && <circle cx={node.x + 10} cy={node.y + node.height - 10} r={3.5} fill="var(--color-ink-muted)" />}
         {person.avatarUrl && (
@@ -343,7 +403,7 @@ const PersonBox = memo(({ node, person, marriageLabel, marriageAlso, highlighted
             x={centerX}
             y={nameTop + (lines.length + (person.lifespan ? 1 : 0)) * 18 - 4 + index * MARRIAGE_LINE_HEIGHT}
             textAnchor="middle"
-            fontSize={index === 0 && marriageLabel ? 11 : 10}
+            fontSize={index === 0 && marriageLabel ? 12 : 11}
             fontStyle={index === 0 && marriageLabel ? undefined : 'italic'}
             fill="var(--color-son)"
           >
@@ -357,8 +417,9 @@ const PersonBox = memo(({ node, person, marriageLabel, marriageAlso, highlighted
         <g
           role="button"
           tabIndex={0}
-          aria-label={node.collapsed ? `Mở ${node.hiddenChildren} con của ${person.full_name}` : `Thu gọn con cháu của ${person.full_name}`}
-          className="cursor-pointer"
+          aria-label={node.collapsed ? `Con cháu của ${person.full_name}, đang ẩn ${node.hiddenChildren} con` : `Con cháu của ${person.full_name}`}
+          aria-expanded={!node.collapsed}
+          className="group/toggle cursor-pointer focus:outline-none"
           onClick={() => onToggle(person.id)}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
@@ -370,6 +431,15 @@ const PersonBox = memo(({ node, person, marriageLabel, marriageAlso, highlighted
           {/* Đặt ở góc trái dưới để không che chỗ bắt đầu đường hôn phối và đường xuống con. */}
           {/* Vòng trong suốt nới vùng chạm lên 44px; nút vẽ vẫn 26px. */}
           <circle cx={toggleX} cy={node.y + node.height} r={22} fill="transparent" />
+          <circle
+            cx={toggleX}
+            cy={node.y + node.height}
+            r={18}
+            fill="none"
+            stroke="var(--color-focus)"
+            strokeWidth={3}
+            className="opacity-0 group-focus-visible/toggle:opacity-100"
+          />
           <circle cx={toggleX} cy={node.y + node.height} r={13} fill="var(--color-son)" />
           <text x={toggleX} y={node.y + node.height + 5} textAnchor="middle" fontSize={node.collapsed ? 12 : 16} fontWeight={700} fill="white">
             {node.collapsed ? `+${node.hiddenChildren}` : '−'}

@@ -1,8 +1,10 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useMemo, useState, type FormEvent, type MouseEvent, type ReactNode } from 'react';
 import type { Person } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
 import { Button } from '../ui/Button';
+import { ChoiceChip } from '../ui/ChoiceChip';
 import { ErrorBanner, TextAreaField, TextField } from '../ui/fields';
+import { focusFirstInvalid } from '../ui/focus-first-invalid';
 import { findDuplicates } from './duplicate-check';
 import { personLabel } from './person-label';
 import { PersonPicker } from './PersonPicker';
@@ -30,6 +32,9 @@ type PersonFormProps = {
   /** Trạng thái của thao tác lưu (một mutation của React Query): đang lưu và lỗi từ server. */
   mutation: { isPending: boolean; error: { message: string } | null };
   onSubmit: (fields: PersonFields) => void;
+  /** Nút phụ "lưu rồi nhập người kế tiếp" cho việc nhập liền nhiều người (anh chị em…). Không truyền thì ẩn nút. */
+  submitAndAddLabel?: string;
+  onSubmitAndAdd?: (fields: PersonFields) => void;
   onCancel: () => void;
 };
 
@@ -48,6 +53,8 @@ export const PersonForm = ({
   submitLabel,
   mutation,
   onSubmit,
+  submitAndAddLabel,
+  onSubmitAndAdd,
   onCancel,
 }: PersonFormProps) => {
   const [values, setValues] = useState(initial);
@@ -84,15 +91,27 @@ export const PersonForm = ({
 
   const suggestion = suggestedAnniversary(values.death);
 
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
+  /** Kiểm tra form; lỗi thì báo và đưa con trỏ về ô lỗi đầu tiên. */
+  const validate = (form: HTMLFormElement): PersonFields | null => {
     const result = parsePersonForm(values);
     if (!result.ok) {
       setErrors(result.errors);
-      return;
+      focusFirstInvalid(form);
+      return null;
     }
     setErrors({});
-    onSubmit(result.fields);
+    return result.fields;
+  };
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    const fields = validate(event.currentTarget as HTMLFormElement);
+    if (fields) onSubmit(fields);
+  };
+
+  const submitAndAdd = (event: MouseEvent<HTMLButtonElement>) => {
+    const fields = event.currentTarget.form ? validate(event.currentTarget.form) : null;
+    if (fields) onSubmitAndAdd?.(fields);
   };
 
   return (
@@ -118,15 +137,9 @@ export const PersonForm = ({
         <legend className="mb-1 font-medium">Giới tính</legend>
         <div className="flex flex-wrap gap-2">
           {GENDER_OPTIONS.map(([value, label]) => (
-            <label
-              key={value}
-              className={`flex min-h-12 cursor-pointer items-center rounded-xl border px-4 ${
-                values.gender === value ? 'border-son bg-son/5 font-semibold text-son' : 'border-line'
-              }`}
-            >
-              <input type="radio" name="gender" className="sr-only" checked={values.gender === value} onChange={() => set('gender', value)} />
+            <ChoiceChip key={value} name="gender" checked={values.gender === value} onChange={() => set('gender', value)}>
               {label}
-            </label>
+            </ChoiceChip>
           ))}
         </div>
       </fieldset>
@@ -225,10 +238,15 @@ export const PersonForm = ({
       {Object.keys(errors).length > 0 && <ErrorBanner>Còn ô chưa hợp lệ, hãy xem các dòng báo đỏ.</ErrorBanner>}
       {mutation.error && <ErrorBanner>{mutation.error.message}</ErrorBanner>}
 
-      <div className="sticky bottom-0 -mx-4 flex gap-3 border-t border-line bg-surface px-4 py-3 sm:-mx-6 sm:justify-end sm:px-6">
+      <div className="sticky bottom-0 -mx-4 flex flex-wrap gap-3 border-t border-line bg-surface px-4 py-3 sm:-mx-6 sm:justify-end sm:px-6">
         <Button variant="secondary" className="flex-1 sm:flex-none" onClick={onCancel}>
           Huỷ
         </Button>
+        {onSubmitAndAdd && submitAndAddLabel && (
+          <Button variant="secondary" className="order-last basis-full sm:order-none sm:basis-auto" disabled={mutation.isPending} onClick={submitAndAdd}>
+            {submitAndAddLabel}
+          </Button>
+        )}
         <Button type="submit" className="flex-1 sm:flex-none" disabled={mutation.isPending}>
           {mutation.isPending ? 'Đang lưu…' : submitLabel}
         </Button>

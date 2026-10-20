@@ -1,5 +1,6 @@
 import { formatPartialDate, toOtherCalendar } from '@gia-pha/lunar';
 import { useId } from 'react';
+import { ChoiceChip } from '../ui/ChoiceChip';
 import { Select } from '../ui/fields';
 import { parseDateInput, type DateInput, type Precision } from './partial-date-input';
 
@@ -10,6 +11,35 @@ const PRECISIONS: [Precision, string][] = [
 ];
 
 const INPUT = 'min-h-12 w-full rounded-xl border border-line bg-surface px-3 tabular-nums';
+
+/** Một phần của ngày (ngày/tháng/năm): nhãn nhìn thấy được, báo lỗi chung của cả cụm. */
+const DatePart = ({
+  label,
+  value,
+  error,
+  errorId,
+  className = '',
+  onChange,
+}: {
+  label: string;
+  value: string;
+  error: string | undefined;
+  errorId: string;
+  className?: string;
+  onChange: (value: string) => void;
+}) => (
+  <label className={className}>
+    <span className="mb-0.5 block text-sm text-ink-muted">{label}</span>
+    <input
+      inputMode="numeric"
+      className={INPUT}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={error ? errorId : undefined}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  </label>
+);
 
 type Props = { label: string; value: DateInput; error?: string | undefined; onChange: (value: DateInput) => void };
 
@@ -26,20 +56,16 @@ export const PartialDateField = ({ label, value, error, onChange }: Props) => {
 
       <div className="flex flex-wrap gap-2">
         {(['duong', 'am'] as const).map((calendar) => (
-          <label
+          <ChoiceChip
             key={calendar}
-            className={`flex min-h-11 flex-1 cursor-pointer items-center justify-center rounded-xl border px-4 sm:flex-none ${
-              value.calendar === calendar ? 'border-son bg-son/5 font-semibold text-son' : 'border-line'
-            }`}
+            name={`${id}-calendar`}
+            compact
+            className="flex-1 justify-center sm:flex-none"
+            checked={value.calendar === calendar}
+            onChange={() => onChange({ ...value, calendar, leap: calendar === 'am' && value.leap })}
           >
-            <input
-              type="radio"
-              className="sr-only"
-              checked={value.calendar === calendar}
-              onChange={() => onChange({ ...value, calendar, leap: calendar === 'am' && value.leap })}
-            />
             {calendar === 'duong' ? 'Dương lịch' : 'Âm lịch'}
-          </label>
+          </ChoiceChip>
         ))}
         <Select
           aria-label="Độ chính xác"
@@ -55,34 +81,20 @@ export const PartialDateField = ({ label, value, error, onChange }: Props) => {
         </Select>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 items-end gap-2">
         {value.precision === 'ngay' && (
-          <input
-            aria-label="Ngày"
-            inputMode="numeric"
-            placeholder="Ngày"
-            className={INPUT}
-            value={value.day}
-            onChange={(event) => set('day', event.target.value)}
-          />
+          <DatePart label="Ngày" value={value.day} error={error} onChange={(day) => set('day', day)} errorId={`${id}-error`} />
         )}
         {value.precision !== 'nam' && (
-          <input
-            aria-label="Tháng"
-            inputMode="numeric"
-            placeholder="Tháng"
-            className={INPUT}
-            value={value.month}
-            onChange={(event) => set('month', event.target.value)}
-          />
+          <DatePart label="Tháng" value={value.month} error={error} onChange={(month) => set('month', month)} errorId={`${id}-error`} />
         )}
-        <input
-          aria-label="Năm"
-          inputMode="numeric"
-          placeholder="Năm"
-          className={`${INPUT} ${value.precision === 'nam' ? 'col-span-3 max-w-40' : ''}`}
+        <DatePart
+          label="Năm"
           value={value.year}
-          onChange={(event) => set('year', event.target.value)}
+          error={error}
+          errorId={`${id}-error`}
+          className={value.precision === 'nam' ? 'col-span-3 max-w-40' : ''}
+          onChange={(year) => set('year', year)}
         />
       </div>
 

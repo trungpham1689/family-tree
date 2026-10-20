@@ -1,5 +1,5 @@
 import { DEFAULT_BOX, layoutTree, MARRIAGE_LINE_HEIGHT, marriageExtraLines, outsideGenerationsFilter, type Orientation } from '@gia-pha/tree-layout';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { usePersonAvatars } from '../data/tree-queries';
 import type { Person } from '../data/trees';
@@ -11,6 +11,7 @@ import { AVATAR_GAP, AVATAR_SIZE, FamilyTreeCanvas, type FocusRequest } from './
 import { initialCollapsed } from './initial-collapsed';
 import { PersonSearch } from './PersonSearch';
 import { toCanvasPersons } from './canvas-persons';
+import { readCanvasPosition, rememberCanvasPosition } from './tree-position';
 import { planReveal } from './tree-search';
 import { describeReveal, readOrientation, saveOrientation } from './tree-view-state';
 
@@ -41,16 +42,21 @@ export const TreeExplorer = <P extends Person>({
 }: TreeExplorerProps<P>) => {
   const navigate = useNavigate();
   const root = graph.persons.find((person) => person.is_progenitor);
+  const rootId = root?.id;
+  // Mở hồ sơ một Người từ Cây rồi quay lại: giữ các nhánh đã thu/mở, số đời Cháu ngoại và chỗ đang làm việc (theo tab).
+  const [saved] = useState(() => (rootId ? readCanvasPosition(rootId) : {}));
 
   const [collapsed, setCollapsed] = useState<Set<string>>(() =>
-    root ? initialCollapsed(root.id, graph.parentLinks) : new Set(),
+    root ? (saved.collapsed ? new Set(saved.collapsed) : initialCollapsed(root.id, graph.parentLinks)) : new Set(),
   );
   const [orientation, setOrientation] = useState<Orientation>(readOrientation);
   // null = theo mặc định của Gia phả; người xem đổi tạm thì không lưu.
-  const [outsideOverride, setOutsideOverride] = useState<number | null>(null);
+  const [outsideOverride, setOutsideOverride] = useState<number | null>(saved.outside ?? null);
   const outsideGenerations = outsideOverride ?? defaultOutside;
-  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(() => (root ? { personId: root.id, preferFit: true } : null));
-  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(() =>
+    root ? (saved.personId ? { personId: saved.personId } : { personId: root.id, preferFit: true }) : null,
+  );
+  const [highlightedId, setHighlightedId] = useState<string | null>(saved.personId ?? null);
   const [notice, setNotice] = useState<string | null>(null);
   const [showAvatars, setShowAvatars] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -84,7 +90,18 @@ export const TreeExplorer = <P extends Person>({
       return next;
     });
   }, []);
-  const open = useCallback((personId: string) => navigate(personHref(personId)), [navigate, personHref]);
+  useEffect(() => {
+    if (rootId) rememberCanvasPosition(rootId, { collapsed: [...collapsed], outside: outsideOverride });
+  }, [rootId, collapsed, outsideOverride]);
+
+  const open = useCallback(
+    (personId: string) => {
+      if (rootId) rememberCanvasPosition(rootId, { personId });
+      // `from`: trang hồ sơ biết để nút "←" quay về Cây thay vì danh sách các Đời.
+      navigate(personHref(personId), { state: { from: 'cay' } });
+    },
+    [navigate, personHref, rootId],
+  );
 
   if (!root || !layout) {
     return <p className="text-ink-muted">Gia phả chưa có Thuỷ tổ, chưa vẽ được cây.</p>;

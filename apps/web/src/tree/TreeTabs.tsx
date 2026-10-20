@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router';
 
 const TABS: { to: (treeId: string) => string; label: string; end?: boolean }[] = [
@@ -21,13 +21,18 @@ const isTabActive = (tab: (typeof TABS)[number], treeId: string, pathname: strin
 export const TreeTabs = ({ treeId }: { treeId: string }) => {
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   // Trang không thuộc tab nào (như trang một Người) thì không tô tab nào cả.
   const active = TABS.find((tab) => isTabActive(tab, treeId, location.pathname));
 
   useEffect(() => setOpen(false), [location.pathname]);
   useEffect(() => {
     if (!open) return;
-    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && setOpen(false);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setOpen(false);
+      menuButtonRef.current?.focus();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
@@ -36,10 +41,11 @@ export const TreeTabs = ({ treeId }: { treeId: string }) => {
     <nav aria-label="Các phần của gia phả" className="border-b border-line bg-surface">
       <div className="mx-auto max-w-4xl px-4">
         <button
+          ref={menuButtonRef}
           type="button"
           aria-expanded={open}
           aria-controls="tree-tabs-menu"
-          aria-label="Menu các phần của gia phả"
+          aria-label={`${active?.label ?? 'Các phần của gia phả'} – mở menu các phần của gia phả`}
           onClick={() => setOpen((value) => !value)}
           className="flex min-h-12 w-full items-center gap-3 font-semibold text-son min-[900px]:hidden"
         >

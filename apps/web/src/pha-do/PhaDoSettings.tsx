@@ -103,7 +103,7 @@ const FramePicker = ({ frame, onChange }: { frame: FrameStyle; onChange: (frame:
           <label
             key={style}
             title={FRAME_LABELS[style]}
-            className={`block min-w-0 cursor-pointer rounded-md has-focus-visible:outline-3 has-focus-visible:outline-kim ${
+            className={`block min-w-0 cursor-pointer rounded-md has-focus-visible:outline-3 has-focus-visible:outline-focus ${
               frame === style ? 'ring-2 ring-son ring-offset-2' : 'opacity-90 hover:opacity-100'
             }`}
           >

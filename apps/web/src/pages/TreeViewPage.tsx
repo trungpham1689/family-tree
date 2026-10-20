@@ -22,7 +22,8 @@ export const TreeViewPage = () => {
     <div className="flex h-dvh flex-col">
       <AppHeader />
       <TreeTabs treeId={treeId} />
-      <main className="flex min-h-0 flex-1 flex-col gap-3 px-4 py-4">
+      <main id="main" tabIndex={-1} className="focus:outline-none flex min-h-0 flex-1 flex-col gap-3 px-4 py-4">
+        <h1 className="sr-only">Cây gia phả{tree.data ? ` ${tree.data.name}` : ''}</h1>
         {error && <ErrorBanner>{error.message}</ErrorBanner>}
         {tree.data && family.data && <OwnTreeExplorer tree={tree.data} graph={family.data} />}
       </main>

@@ -16,12 +16,15 @@ export const AppHeader = () => {
           <span className={superadmin.data ? 'hidden sm:inline' : undefined}>Gia Phả</span>
         </Link>
         <div className="flex items-center gap-1 sm:gap-3">
-          <Link to="/lich" className="relative inline-flex min-h-11 items-center px-2 font-semibold text-ink hover:text-son" aria-label="Lịch">
+          <Link to="/lich" className="relative inline-flex min-h-11 items-center px-2 font-semibold text-ink hover:text-son">
             Lịch
             {reminders.unread.length > 0 && (
-              <span className="absolute -right-3 -top-2 grid size-5 place-items-center rounded-full bg-son text-xs font-bold text-white">
-                {reminders.unread.length > 9 ? '9+' : reminders.unread.length}
-              </span>
+              <>
+                <span aria-hidden="true" className="absolute -right-3 -top-2 grid size-5 place-items-center rounded-full bg-son text-xs font-bold text-white">
+                  {reminders.unread.length > 9 ? '9+' : reminders.unread.length}
+                </span>
+                <span className="sr-only"> ({reminders.unread.length} chưa đọc)</span>
+              </>
             )}
           </Link>
           {superadmin.data && (

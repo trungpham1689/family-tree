@@ -8,7 +8,7 @@ export const Chip = ({ on, disabled, onClick, children }: { on: boolean; disable
     disabled={disabled}
     onClick={onClick}
     className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border-[1.5px] px-4 text-sm ${
-      on ? 'border-son bg-son/7 font-semibold text-son' : 'border-line bg-surface font-medium'
+      on ? 'border-son bg-son/7 font-semibold text-son' : 'border-control bg-surface font-medium'
     } disabled:cursor-not-allowed disabled:text-ink-muted/60`}
   >
     {on && (

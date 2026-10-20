@@ -41,7 +41,7 @@ export const TreePageShell = ({
     <>
       <AppHeader />
       <TreeTabs treeId={treeId} />
-      <main className={`mx-auto ${width} px-4 py-8`}>
+      <main id="main" tabIndex={-1} className={`mx-auto ${width} px-4 py-8 focus:outline-none`}>
         {error && <ErrorBanner>{error.message}</ErrorBanner>}
         {tree.data &&
           family.data &&

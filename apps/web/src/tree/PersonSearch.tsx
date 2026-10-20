@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import type { Person } from '../data/trees';
 import type { Placement } from '../family/family-graph';
 import { lifespanText } from '../people/person-display';
@@ -16,6 +16,8 @@ export const PersonSearch = ({ persons, placement, onPick }: Props) => {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const results = useMemo(() => searchPersons(persons, query), [persons, query]);
+  const listRef = useRef<HTMLUListElement>(null);
+  const showList = open && query.trim() !== '';
 
   const pick = (personId: string) => {
     onPick(personId);
@@ -30,9 +32,7 @@ export const PersonSearch = ({ persons, placement, onPick }: Props) => {
       <input
         id={id}
         type="search"
-        role="combobox"
-        aria-expanded={open && results.length > 0}
-        aria-controls={`${id}-list`}
+        aria-controls={showList ? `${id}-list` : undefined}
         autoComplete="off"
         placeholder="Gõ tên, có dấu hay không đều được"
         className="min-h-12 w-full rounded-xl border border-line bg-surface px-4"
@@ -47,13 +47,21 @@ export const PersonSearch = ({ persons, placement, onPick }: Props) => {
             event.preventDefault();
             pick(results[0].id);
           }
+          if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            listRef.current?.querySelector('button')?.focus();
+          }
           if (event.key === 'Escape') setOpen(false);
         }}
       />
-      {open && query.trim() !== '' && (
+      {/* Báo số kết quả cho trình đọc màn hình; danh sách là các nút bình thường, Tab hoặc mũi tên xuống để chọn. */}
+      <p role="status" className="sr-only">
+        {showList ? (results.length === 0 ? 'Không có kết quả' : `${results.length} kết quả, bấm mũi tên xuống để chọn`) : ''}
+      </p>
+      {showList && (
         <ul
+          ref={listRef}
           id={`${id}-list`}
-          role="listbox"
           className="absolute inset-x-0 top-full z-10 mt-1 max-h-80 overflow-y-auto rounded-xl border border-line bg-surface shadow-lg"
         >
           {results.length === 0 ? (
@@ -63,10 +71,22 @@ export const PersonSearch = ({ persons, placement, onPick }: Props) => {
               const { generation } = placement(person.id);
               const lifespan = lifespanText(person);
               return (
-                <li key={person.id} role="option" aria-selected={false}>
+                <li key={person.id}>
                   <button
                     type="button"
                     className="flex min-h-12 w-full flex-col items-start px-4 py-2 text-left hover:bg-paper"
+                    onKeyDown={(event) => {
+                      const items = [...(listRef.current?.querySelectorAll('button') ?? [])];
+                      const index = items.indexOf(event.currentTarget);
+                      const next = event.key === 'ArrowDown' ? items[index + 1] : event.key === 'ArrowUp' ? items[index - 1] : undefined;
+                      if (event.key === 'ArrowUp' && index === 0) document.getElementById(id)?.focus();
+                      if (next) next.focus();
+                      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') event.preventDefault();
+                      if (event.key === 'Escape') {
+                        setOpen(false);
+                        document.getElementById(id)?.focus();
+                      }
+                    }}
                     onClick={() => pick(person.id)}
                   >
                     <span className="font-semibold">{person.full_name}</span>

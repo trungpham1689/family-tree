@@ -60,7 +60,7 @@ export const ResetPasswordPage = () => {
 
   return (
     <>
-    <main className="grid min-h-dvh place-items-center px-4 py-10">
+    <main id="main" tabIndex={-1} className="focus:outline-none grid min-h-dvh place-items-center px-4 py-10">
       <div className="w-full max-w-md">
         <header className="mb-8 text-center">
           <img src="/logo-mark.svg" alt="" className="mx-auto mb-2 h-12 w-12" />

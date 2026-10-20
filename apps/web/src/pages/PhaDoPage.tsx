@@ -41,7 +41,7 @@ export const PhaDoPage = () => {
     <>
       <AppHeader />
       <TreeTabs treeId={treeId} />
-      <main className="w-full px-4 pb-24 pt-6 lg:px-8 lg:pb-6">
+      <main id="main" tabIndex={-1} className="focus:outline-none w-full px-4 pb-24 pt-6 lg:px-8 lg:pb-6">
         <h1 className="font-serif text-3xl font-bold text-son">Phả đồ</h1>
         {error && <ErrorBanner>{error.message}</ErrorBanner>}
         {tree.data && family.data && saved.isSuccess && (

@@ -76,7 +76,7 @@ await step('tải lên file mẫu → xem trước → lưu', async () => {
 await step('tìm "pham van binh" trên Cây', async () => {
   await page.goto(`${treeUrl}/cay`);
   await page.getByLabel('Tìm người').fill('pham van binh');
-  await page.getByRole('option').first().click();
+  await page.locator('ul[id$="-list"] button').first().click();
   await page.waitForTimeout(700);
   await shot('22-tree-search');
 });
@@ -108,6 +108,23 @@ await step('sửa hồ sơ (nghề nghiệp) và lưu', async () => {
   await dialog.getByLabel('Nghề nghiệp').fill('Lý trưởng');
   await dialog.getByRole('button', { name: 'Lưu thay đổi' }).click();
   await page.getByText('Lý trưởng').waitFor();
+});
+
+await step('mở hồ sơ từ Đời đang chọn rồi quay lại: vẫn ở đúng Đời; mở từ Cây thì quay về Cây', async () => {
+  await page.goto(treeUrl);
+  await page.getByRole('button', { name: /^Đời 2,/ }).click();
+  await page.evaluate(() => window.scrollTo(0, 300));
+  await page.locator('ul a[href*="/nguoi/"]').first().click();
+  await page.locator('article h1').waitFor();
+  const scrollY = await page.evaluate(() => window.scrollY);
+  if (scrollY > 5) throw new Error(`trang hồ sơ không mở ở đầu trang (scrollY=${scrollY})`);
+  await page.getByRole('link', { name: /^←/ }).first().click();
+  await page.locator('button[aria-current][aria-label^="Đời 2,"]').waitFor({ timeout: 10000 });
+  await page.goto(`${treeUrl}/cay`);
+  await page.getByRole('button', { name: /^Phạm Văn Tổ/ }).first().click();
+  await page.locator('article h1').waitFor();
+  await page.getByRole('link', { name: /^← Cây gia phả/ }).click();
+  await page.waitForURL(/\/cay$/);
 });
 
 await step('cảnh báo khi thêm Người trùng tên', async () => {
@@ -291,7 +308,7 @@ await step('khách chưa đăng nhập mở link, không thấy thông tin riên
   await guestPage.waitForTimeout(600);
   await shot('28-public-tree', guestPage);
   await guestPage.getByLabel('Tìm người').fill('binh');
-  await guestPage.getByRole('option').first().click();
+  await guestPage.locator('ul[id$="-list"] button').first().click();
   await guestPage.waitForTimeout(600);
   await guestPage.getByRole('button', { name: /Phạm Văn Bình/ }).first().click();
   await guestPage.waitForURL(/nguoi/);
@@ -384,6 +401,28 @@ await step('xoá người có con cháu đòi gõ tên', async () => {
   if (!(await button.isDisabled())) throw new Error('nút xoá không bị khoá khi chưa gõ tên');
   await shot('31-delete-dialog');
   await dialog.getByRole('button', { name: 'Huỷ' }).click();
+});
+
+await step('xoá người xong tự quay về trang trước, không báo "Không tìm thấy"', async () => {
+  await page.goto(treeUrl);
+  await page.getByRole('button', { name: /^Đời 1,/ }).click();
+  await page.getByRole('link', { name: /Phạm Văn Tổ/ }).first().click();
+  await page.locator('article h1').waitFor();
+  const rootUrl = page.url();
+  await page.getByRole('button', { name: '+ Thêm con' }).click();
+  const add = page.getByRole('dialog');
+  await add.getByLabel('Họ và tên').fill('Con Xoá Thử');
+  if (await add.locator('select').count()) await add.locator('select').first().selectOption('none');
+  await add.getByRole('button', { name: 'Thêm con', exact: true }).click();
+  await add.waitFor({ state: 'hidden' });
+  await page.getByRole('main').getByRole('link', { name: /Con Xoá Thử/ }).first().click();
+  await page.getByRole('heading', { name: 'Con Xoá Thử' }).waitFor();
+  await page.getByRole('button', { name: 'Xoá người này' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Xoá vĩnh viễn' }).click();
+  await page.waitForURL(rootUrl);
+  await page.locator('article h1').waitFor();
+  if (await page.getByText('Không tìm thấy Người này').count()) throw new Error('vẫn báo không tìm thấy sau khi xoá');
+  if (await page.getByText('Con Xoá Thử').count()) throw new Error('người đã xoá vẫn còn trên trang trước');
 });
 
 reportProblems(problems);

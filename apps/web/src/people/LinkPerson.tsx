@@ -1,10 +1,11 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useId, useMemo, useState, type FormEvent } from 'react';
 import { useLinkParent, useLinkSpouse } from '../data/tree-queries';
 import type { Person } from '../data/trees';
 import type { FamilyGraph, ParentLinkKind } from '../family/family-graph';
 import { LINK_KIND_LABELS } from '../family/labels';
 import { searchPersons } from '../tree/tree-search';
 import { Button } from '../ui/Button';
+import { ChoiceChip } from '../ui/ChoiceChip';
 import { ErrorBanner, TextField } from '../ui/fields';
 import { lifespanText } from './person-display';
 
@@ -14,6 +15,7 @@ type Props = { treeId: string; graph: FamilyGraph<Person>; person: Person; onDon
 
 /** Gắn một Người chưa nối vào cây: làm con, hoặc làm vợ/chồng, của một người đã có trong cây. */
 export const LinkPerson = ({ treeId, graph, person, onDone }: Props) => {
+  const group = useId();
   const linkParent = useLinkParent(treeId);
   const linkSpouse = useLinkSpouse(treeId);
   const [relation, setRelation] = useState<Relation>('child-of');
@@ -37,16 +39,10 @@ export const LinkPerson = ({ treeId, graph, person, onDone }: Props) => {
     else linkSpouse.mutate({ personId: target.id, spouseId: person.id }, { onSuccess: onDone });
   };
 
-  const choice = <Value extends string>(value: Value, current: Value, label: string, onPick: (value: Value) => void) => (
-    <label
-      key={value}
-      className={`flex min-h-12 cursor-pointer items-center rounded-xl border px-4 ${
-        current === value ? 'border-son bg-son/5 font-semibold text-son' : 'border-line'
-      }`}
-    >
-      <input type="radio" className="sr-only" checked={current === value} onChange={() => onPick(value)} />
+  const choice = <Value extends string>(name: string, value: Value, current: Value, label: string, onPick: (value: Value) => void) => (
+    <ChoiceChip key={value} name={`${group}-${name}`} checked={current === value} onChange={() => onPick(value)}>
       {label}
-    </label>
+    </ChoiceChip>
   );
 
   return (
@@ -54,8 +50,8 @@ export const LinkPerson = ({ treeId, graph, person, onDone }: Props) => {
       <fieldset>
         <legend className="mb-1 font-medium">{person.full_name} là…</legend>
         <div className="flex flex-wrap gap-2">
-          {choice<Relation>('child-of', relation, 'Con của', setRelation)}
-          {choice<Relation>('spouse-of', relation, 'Vợ/chồng của', setRelation)}
+          {choice<Relation>('relation', 'child-of', relation, 'Con của', setRelation)}
+          {choice<Relation>('relation', 'spouse-of', relation, 'Vợ/chồng của', setRelation)}
         </div>
       </fieldset>
 
@@ -108,7 +104,7 @@ export const LinkPerson = ({ treeId, graph, person, onDone }: Props) => {
         <fieldset>
           <legend className="mb-1 font-medium">Quan hệ</legend>
           <div className="flex gap-2">
-            {(['ruot', 'nuoi'] as const).map((value) => choice(value, kind, LINK_KIND_LABELS[value], setKind))}
+            {(['ruot', 'nuoi'] as const).map((value) => choice('kind', value, kind, LINK_KIND_LABELS[value], setKind))}
           </div>
         </fieldset>
       )}

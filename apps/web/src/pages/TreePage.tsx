@@ -28,7 +28,7 @@ export const TreePage = () => {
     return (
       <>
         <AppHeader />
-        <main className="mx-auto max-w-4xl space-y-4 px-4 py-8">
+        <main id="main" tabIndex={-1} className="focus:outline-none mx-auto max-w-4xl space-y-4 px-4 py-8">
           <ErrorBanner>{tree.error.message}</ErrorBanner>
           <Link to="/gia-pha" className="font-semibold text-son underline">
             ← Về danh sách gia phả
@@ -65,7 +65,7 @@ const TreeView = ({ tree }: { tree: TreeWithRole }) => {
 
   return (
     <>
-    <main className="mx-auto max-w-4xl px-4 py-8">
+    <main id="main" tabIndex={-1} className="focus:outline-none mx-auto max-w-4xl px-4 py-8">
       <Link to="/gia-pha" className="inline-flex min-h-11 items-center text-ink-muted hover:text-son">
         ← Gia phả của tôi
       </Link>

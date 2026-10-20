@@ -72,7 +72,7 @@ await step('Cây hiện đủ 13 người, không ô nào chồng nhau, chụp m
   await page.waitForTimeout(600);
   const boxes = await page.$$eval('svg g[role="button"][aria-label]', (nodes) =>
     nodes
-      .filter((n) => !/^(Thu gọn|Mở) /.test(n.getAttribute('aria-label')))
+      .filter((n) => !n.hasAttribute('aria-expanded'))
       .map((n) => {
         const r = n.querySelector('rect').getBoundingClientRect();
         return { name: n.getAttribute('aria-label').split(',')[0], x: r.x, y: r.y, w: r.width, h: r.height };

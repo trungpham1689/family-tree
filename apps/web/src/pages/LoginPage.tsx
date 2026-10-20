@@ -9,6 +9,7 @@ import { Button } from '../ui/Button';
 import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
 import { PasswordInput } from '../ui/fields';
+import { onTabKeyDown } from '../ui/tab-keys';
 
 type Mode = 'sign-in' | 'sign-up';
 
@@ -89,7 +90,7 @@ export const LoginPage = () => {
 
   return (
     <>
-    <main className="grid min-h-dvh place-items-center px-4 py-10">
+    <main id="main" tabIndex={-1} className="focus:outline-none grid min-h-dvh place-items-center px-4 py-10">
       <div className="w-full max-w-md">
         <header className="mb-8 text-center">
           <img src="/logo-mark.svg" alt="" className="mx-auto mb-2 h-12 w-12" />
@@ -98,7 +99,12 @@ export const LoginPage = () => {
         </header>
 
         <section className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
-          <div className="mb-6 grid grid-cols-2 rounded-xl bg-paper p-1" role="tablist">
+          <div
+            className="mb-6 grid grid-cols-2 rounded-xl bg-paper p-1"
+            role="tablist"
+            aria-label="Đăng nhập hoặc tạo tài khoản"
+            onKeyDown={(event) => onTabKeyDown(event, ['sign-in', 'sign-up'] as const, mode, switchMode, (value) => `login-tab-${value}`)}
+          >
             {(
               [
                 ['sign-in', 'Đăng nhập'],
@@ -109,7 +115,10 @@ export const LoginPage = () => {
                 key={value}
                 type="button"
                 role="tab"
+                id={`login-tab-${value}`}
                 aria-selected={mode === value}
+                aria-controls="login-panel"
+                tabIndex={mode === value ? 0 : -1}
                 onClick={() => switchMode(value)}
                 className={`min-h-11 rounded-lg font-semibold transition-colors ${
                   mode === value ? 'bg-surface text-son shadow-sm' : 'text-ink-muted'
@@ -121,7 +130,7 @@ export const LoginPage = () => {
           </div>
 
           {forgotPassword ? (
-            <form onSubmit={sendResetEmail} className="space-y-4">
+            <form id="login-panel" role="tabpanel" aria-labelledby={`login-tab-${mode}`} onSubmit={sendResetEmail} className="space-y-4">
               <p className="text-ink-muted">Nhập email đã dùng để tạo tài khoản. Chúng tôi sẽ gửi link đặt lại mật khẩu.</p>
               <label className="block">
                 <span className="mb-1 block font-medium">
@@ -168,7 +177,7 @@ export const LoginPage = () => {
               </button>
             </form>
           ) : (
-            <form onSubmit={submit} className="space-y-4">
+            <form id="login-panel" role="tabpanel" aria-labelledby={`login-tab-${mode}`} onSubmit={submit} className="space-y-4">
               {mode === 'sign-up' && (
                 <>
                   <label className="block">

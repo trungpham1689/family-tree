@@ -27,7 +27,7 @@ export const MyTreesPage = () => {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-4xl px-4 py-8">
+      <main id="main" tabIndex={-1} className="focus:outline-none mx-auto max-w-4xl px-4 py-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="font-serif text-3xl font-bold">Gia phả của tôi</h1>
           <div className="flex flex-wrap gap-2">

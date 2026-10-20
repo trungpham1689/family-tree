@@ -47,7 +47,7 @@ export const CalendarPage = () => {
   return (
     <>
       {signedIn ? <AppHeader /> : <PublicHeader />}
-      <main className="mx-auto grid max-w-4xl gap-6 px-4 py-8 lg:grid-cols-[1fr_22rem]">
+      <main id="main" tabIndex={-1} className="focus:outline-none mx-auto grid max-w-4xl gap-6 px-4 py-8 lg:grid-cols-[1fr_22rem]">
         <div>
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
             <h1 className="font-serif text-3xl font-bold">{signedIn ? 'Lịch của tôi' : 'Lịch âm dương'}</h1>

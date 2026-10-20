@@ -11,6 +11,10 @@
   --color-paper: #fbf8f3;
   --color-surface: #ffffff;
   --color-line: #e4dcd1;
+  /* Viền ô nhập và nút chọn: đủ 3:1 với nền trắng (--color-line chỉ dành cho đường kẻ trang trí). */
+  --color-control: #8a8076;
+  /* Vòng focus: 4.8:1 với nền giấy (--color-kim chỉ 3:1). */
+  --color-focus: #8a6a1f;
   --color-son: #8a1c1c;
   --color-son-strong: #6e1414;
   --color-kim: #b8892b;
@@ -47,8 +51,13 @@
   }
 
   :focus-visible {
-    outline: 3px solid var(--color-kim);
+    outline: 3px solid var(--color-focus);
     outline-offset: 2px;
+  }
+
+  ::placeholder {
+    color: var(--color-ink-muted);
+    opacity: 1;
   }
 
   button:not(:disabled) {
@@ -57,5 +66,27 @@
 
   button:disabled {
     cursor: not-allowed;
+  }
+}
+
+/*
+ * Viền ô nhập đủ độ tương phản. Đặt ngoài @layer để thắng class `border-line` rải khắp các form;
+ * ô đang lỗi (aria-invalid) giữ viền đỏ của `border-danger`.
+ */
+input:not([type='checkbox'], [type='radio'], [type='file'], [aria-invalid='true']),
+select:not([aria-invalid='true']),
+textarea:not([aria-invalid='true']) {
+  border-color: var(--color-control);
+}
+
+/* Người dùng tắt chuyển động trong hệ điều hành: bỏ hiệu ứng chuyển cảnh, xoay, nhấp nháy. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

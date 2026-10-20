@@ -45,16 +45,17 @@ export const MonthCalendar = ({ year, month, today, selected, onSelect, onShiftM
         </div>
       </header>
 
-      <div role="grid" className="overflow-hidden rounded-2xl border border-line bg-surface">
-        <div role="row" className="grid grid-cols-7 border-b border-line bg-paper text-center text-sm font-semibold text-ink-muted">
+      {/* Mỗi ô là một nút có nhãn đủ ngày tháng, nên hàng tên thứ chỉ để nhìn. */}
+      <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+        <div aria-hidden="true" className="grid grid-cols-7 border-b border-line bg-paper text-center text-sm font-semibold text-ink-muted">
           {WEEKDAY_HEADERS.map((name) => (
-            <div key={name} role="columnheader" className={`py-2 ${name === 'CN' ? 'text-son' : ''}`}>
+            <div key={name} className={`py-2 ${name === 'CN' ? 'text-son' : ''}`}>
               {name}
             </div>
           ))}
         </div>
         {weeks.map((week) => (
-          <div role="row" key={week[0]!.date.day + '-' + week[0]!.date.month} className="grid grid-cols-7">
+          <div key={week[0]!.date.day + '-' + week[0]!.date.month} className="grid grid-cols-7">
             {week.map((cell) => {
               const isSelected = sameDay(cell.date, selected);
               const isToday = sameDay(cell.date, today);
@@ -64,14 +65,14 @@ export const MonthCalendar = ({ year, month, today, selected, onSelect, onShiftM
                 <button
                   key={`${cell.date.month}-${cell.date.day}`}
                   type="button"
-                  role="gridcell"
-                  aria-selected={isSelected}
-                  aria-label={`${cell.date.day}/${cell.date.month}, âm ${cell.lunar.day}/${cell.lunar.month}${
+                  aria-pressed={isSelected}
+                  aria-current={isToday ? 'date' : undefined}
+                  aria-label={`${isToday ? 'Hôm nay, ' : ''}${cell.date.day}/${cell.date.month}, âm ${cell.lunar.day}/${cell.lunar.month}${
                     cell.holidays.length ? `, ${cell.holidays.map((holiday) => holiday.name).join(', ')}` : ''
                   }${kinds.length ? `, có ${kinds.map((kind) => MARK_LABELS[kind]).join(', ')}` : ''}`}
                   onClick={() => onSelect(cell.date)}
                   className={`relative flex min-h-16 flex-col items-center justify-center gap-0.5 border-b border-r border-line p-1 transition-colors last:border-r-0 sm:min-h-20 ${
-                    isSelected ? 'bg-son/10' : 'hover:bg-paper'
+                    isSelected ? 'bg-son/10 outline-2 -outline-offset-2 outline-son' : 'hover:bg-paper'
                   }`}
                 >
                   <span

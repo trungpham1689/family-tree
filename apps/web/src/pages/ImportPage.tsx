@@ -18,7 +18,7 @@ export const ImportPage = () => {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-4xl px-4 py-8">
+      <main id="main" tabIndex={-1} className="focus:outline-none mx-auto max-w-4xl px-4 py-8">
         {targetTreeId ? <ImportIntoExisting treeId={targetTreeId} /> : <ImportFlow treeId={null} treeName={null} />}
       </main>
       <Footer />
@@ -203,13 +203,13 @@ const ImportFlow = ({ treeId, treeName }: { treeId: string | null; treeName: str
               <table className="w-full border-collapse text-left">
                 <thead>
                   <tr className="border-b border-line text-sm text-ink-muted">
-                    <th className="px-4 py-2 font-medium">Dòng</th>
-                    <th className="px-4 py-2 font-medium" title="Mã chỉ để nối quan hệ trong file này, không được lưu vào hệ thống">
-                      Mã (chỉ để nối)
+                    <th scope="col" className="px-4 py-2 font-medium">Dòng</th>
+                    <th scope="col" className="px-4 py-2 font-medium">
+                      Mã (chỉ để nối quan hệ, không lưu)
                     </th>
-                    <th className="px-4 py-2 font-medium">Họ và tên</th>
-                    <th className="px-4 py-2 font-medium">Đời</th>
-                    <th className="px-4 py-2 font-medium">Quan hệ</th>
+                    <th scope="col" className="px-4 py-2 font-medium">Họ và tên</th>
+                    <th scope="col" className="px-4 py-2 font-medium">Đời</th>
+                    <th scope="col" className="px-4 py-2 font-medium">Quan hệ</th>
                   </tr>
                 </thead>
                 <tbody>

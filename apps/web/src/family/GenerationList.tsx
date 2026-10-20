@@ -1,5 +1,5 @@
-import { useRef, useState, type ReactNode } from 'react';
-import { Link } from 'react-router';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Link, useNavigationType } from 'react-router';
 import { useAddChild, usePersonAvatars } from '../data/tree-queries';
 import type { Person } from '../data/trees';
 import { lifespanText, nameInitial } from '../people/person-display';
@@ -10,14 +10,16 @@ import { LinkPerson } from '../people/LinkPerson';
 import { PersonForm } from '../people/PersonForm';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
+import { readOverviewPosition, rememberOverviewPosition } from '../tree/tree-position';
 
 export const GenerationList = ({ treeId, graph, canEdit }: { treeId: string; graph: FamilyGraph<Person>; canEdit: boolean }) => {
   const generations = graph.generations();
   const unconnected = graph.unconnected();
   const [linkingId, setLinkingId] = useState<string | null>(null);
   const linking = linkingId ? graph.person(linkingId) : undefined;
-  // Mặc định Đời 1; nếu chọn một đời rồi mất đi (gia phả đổi) thì quay lại Đời 1.
-  const [selectedGeneration, setSelectedGeneration] = useState<number | null>(null);
+  // Đời đã chọn được nhớ theo tab: mở hồ sơ một Người rồi quay lại vẫn ở đúng Đời.
+  // Mặc định Đời 1; nếu đời đã nhớ không còn (gia phả đổi) thì quay lại Đời 1.
+  const [selectedGeneration, setSelectedGeneration] = useState<number | null>(() => readOverviewPosition(treeId).generation ?? null);
   const activeGeneration =
     selectedGeneration !== null && generations.some((group) => group.generation === selectedGeneration)
       ? selectedGeneration
@@ -27,9 +29,25 @@ export const GenerationList = ({ treeId, graph, canEdit }: { treeId: string; gra
   // Chọn đời ở cuối cột dọc khi đang cuộn xuống: kéo phần thẻ người lên lại tầm nhìn.
   const selectGeneration = (generation: number) => {
     setSelectedGeneration(generation);
+    rememberOverviewPosition(treeId, { generation });
     const panel = panelRef.current;
     if (panel && panel.getBoundingClientRect().top < 0) panel.scrollIntoView({ block: 'start' });
   };
+
+  // Quay lại từ hồ sơ một Người (bấm link): cuộn tới đúng thẻ người đó và tô nổi một lúc.
+  // Nút Back của trình duyệt (POP) thì trang đã tự trả đúng chỗ đang cuộn, không cuộn thêm.
+  const navigationType = useNavigationType();
+  const [returnedTo] = useState(() => (navigationType === 'POP' ? undefined : readOverviewPosition(treeId).personId));
+  const [highlightedId, setHighlightedId] = useState<string | null>(returnedTo ?? null);
+  const restored = useRef(false);
+  useEffect(() => {
+    if (restored.current) return;
+    restored.current = true;
+    rememberOverviewPosition(treeId, { personId: undefined });
+    if (!returnedTo) return;
+    document.getElementById(`nguoi-${returnedTo}`)?.scrollIntoView({ block: 'center' });
+    setTimeout(() => setHighlightedId(null), 2500);
+  }, [treeId, returnedTo]);
 
   return (
     <div className="space-y-8">
@@ -70,7 +88,7 @@ export const GenerationList = ({ treeId, graph, canEdit }: { treeId: string; gra
                   </span>
                 </p>
               )}
-              {activeGroup && <GenerationCards treeId={treeId} graph={graph} group={activeGroup} canEdit={canEdit} />}
+              {activeGroup && <GenerationCards treeId={treeId} graph={graph} group={activeGroup} canEdit={canEdit} highlightedId={highlightedId} />}
             </div>
           </div>
         </section>
@@ -120,6 +138,7 @@ const PersonList = ({ treeId, graph, persons, action }: PersonListProps) => (
         <li key={person.id} className="flex items-center gap-2 hover:bg-paper">
           <Link
             to={`/gia-pha/${treeId}/nguoi/${person.id}`}
+            onClick={() => rememberOverviewPosition(treeId, { personId: person.id, view: 'tong-quan' })}
             className="flex flex-1 items-center justify-between gap-4 px-5 py-4"
           >
             <div>
@@ -192,11 +211,13 @@ const GenerationCards = ({
   graph,
   group,
   canEdit,
+  highlightedId,
 }: {
   treeId: string;
   graph: FamilyGraph<Person>;
   group: GenerationGroup<Person>;
   canEdit: boolean;
+  highlightedId: string | null;
 }) => {
   const avatars = usePersonAvatars(group.persons, true);
   return (
@@ -208,6 +229,7 @@ const GenerationCards = ({
           graph={graph}
           person={person}
           canEdit={canEdit}
+          highlighted={person.id === highlightedId}
           avatarUrl={avatars.data?.get(person.id)}
         />
       ))}
@@ -220,33 +242,48 @@ const GenerationCard = ({
   graph,
   person,
   canEdit,
+  highlighted,
   avatarUrl,
 }: {
   treeId: string;
   graph: FamilyGraph<Person>;
   person: Person;
   canEdit: boolean;
+  highlighted: boolean;
   avatarUrl: string | undefined;
 }) => {
-  const { kind } = graph.placement(person.id);
+  const { kind, generation } = graph.placement(person.id);
   const parents = graph.parentsOf(person.id);
   const primaryParent = parents[0];
   const adopted = parents.some((parent) => parent.kind === 'nuoi');
   const spouseText = spouseCountText(graph.spousesOf(person.id).map((spouse) => spouse.person.gender));
   const childCount = graph.childrenOf(person.id).length;
   const [adding, setAdding] = useState(false);
+  // Thêm con liên tiếp: form dựng lại (key đổi) cho người kế mà không đóng hộp thoại.
+  const [formKey, setFormKey] = useState(0);
+  const [justAdded, setJustAdded] = useState<string | null>(null);
   const addChild = useAddChild(treeId);
+  const closeAdding = () => {
+    addChild.reset();
+    setAdding(false);
+    setFormKey(0);
+    setJustAdded(null);
+  };
   const initial = nameInitial(person.full_name);
 
   return (
-    <li>
+    <li id={`nguoi-${person.id}`} className={`scroll-mt-4 rounded-2xl transition-shadow ${highlighted ? 'ring-4 ring-focus ring-offset-2' : ''}`}>
       {primaryParent && (
         <p className="mb-1 pl-1 text-sm text-ink-muted">
           {primaryParent.person.gender === 'nu' ? 'Mẹ' : 'Cha'} {primaryParent.person.full_name}
         </p>
       )}
       <div className="flex items-stretch overflow-hidden rounded-2xl bg-son text-white">
-        <Link to={`/gia-pha/${treeId}/nguoi/${person.id}`} className="flex min-w-0 flex-1 items-start gap-3 px-3 py-3.5 hover:bg-son-strong sm:px-4">
+        <Link
+          to={`/gia-pha/${treeId}/nguoi/${person.id}`}
+          onClick={() => rememberOverviewPosition(treeId, { generation: generation ?? undefined, personId: person.id, view: 'tong-quan' })}
+          className="flex min-w-0 flex-1 items-start gap-3 px-3 py-3.5 hover:bg-son-strong sm:px-4"
+        >
           <span className="grid size-10 shrink-0 place-items-center sm:size-12 overflow-hidden rounded-xl bg-paper text-lg font-bold text-son">
             {avatarUrl ? <img src={avatarUrl} alt="" className="size-full object-cover" /> : initial}
           </span>
@@ -293,22 +330,38 @@ const GenerationCard = ({
           </button>
         )}
       </div>
-      <Dialog open={adding} title={`Thêm con cho ${person.full_name}`} onClose={() => setAdding(false)}>
+      <Dialog open={adding} title={`Thêm con cho ${person.full_name}`} onClose={closeAdding}>
         {adding && (
-          <PersonForm
-            initial={EMPTY_PERSON_FORM}
-            graph={graph}
-            currentPersonId={person.id}
-            submitLabel="Thêm"
-            mutation={addChild}
-            onCancel={() => setAdding(false)}
-            onSubmit={(fields) =>
-              addChild.mutate(
-                { parentId: person.id, otherParentId: null, kind: 'ruot', fields },
-                { onSuccess: () => setAdding(false) },
-              )
-            }
-          />
+          <>
+            {justAdded && (
+              <p role="status" className="mb-4 rounded-xl bg-la/10 px-4 py-3 text-la">
+                Đã thêm {justAdded}. Nhập tiếp người con kế.
+              </p>
+            )}
+            <PersonForm
+              key={formKey}
+              initial={EMPTY_PERSON_FORM}
+              graph={graph}
+              currentPersonId={person.id}
+              submitLabel="Thêm"
+              submitAndAddLabel="Lưu và thêm con tiếp"
+              mutation={addChild}
+              onCancel={closeAdding}
+              onSubmit={(fields) => addChild.mutate({ parentId: person.id, otherParentId: null, kind: 'ruot', fields }, { onSuccess: closeAdding })}
+              onSubmitAndAdd={(fields) =>
+                addChild.mutate(
+                  { parentId: person.id, otherParentId: null, kind: 'ruot', fields },
+                  {
+                    onSuccess: () => {
+                      addChild.reset();
+                      setJustAdded(fields.full_name);
+                      setFormKey((key) => key + 1);
+                    },
+                  },
+                )
+              }
+            />
+          </>
         )}
       </Dialog>
     </li>

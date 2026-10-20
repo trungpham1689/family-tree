@@ -15,6 +15,7 @@ export const AccountMenu = () => {
   const profile = useMyProfile(open);
   const [profileOpen, setProfileOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const signupName = typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : '';
   const label = profile.data?.fullName || signupName || email || '?';
 
@@ -24,7 +25,10 @@ export const AccountMenu = () => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
     };
     document.addEventListener('pointerdown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
@@ -37,9 +41,9 @@ export const AccountMenu = () => {
   return (
     <div ref={rootRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         aria-label="Tài khoản"
-        aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
         className="grid size-11 place-items-center"
@@ -49,10 +53,9 @@ export const AccountMenu = () => {
         </span>
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-lg">
+        <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-lg">
           <button
             type="button"
-            role="menuitem"
             className={ITEM}
             onClick={() => {
               setOpen(false);
@@ -61,7 +64,7 @@ export const AccountMenu = () => {
           >
             Cá nhân
           </button>
-          <button type="button" role="menuitem" className={`${ITEM} text-danger`} disabled={signingOut} onClick={signOut}>
+          <button type="button" className={`${ITEM} text-danger`} disabled={signingOut} onClick={signOut}>
             {signingOut ? 'Đang đăng xuất…' : 'Đăng xuất'}
           </button>
         </div>

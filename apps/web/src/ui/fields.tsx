@@ -48,6 +48,10 @@ export const PasswordInput = ({ style, ...props }: InputHTMLAttributes<HTMLInput
   );
 };
 
+/** Nối ô nhập với dòng lỗi (ưu tiên) hoặc dòng gợi ý để trình đọc màn hình đọc kèm. */
+const describedBy = (id: string, error: string | undefined, hint: string | undefined) =>
+  error ? `${id}-error` : hint ? `${id}-hint` : undefined;
+
 type FieldShellProps = {
   label: string;
   hint?: string | undefined;
@@ -74,7 +78,11 @@ const FieldShell = ({ label, hint, error, id, required, children }: FieldShellPr
         {error}
       </p>
     ) : (
-      hint && <p className="mt-1 text-sm text-ink-muted">{hint}</p>
+      hint && (
+        <p id={`${id}-hint`} className="mt-1 text-sm text-ink-muted">
+          {hint}
+        </p>
+      )
     )}
   </div>
 );
@@ -89,7 +97,7 @@ export const TextField = ({ label, hint, error, className = '', ...props }: Text
         <PasswordInput
           id={id}
           aria-invalid={error ? true : undefined}
-          aria-describedby={error ? `${id}-error` : undefined}
+          aria-describedby={describedBy(id, error, hint)}
           className={`${CONTROL} ${error ? 'border-danger' : 'border-line'} ${className}`}
           {...props}
         />
@@ -97,7 +105,7 @@ export const TextField = ({ label, hint, error, className = '', ...props }: Text
         <input
           id={id}
           aria-invalid={error ? true : undefined}
-          aria-describedby={error ? `${id}-error` : undefined}
+          aria-describedby={describedBy(id, error, hint)}
           className={`${CONTROL} ${error ? 'border-danger' : 'border-line'} ${className}`}
           {...props}
         />
@@ -106,13 +114,20 @@ export const TextField = ({ label, hint, error, className = '', ...props }: Text
   );
 };
 
-type TextAreaFieldProps = TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string; hint?: string | undefined };
+type TextAreaFieldProps = TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string; hint?: string | undefined; error?: string | undefined };
 
-export const TextAreaField = ({ label, hint, className = '', ...props }: TextAreaFieldProps) => {
+export const TextAreaField = ({ label, hint, error, className = '', ...props }: TextAreaFieldProps) => {
   const id = useId();
   return (
-    <FieldShell label={label} hint={hint} id={id}>
-      <textarea id={id} className={`${CONTROL} border-line py-3 ${className}`} rows={3} {...props} />
+    <FieldShell label={label} hint={hint} error={error} id={id} required={props.required}>
+      <textarea
+        id={id}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy(id, error, hint)}
+        className={`${CONTROL} ${error ? 'border-danger' : 'border-line'} py-3 ${className}`}
+        rows={3}
+        {...props}
+      />
     </FieldShell>
   );
 };

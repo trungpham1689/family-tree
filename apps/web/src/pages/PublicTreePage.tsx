@@ -53,12 +53,12 @@ const PublicShell = ({ children }: { children: (data: PublicTree, token: string)
     <div className="flex min-h-dvh flex-col">
       <PublicHeader />
       {result.isError && (
-        <main className="mx-auto max-w-4xl px-4 py-8">
+        <main id="main" tabIndex={-1} className="focus:outline-none mx-auto max-w-4xl px-4 py-8">
           <ErrorBanner>{result.error.message}</ErrorBanner>
         </main>
       )}
       {missing && (
-        <main className="mx-auto max-w-xl px-4 py-16 text-center">
+        <main id="main" tabIndex={-1} className="focus:outline-none mx-auto max-w-xl px-4 py-16 text-center">
           <h1 className="font-serif text-3xl font-bold text-son">Link không còn hiệu lực</h1>
           <p className="mt-3 text-ink-muted">
             Có thể chủ gia phả đã tắt hoặc tạo lại link chia sẻ. Hãy xin người gửi link mới.
@@ -94,7 +94,7 @@ const PasswordGate = ({
   };
 
   return (
-    <main className="mx-auto w-full max-w-md px-4 py-10 sm:py-16">
+    <main id="main" tabIndex={-1} className="focus:outline-none mx-auto w-full max-w-md px-4 py-10 sm:py-16">
       <h1 className="font-serif text-3xl font-bold text-son">{treeName ? `Gia phả ${treeName}` : 'Gia phả'}</h1>
       <p className="mt-2 text-ink-muted">Gia phả này được chia sẻ riêng. Nhập mật khẩu mà chủ gia phả đã gửi kèm link để xem.</p>
       <form onSubmit={submit} className="mt-6 space-y-3 rounded-2xl border border-line bg-surface p-5 shadow-sm">
@@ -125,7 +125,7 @@ const PublicTreeView = ({ data, token }: { data: PublicTree; token: string }) =>
   const hasRoot = data.graph.persons.some((person) => person.is_progenitor);
 
   return (
-    <main className="flex min-h-0 flex-1 flex-col gap-3 px-4 py-4">
+    <main id="main" tabIndex={-1} className="focus:outline-none flex min-h-0 flex-1 flex-col gap-3 px-4 py-4">
       <div>
         <h1 className="font-serif text-3xl font-bold text-son">{data.tree.name}</h1>
         {data.tree.description && <p className="mt-1 text-ink-muted">{data.tree.description}</p>}
@@ -152,7 +152,7 @@ const PublicPersonView = ({ data, token }: { data: PublicTree; token: string }) 
 
   if (!person) {
     return (
-      <main className="mx-auto max-w-4xl px-4 py-8">
+      <main id="main" tabIndex={-1} className="focus:outline-none mx-auto max-w-4xl px-4 py-8">
         <Link to={`/p/${token}`} className="inline-flex min-h-11 items-center text-ink-muted hover:text-son">
           ← {data.tree.name}
         </Link>
@@ -176,7 +176,7 @@ const PublicPersonView = ({ data, token }: { data: PublicTree; token: string }) 
   const captions = coParentCaptions(graph, person.id);
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 py-8">
+    <main id="main" tabIndex={-1} className="focus:outline-none mx-auto w-full max-w-4xl px-4 py-8">
       <Link to={`/p/${token}`} className="inline-flex min-h-11 items-center text-ink-muted hover:text-son">
         ← {data.tree.name}
       </Link>

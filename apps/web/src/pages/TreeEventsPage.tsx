@@ -2,7 +2,7 @@ import { canEditEvent, canEditTree } from '../data/permissions';
 import { useAccountId } from '../data/query-keys';
 import { REMINDER_OFFSETS, type ReminderOffset } from '../data/reminders';
 import type { CalendarSource, Occurrence } from '@gia-pha/reminders';
-import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useId, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import type { TreeEvent } from '../data/calendar';
 import { EventSearchPanel, type EventSearchInitial } from '../events/EventSearchPanel';
@@ -37,8 +37,10 @@ import { saveEventWithPhotos } from '../events/save-event';
 import { TreeTabs } from '../tree/TreeTabs';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
+import { ChoiceChip } from '../ui/ChoiceChip';
 import { Dialog } from '../ui/Dialog';
 import { ErrorBanner, Select, TextAreaField, TextField } from '../ui/fields';
+import { focusFirstInvalid } from '../ui/focus-first-invalid';
 import { Footer } from '../ui/Footer';
 import { FullPageMessage } from '../ui/FullPageMessage';
 
@@ -107,7 +109,7 @@ export const TreeEventsPage = () => {
     <>
       <AppHeader />
       <TreeTabs treeId={treeId} />
-      <main className="mx-auto w-full max-w-4xl px-4 py-8">
+      <main id="main" tabIndex={-1} className="focus:outline-none mx-auto w-full max-w-4xl px-4 py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="font-serif text-3xl font-bold text-son">Sự kiện</h1>
           <div className="flex flex-wrap items-center gap-2">
@@ -298,6 +300,7 @@ const EventForm = ({
   photos: readonly EventPhoto[];
   onDone: (saved?: { title: string; year: number | null }) => void;
 }) => {
+  const group = useId();
   const images = useEventPhotoImages(photos).data;
   const save = useSaveTreeEvent(treeId);
   const upload = useUploadEventPhoto(treeId);
@@ -341,9 +344,11 @@ const EventForm = ({
   const submit = async (formEvent: FormEvent) => {
     formEvent.preventDefault();
     if (busy) return; // đang lưu: bỏ qua lần gửi thêm (Enter, bấm liên tiếp)
+    const form = formEvent.currentTarget as HTMLFormElement;
     const result = parseEventForm(values);
     if (!result.ok) {
       setErrors(result.errors);
+      focusFirstInvalid(form);
       return;
     }
     setErrors({});
@@ -373,16 +378,10 @@ const EventForm = ({
     }
   };
 
-  const choice = <Value extends string | boolean>(current: Value, value: Value, label: string, onPick: (value: Value) => void) => (
-    <label
-      key={String(value)}
-      className={`flex min-h-12 cursor-pointer items-center rounded-xl border px-4 ${
-        current === value ? 'border-son bg-son/5 font-semibold text-son' : 'border-line'
-      }`}
-    >
-      <input type="radio" className="sr-only" checked={current === value} onChange={() => onPick(value)} />
+  const choice = <Value extends string | boolean>(name: string, current: Value, value: Value, label: string, onPick: (value: Value) => void) => (
+    <ChoiceChip key={String(value)} name={`${group}-${name}`} checked={current === value} onChange={() => onPick(value)}>
       {label}
-    </label>
+    </ChoiceChip>
   );
 
   const monthly = values.repeat === 'monthly';
@@ -401,8 +400,8 @@ const EventForm = ({
           </span>
         </legend>
         <div className="flex flex-wrap gap-2">
-          {choice(values.calendar, 'am', 'Âm lịch', (value) => set('calendar', value))}
-          {choice(values.calendar, 'duong', 'Dương lịch', (value) => set('calendar', value))}
+          {choice('calendar', values.calendar, 'am', 'Âm lịch', (value) => set('calendar', value))}
+          {choice('calendar', values.calendar, 'duong', 'Dương lịch', (value) => set('calendar', value))}
         </div>
       </fieldset>
       <fieldset>
@@ -414,7 +413,7 @@ const EventForm = ({
           </span>
         </legend>
         <div className="flex flex-wrap gap-2">
-          {(['once', 'monthly', 'yearly'] as EventRepeat[]).map((repeat) => choice(values.repeat, repeat, REPEAT_LABELS[repeat], (value) => set('repeat', value)))}
+          {(['once', 'monthly', 'yearly'] as EventRepeat[]).map((repeat) => choice('repeat', values.repeat, repeat, REPEAT_LABELS[repeat], (value) => set('repeat', value)))}
         </div>
       </fieldset>
       <div className="grid grid-cols-3 gap-3">
@@ -483,7 +482,7 @@ const EventForm = ({
                 aria-label="Xoá ảnh"
                 disabled={removePhoto.isPending}
                 onClick={() => removePhoto.mutate({ photoId: photo.id, path: photo.storage_path })}
-                className="absolute top-1 right-1 grid size-7 place-items-center rounded-full bg-black/60 text-white"
+                className="absolute top-1 right-1 grid size-7 place-items-center rounded-full bg-black/60 text-white before:absolute before:-inset-2 before:content-['']"
               >
                 ×
               </button>
@@ -496,7 +495,7 @@ const EventForm = ({
                 type="button"
                 aria-label="Bỏ ảnh này"
                 onClick={() => setPending((current) => current.filter((item) => item !== file))}
-                className="absolute top-1 right-1 grid size-7 place-items-center rounded-full bg-black/60 text-white"
+                className="absolute top-1 right-1 grid size-7 place-items-center rounded-full bg-black/60 text-white before:absolute before:-inset-2 before:content-['']"
               >
                 ×
               </button>
@@ -504,7 +503,7 @@ const EventForm = ({
           ))}
         </ul>
         {room > 0 && (
-          <label className="mt-2 inline-flex min-h-11 cursor-pointer items-center rounded-xl border border-line px-4 font-semibold hover:bg-paper">
+          <label className="mt-2 inline-flex min-h-11 cursor-pointer items-center rounded-xl border border-control px-4 font-semibold hover:bg-paper has-focus-visible:outline-3 has-focus-visible:outline-offset-2 has-focus-visible:outline-focus">
             + Thêm ảnh
             <input type="file" multiple accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={pickFiles} />
           </label>

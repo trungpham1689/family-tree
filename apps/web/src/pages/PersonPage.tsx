@@ -1,6 +1,6 @@
 import { canEditTree, isTreeOwner, personPermissions } from '../data/permissions';
-import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { useFamily, useSetFoundsBranch, useSetProgenitor, useTree } from '../data/tree-queries';
 import type { Person, TreeRole } from '../data/trees';
@@ -9,6 +9,7 @@ import { birthOrderLabel, kindLabel } from '../family/labels';
 import { lifespanText } from '../people/person-display';
 import { PhotoGallery } from '../people/PersonPhotos';
 import { ProfileInfo } from '../people/ProfileInfo';
+import { readOverviewPosition, rememberOverviewPosition } from '../tree/tree-position';
 import { TreeTabs } from '../tree/TreeTabs';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
@@ -34,18 +35,35 @@ export const PersonPage = () => {
   const accountId = state.status === 'signed-in' ? state.session.user.id : null;
   const tree = useTree(treeId);
   const family = useFamily(treeId);
+  // Mở từ Cây (hoặc lần mở gần nhất trong tab này là từ Cây) thì "←" quay về Cây; còn lại về danh sách các Đời.
+  const fromCanvas = (useLocation().state as { from?: string } | null)?.from === 'cay' || readOverviewPosition(treeId).view === 'cay';
+  const navigate = useNavigate();
+  const person = family.data?.person(personId);
+
+  // Người đang xem biến mất (vừa xoá, Chủ sở hữu vừa duyệt yêu cầu xoá, người khác xoá hoặc gộp): quay lại trang trước đó
+  // thay vì ở lại báo "Không tìm thấy". Người chưa từng thấy (đường dẫn sai) thì vẫn báo lỗi bình thường.
+  const [seenId, setSeenId] = useState<string | null>(null);
+  if (person && seenId !== person.id) setSeenId(person.id);
+  const gone = !person && seenId === personId;
+  useEffect(() => {
+    if (!gone) return;
+    // `idx` > 0: trang này không phải trang đầu của phiên, nên có "trang trước" trong ứng dụng để quay về.
+    const hasPreviousPage = ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0;
+    if (hasPreviousPage) navigate(-1);
+    else navigate(fromCanvas ? `/gia-pha/${treeId}/cay` : `/gia-pha/${treeId}`, { replace: true });
+  }, [gone, navigate, fromCanvas, treeId]);
 
   if (tree.isPending || family.isPending) return <FullPageMessage>Đang tải…</FullPageMessage>;
+  if (gone) return <FullPageMessage>Đang quay lại…</FullPageMessage>;
   const error = tree.error ?? family.error;
-  const person = family.data?.person(personId);
 
   return (
     <>
       <AppHeader />
       <TreeTabs treeId={treeId} />
-      <main className="mx-auto max-w-4xl px-4 py-8">
-        <Link to={`/gia-pha/${treeId}`} className="inline-flex min-h-11 items-center text-ink-muted hover:text-son">
-          ← {tree.data?.name ?? 'Gia phả'}
+      <main id="main" tabIndex={-1} className="focus:outline-none mx-auto max-w-4xl px-4 py-8">
+        <Link to={fromCanvas ? `/gia-pha/${treeId}/cay` : `/gia-pha/${treeId}`} className="inline-flex min-h-11 items-center text-ink-muted hover:text-son">
+          ← {fromCanvas ? 'Cây gia phả' : (tree.data?.name ?? 'Gia phả')}
         </Link>
         {error && <ErrorBanner>{error.message}</ErrorBanner>}
         {!error && !person && <ErrorBanner>Không tìm thấy Người này. Có thể đã bị xoá.</ErrorBanner>}
@@ -89,6 +107,11 @@ const PersonDetail = ({ treeId, graph, person, viewer }: DetailProps) => {
   const { canEdit, isOwner, accountId, linkedPersonId } = viewer;
   const [action, setAction] = useState<Action>('none');
   const placement = graph.placement(person.id);
+  const openedFromCanvas = (useLocation().state as { from?: string } | null)?.from === 'cay';
+  // Nhớ người và Đời đang xem để quay lại danh sách đúng chỗ, kể cả khi đi qua nhiều hồ sơ họ hàng liên tiếp.
+  useEffect(() => {
+    rememberOverviewPosition(treeId, { generation: placement.generation ?? undefined, personId: person.id, ...(openedFromCanvas ? { view: 'cay' as const } : {}) });
+  }, [treeId, person.id, placement.generation, openedFromCanvas]);
   const branchRoot = placement.branchId ? graph.person(placement.branchId) : undefined;
   const parents = graph.parentsOf(person.id);
   const spouses = graph.spousesOf(person.id);

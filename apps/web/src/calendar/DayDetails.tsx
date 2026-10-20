@@ -18,11 +18,14 @@ export const DayDetails = ({ date }: { date: SolarDate }) => {
   const holidays = holidaysOn(date);
 
   return (
-    <section aria-live="polite" className="rounded-2xl border border-line bg-surface p-5">
-      <p className="text-ink-muted">{weekdayName(date)}</p>
-      <p className="font-serif text-3xl font-bold">
-        {date.day}/{date.month}/{date.year}
-      </p>
+    <section className="rounded-2xl border border-line bg-surface p-5">
+      {/* Chỉ đọc lại ngày được chọn, không đọc lại cả bảng chi tiết. */}
+      <div aria-live="polite">
+        <p className="text-ink-muted">{weekdayName(date)}</p>
+        <p className="font-serif text-3xl font-bold">
+          {date.day}/{date.month}/{date.year}
+        </p>
+      </div>
       <p className="mt-2 text-lg">
         Ngày <strong>{lunar.day}</strong> tháng <strong>{lunar.month}{lunar.leap ? ' nhuận' : ''}</strong> năm{' '}
         <strong>{yearCanChi(lunar.year)}</strong>

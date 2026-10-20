@@ -90,7 +90,7 @@ await step('gốc cấp rồi gỡ quyền siêu quản trị; dòng của gốc
 
 const openMyProfile = async () => {
   await page.getByRole('button', { name: 'Tài khoản' }).click();
-  await page.getByRole('menuitem', { name: 'Cá nhân' }).click();
+  await page.getByRole('button', { name: 'Cá nhân' }).click();
 };
 
 await step('quản trị sửa hồ sơ người khác; mọi hộp đóng khi bấm ra ngoài; người dùng sửa hồ sơ của mình', async () => {

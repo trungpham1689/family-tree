@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
 import { useAddChild, useAddParent, useAddSpouse, useLinkCoParent, useUpdateParentLinkKind } from '../../data/tree-queries';
 import type { Person } from '../../data/trees';
 import type { FamilyGraph, ParentLinkKind, SpouseRelative } from '../../family/family-graph';
 import { LINK_KIND_LABELS, spouseLabel } from '../../family/labels';
 import { DeletePerson } from '../DeletePerson';
 import { EditPerson } from '../EditPerson';
-import { EMPTY_PERSON_FORM } from '../person-form';
+import { EMPTY_PERSON_FORM, type PersonFields } from '../person-form';
 import { PersonForm } from '../PersonForm';
 import { childrenWithoutCoParent, coParentWord } from '../../family/co-parent';
 import { Button } from '../../ui/Button';
+import { ChoiceChip } from '../../ui/ChoiceChip';
 import { Dialog } from '../../ui/Dialog';
 import { ErrorBanner, Select } from '../../ui/fields';
 
@@ -34,7 +34,6 @@ export const ActionDialogs = ({
   action: Action;
   onClose: () => void;
 }) => {
-  const navigate = useNavigate();
   const addChild = useAddChild(treeId);
   const addParent = useAddParent(treeId);
   const addSpouse = useAddSpouse(treeId);
@@ -49,7 +48,9 @@ export const ActionDialogs = ({
   const [followUp, setFollowUp] = useState<{ spouseId: string; name: string; checked: Set<string> } | null>(null);
   const orphans = childrenWithoutCoParent(graph, person.id);
   const [linkKind, setLinkKind] = useState<ParentLinkKind>('ruot');
-
+  // Thêm con liên tiếp: form được dựng lại (key đổi) cho người kế, giữ nguyên cha/mẹ còn lại và loại quan hệ đã chọn.
+  const [childFormKey, setChildFormKey] = useState(0);
+  const [justAdded, setJustAdded] = useState<string | null>(null);
 
   const finish = () => {
     for (const mutation of [addChild, addParent, addSpouse]) mutation.reset();
@@ -58,6 +59,8 @@ export const ActionDialogs = ({
     setFollowUp(null);
     linkCoParent.reset();
     setLinkKind('ruot');
+    setChildFormKey(0);
+    setJustAdded(null);
     onClose();
   };
 
@@ -70,20 +73,19 @@ export const ActionDialogs = ({
     delete: 'Xoá Người',
   };
 
+  const submitChild = (fields: PersonFields, onSuccess: () => void) => {
+    if (otherParentId === '') return setOtherParentMissing(true);
+    addChild.mutate({ parentId: person.id, otherParentId: otherParentId === NO_CO_PARENT ? null : otherParentId, kind: linkKind, fields }, { onSuccess });
+  };
+
   const kindPicker = (
     <fieldset>
       <legend className="mb-1 font-medium">Quan hệ</legend>
       <div className="flex gap-2">
         {(['ruot', 'nuoi'] as const).map((kind) => (
-          <label
-            key={kind}
-            className={`flex min-h-12 cursor-pointer items-center rounded-xl border px-4 ${
-              linkKind === kind ? 'border-son bg-son/5 font-semibold text-son' : 'border-line'
-            }`}
-          >
-            <input type="radio" className="sr-only" checked={linkKind === kind} onChange={() => setLinkKind(kind)} />
+          <ChoiceChip key={kind} name="link-kind" checked={linkKind === kind} onChange={() => setLinkKind(kind)}>
             {LINK_KIND_LABELS[kind]}
-          </label>
+          </ChoiceChip>
         ))}
       </div>
     </fieldset>
@@ -122,30 +124,41 @@ export const ActionDialogs = ({
           person={person}
           isOwner={isOwner}
           onCancel={finish}
-          onDeleted={() => (isOwner ? navigate(`/gia-pha/${treeId}`, { replace: true }) : finish())}
+          // Chủ sở hữu xoá ngay: trang này tự quay về trang trước khi Người biến mất khỏi gia phả (xem PersonPage).
+          onDeleted={finish}
         />
       )}
       {action === 'add-child' && (
-        <PersonForm
-          initial={EMPTY_PERSON_FORM}
-          graph={graph}
-          extra={
-            <>
-              {otherParentPicker}
-              {kindPicker}
-            </>
-          }
-          submitLabel="Thêm con"
-          mutation={addChild}
-          onCancel={finish}
-          onSubmit={(fields) => {
-            if (otherParentId === '') return setOtherParentMissing(true);
-            addChild.mutate(
-              { parentId: person.id, otherParentId: otherParentId === NO_CO_PARENT ? null : otherParentId, kind: linkKind, fields },
-              { onSuccess: finish },
-            );
-          }}
-        />
+        <>
+          {justAdded && (
+            <p role="status" className="mb-4 rounded-xl bg-la/10 px-4 py-3 text-la">
+              Đã thêm {justAdded}. Nhập tiếp người con kế.
+            </p>
+          )}
+          <PersonForm
+            key={childFormKey}
+            initial={EMPTY_PERSON_FORM}
+            graph={graph}
+            extra={
+              <>
+                {otherParentPicker}
+                {kindPicker}
+              </>
+            }
+            submitLabel="Thêm con"
+            submitAndAddLabel="Lưu và thêm con tiếp"
+            mutation={addChild}
+            onCancel={finish}
+            onSubmit={(fields) => submitChild(fields, finish)}
+            onSubmitAndAdd={(fields) =>
+              submitChild(fields, () => {
+                addChild.reset();
+                setJustAdded(fields.full_name);
+                setChildFormKey((key) => key + 1);
+              })
+            }
+          />
+        </>
       )}
       {action === 'add-parent' && (
         <PersonForm

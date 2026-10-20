@@ -88,8 +88,10 @@ export const useDeleteTree = (treeId: string) => {
     // Server xoá gia phả rồi mới dọn ảnh trên Drive (xem handleDeleteTree).
     mutationFn: () => deleteTreeWithPhotos(treeId),
     onSuccess: () => {
+      // Gia phả đã mất: bỏ mọi truy vấn của nó (gia phả, thành viên…) và chỉ làm mới phần còn lại (danh sách gia phả của tôi),
+      // không để trang đang mở tải lại gia phả vừa xoá rồi báo lỗi trước khi kịp chuyển trang.
       queryClient.removeQueries({ queryKey: queryKeys.detail(treeId) });
-      return queryClient.invalidateQueries({ queryKey: ['trees'] });
+      return queryClient.invalidateQueries({ queryKey: ['trees'], predicate: (query) => query.queryKey[1] !== treeId });
     },
   });
 };

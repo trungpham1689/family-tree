@@ -1,6 +1,6 @@
 import { julianDay, type SolarDate } from '@gia-pha/lunar';
 import { Link } from 'react-router';
-import { MARK_COLORS } from './mark-colors';
+import { MARK_COLORS, MARK_LABELS } from './mark-colors';
 import { weekdayName } from './month-grid';
 import type { Occurrence } from '@gia-pha/reminders';
 
@@ -33,16 +33,19 @@ export const OccurrenceList = ({ occurrences, showDate = false, showTree = false
         <li key={`${occurrence.kind}-${occurrence.personId ?? occurrence.eventId}-${occurrence.date.year}-${occurrence.date.month}-${occurrence.date.day}`}>
           <Link
             to={hrefOf(occurrence)}
-            className={`flex items-start gap-3 px-4 py-3 hover:bg-paper ${isNear ? 'bg-kim-soft/40' : ''} ${isPast ? 'opacity-60' : ''}`}
+            className={`flex items-start gap-3 px-4 py-3 hover:bg-paper ${isNear ? 'bg-kim-soft/40' : ''}`}
           >
             <span aria-hidden="true" className={`mt-2 size-2.5 shrink-0 rounded-full ${MARK_COLORS[occurrence.kind]}`} />
             <span className="min-w-0 flex-1">
               {showDate && (
-                <span className="block text-sm font-semibold text-son">
+                <span className={`block text-sm font-semibold ${isPast ? 'text-ink-muted' : 'text-son'}`}>
                   {weekdayName(occurrence.date)}, {occurrence.date.day}/{occurrence.date.month}/{occurrence.date.year}
                 </span>
               )}
-              <span className="block font-semibold">{occurrence.title}</span>
+              <span className={`block font-semibold ${isPast ? 'text-ink-muted' : ''}`}>
+                <span className="sr-only">{MARK_LABELS[occurrence.kind]}: </span>
+                {occurrence.title}
+              </span>
               <span className="block text-sm text-ink-muted">
                 {[
                   occurrence.detail,
