@@ -20,7 +20,7 @@ export type LayoutPerson = {
 
 export type LayoutParentLink = { child_id: string; parent_id: string };
 
-export type LayoutUnion = { partner_a: string; partner_b: string; order_for_a: number; order_for_b: number };
+export type LayoutUnion = { partner_a: string; partner_b: string; order_for_a: number; order_for_b: number; status?: string };
 
 export type Orientation = 'top-down' | 'left-right';
 
@@ -66,6 +66,18 @@ export type LayoutNode = {
   /** Số con qua bộ lọc hiển thị (đang vẽ hoặc đang ẩn vì thu gọn), để biết có nút thu/mở hay không. */
   childCount: number;
   collapsed: boolean;
+  /** Chỉ ở ô Dâu/Rể: cuộc hôn phối với người trong họ đứng cạnh ô này. */
+  marriage?: NodeMarriage | undefined;
+};
+
+export type NodeMarriage = {
+  /** Thứ tự hôn phối theo góc nhìn của người trong họ (1 = đầu tiên). */
+  order: number;
+  status: string;
+  /** Số vợ/chồng của người trong họ. */
+  spouseCount: number;
+  /** Những người trong họ khác (có ô huyết thống trong cây) mà Dâu/Rể này cũng là vợ/chồng; ví dụ rể lấy hai chị em. */
+  alsoSpouseOf: string[];
 };
 
 export type LayoutLine = { kind: 'union' | 'descent'; points: [number, number][] };
@@ -77,9 +89,11 @@ const DEFAULT_GAPS: Gaps = { spouse: 16, sibling: 20, branch: 36, generation: 88
 const UNION_DROP = 12;
 const UNION_STEP = 8;
 
+type Spouse = { person: LayoutPerson; order: number; status: string };
+
 type Unit = {
   person: LayoutPerson;
-  spouses: LayoutPerson[];
+  spouses: Spouse[];
   groups: { spouseIndex: number | null; children: Unit[] }[];
   depth: number;
   hiddenChildren: number;
@@ -156,10 +170,11 @@ export const layoutTree = (
     pushTo(childrenOf, link.parent_id, link.child_id);
     pushTo(parentsOf, link.child_id, link.parent_id);
   }
-  const spousesOf = new Map<string, { id: string; order: number }[]>();
+  const spousesOf = new Map<string, { id: string; order: number; status: string }[]>();
   for (const union of data.unions) {
-    pushTo(spousesOf, union.partner_a, { id: union.partner_b, order: union.order_for_a });
-    pushTo(spousesOf, union.partner_b, { id: union.partner_a, order: union.order_for_b });
+    const status = union.status ?? 'con';
+    pushTo(spousesOf, union.partner_a, { id: union.partner_b, order: union.order_for_a, status });
+    pushTo(spousesOf, union.partner_b, { id: union.partner_a, order: union.order_for_b, status });
   }
 
   const root = persons.get(options.rootId);
@@ -173,11 +188,11 @@ export const layoutTree = (
     const spouses = (spousesOf.get(person.id) ?? [])
       .slice()
       .sort((a, b) => a.order - b.order)
-      .flatMap(({ id }) => {
+      .flatMap(({ id, order, status }) => {
         const spouse = persons.get(id);
-        return spouse ? [spouse] : [];
+        return spouse ? [{ person: spouse, order, status }] : [];
       });
-    const spouseIndex = new Map(spouses.map((spouse, index) => [spouse.id, index]));
+    const spouseIndex = new Map(spouses.map((spouse, index) => [spouse.person.id, index]));
 
     const children = (childrenOf.get(person.id) ?? []).flatMap((childId) => {
       const child = persons.get(childId);
@@ -251,7 +266,9 @@ export const layoutTree = (
 
   const toXY = ([b, d]: [number, number]): [number, number] => (orientation === 'top-down' ? [b, d] : [d, b]);
 
-  const addNode = (person: LayoutPerson, role: LayoutNode['role'], unit: Unit, b: number, key: string) => {
+  const partnerOf = new Map<string, string>();
+
+  const addNode = (person: LayoutPerson, role: LayoutNode['role'], unit: Unit, b: number, key: string, spouse?: Spouse) => {
     const [x, y] = toXY([b, levelStart(unit.depth)]);
     nodes.push({
       key,
@@ -265,7 +282,9 @@ export const layoutTree = (
       hiddenChildren: role === 'blood' ? unit.hiddenChildren : 0,
       childCount: role === 'blood' ? unit.childCount : 0,
       collapsed: role === 'blood' ? unit.collapsed : false,
+      ...(spouse ? { marriage: { order: spouse.order, status: spouse.status, spouseCount: unit.spouses.length, alsoSpouseOf: [] } } : {}),
     });
+    if (spouse) partnerOf.set(key, unit.person.id);
   };
 
   const place = (unit: Unit, left: number) => {
@@ -279,7 +298,7 @@ export const layoutTree = (
     const unitLeft = left + (unit.subtreeBreadth - unit.unitBreadth) / 2;
     addNode(unit.person, 'blood', unit, unitLeft, `p:${unit.person.id}`);
     unit.spouses.forEach((spouse, index) => {
-      addNode(spouse, 'spouse', unit, unitLeft + (index + 1) * (breadth + gaps.spouse), `s:${unit.person.id}:${spouse.id}`);
+      addNode(spouse.person, 'spouse', unit, unitLeft + (index + 1) * (breadth + gaps.spouse), `s:${unit.person.id}:${spouse.person.id}`, spouse);
     });
 
     const unitBottom = levelStart(unit.depth) + depthSize;
@@ -362,7 +381,43 @@ export const layoutTree = (
 
   place(rootUnit, 0);
 
+  // Dâu/Rể xuất hiện ở nhiều đơn vị (rể lấy hai chị em trong họ): mỗi ô ghi tên những người trong họ còn lại.
+  const spouseNodes = new Map<string, LayoutNode[]>();
+  for (const node of nodes) if (node.role === 'spouse') pushTo(spouseNodes, node.personId, node);
+  for (const copies of spouseNodes.values()) {
+    if (copies.length < 2) continue;
+    for (const node of copies) {
+      node.marriage!.alsoSpouseOf = copies.filter((copy) => copy !== node).map((copy) => partnerOf.get(copy.key)!);
+    }
+  }
+
   const right = Math.max(...nodes.map((node) => node.x + node.width));
   const bottom = Math.max(...nodes.map((node) => node.y + node.height));
   return { nodes, lines, width: right, height: bottom };
 };
+
+/**
+ * Số dòng nhãn hôn phối cần chừa thêm trong chiều cao ô (mỗi dòng `MARRIAGE_LINE_HEIGHT`): 0 khi cây không có gì để ghi,
+ * 1 khi có người từ 2 vợ/chồng hoặc cuộc hôn phối đã ly hôn/goá, 2 khi còn có thể có Dâu/Rể là vợ/chồng của hai người trong họ
+ * ("cũng là chồng của …"). Tính từ dữ liệu, không phụ thuộc phần cây đang vẽ, nên chiều cao ô không đổi khi thu/mở nhánh.
+ */
+export const marriageExtraLines = (data: { parentLinks: LayoutParentLink[]; unions: LayoutUnion[] }): 0 | 1 | 2 => {
+  const partners = new Map<string, string[]>();
+  let needed = false;
+  for (const union of data.unions) {
+    if ((union.status ?? 'con') !== 'con') needed = true;
+    pushTo(partners, union.partner_a, union.partner_b);
+    pushTo(partners, union.partner_b, union.partner_a);
+  }
+  const hasParents = new Set(data.parentLinks.map((link) => link.child_id));
+  let shared = false;
+  for (const list of partners.values()) {
+    if (list.length < 2) continue;
+    needed = true;
+    if (list.filter((id) => hasParents.has(id)).length >= 2) shared = true;
+  }
+  return shared ? 2 : needed ? 1 : 0;
+};
+
+/** Chiều cao một dòng nhãn hôn phối (đơn vị bố cục). */
+export const MARRIAGE_LINE_HEIGHT = 14;

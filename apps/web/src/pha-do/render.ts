@@ -1,6 +1,7 @@
-import { layoutTree, outsideGenerationsFilter, wrapName } from '@gia-pha/tree-layout';
+import { layoutTree, MARRIAGE_LINE_HEIGHT, marriageExtraLines, outsideGenerationsFilter, wrapName } from '@gia-pha/tree-layout';
 import type { Person } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
+import { marriageNote } from '../family/labels';
 import { lifespanText } from '../people/person-display';
 import { fieldText } from '../people/profile-fields';
 import { pageSizeMm, type ExtraLine, type PhaDoConfig } from './config';
@@ -84,9 +85,12 @@ const LEGEND_COL_WIDTH = 32;
 const LEGEND_TEXT_PT = 9;
 const LEGEND_SWATCH = 3.5;
 const LEGEND_LABEL_GAP = 2;
-/** Mục cuối của chú giải bắt đầu ở cột thứ 5 cộng 0,8 cột (xem `legend`). */
-const LEGEND_LAST_COL = 4.8;
-const LEGEND_LAST_LABEL = 'Con nuôi';
+/** "Con nuôi" bắt đầu ở cột thứ 5 cộng 0,8 cột; mục cuối (chữ không kèm ô màu) ở cột thứ 6 trừ 0,2 cột (xem `legend`). */
+const LEGEND_ADOPTED_COL = 4.8;
+const LEGEND_LAST_COL = 5.8;
+const LEGEND_LAST_LABEL = 'Vợ hai · goá = thứ tự · tình trạng hôn phối';
+/** Cỡ chữ nhãn hôn phối trong ô (đơn vị bố cục); thấp hơn dòng chi tiết một chút. */
+const MARRIAGE_SIZE = 11;
 
 /** Chiều ngang (mm) chú giải chiếm trên trang `page`, tính từ chính các hằng số vẽ chú giải để khổ giấy tự tính chừa đủ chỗ. */
 export const legendWidthMm = (page: { width: number; height: number }): number =>
@@ -133,10 +137,11 @@ const legend = (area: { x: number; y: number; width: number; height: number }, k
     label(dauReX + swatch + labelGap, 'Dâu/Rể (viền đứt)'),
   );
 
-  const adoptedX = nextX() + LEGEND_COL_WIDTH * k * (LEGEND_LAST_COL - 4);
+  const adoptedX = nextX() + LEGEND_COL_WIDTH * k * (LEGEND_ADOPTED_COL - 4);
   items.push(
     { type: 'rect', x: adoptedX, y: y - swatch / 2, width: swatch, height: swatch, radius: swatch / 2, fill: COLORS.genderUnknown, stroke: COLORS.genderUnknown, strokeWidth: 0 },
-    label(adoptedX + swatch + labelGap, LEGEND_LAST_LABEL),
+    label(adoptedX + swatch + labelGap, 'Con nuôi'),
+    label(area.x + LEGEND_LAST_COL * LEGEND_COL_WIDTH * k, LEGEND_LAST_LABEL),
   );
   return items;
 };
@@ -168,7 +173,8 @@ export const treeLayout = (graph: FamilyGraph<Person>, config: PhaDoConfig, root
   if (!perGraph) layoutCache.set(graph, (perGraph = new Map()));
   const cached = perGraph.get(key);
   if (cached) return cached;
-  const boxHeight = BASE_BOX_HEIGHT + extras.length * EXTRA_LINE_HEIGHT + (config.showAvatars ? AVATAR_SIZE + AVATAR_GAP : 0);
+  const boxHeight =
+    BASE_BOX_HEIGHT + extras.length * EXTRA_LINE_HEIGHT + (config.showAvatars ? AVATAR_SIZE + AVATAR_GAP : 0) + marriageExtraLines(graph) * MARRIAGE_LINE_HEIGHT;
   const layout = layoutTree(graph, {
     rootId,
     ...(maxDepth !== undefined ? { maxDepth } : {}),
@@ -290,13 +296,16 @@ export const renderPhaDo = (
       lifespan && person.is_deceased ? `† ${lifespan}` : lifespan,
       ...extras.map((line) => extraText(line, person, graph.placement(person.id).generation)),
     ].filter((text): text is string => Boolean(text));
+    const note = node.marriage ? marriageNote(node.marriage, person.gender, (id) => graph.person(id)?.full_name) : null;
+    const noteLines = [note?.label, note?.also].filter((text): text is string => Boolean(text));
     const avatarUrl = config.showAvatars ? avatarUrls?.get(person.id) : undefined;
     // Xếp các dòng từ trên xuống, căn giữa theo chiều dọc của ô.
     const lineGap = 4;
     const blockHeight =
       (avatarUrl ? AVATAR_SIZE + AVATAR_GAP : 0) +
       nameLines.length * (NAME_SIZE + lineGap) +
-      detailLines.length * (SMALL_SIZE + lineGap) -
+      detailLines.length * (SMALL_SIZE + lineGap) +
+      noteLines.length * MARRIAGE_LINE_HEIGHT -
       lineGap;
     let cursor = node.y + (node.height - blockHeight) / 2;
     if (avatarUrl) {
@@ -321,6 +330,11 @@ export const renderPhaDo = (
       const { text, size } = fitLine(line, SMALL_SIZE, false, node.width - BOX_PADDING);
       items.push({ type: 'text', x: centerX, y: my(cursor + SMALL_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, bold: false, color: config.memberTextColor ?? COLORS.muted });
       cursor += SMALL_SIZE + lineGap;
+    }
+    for (const line of noteLines) {
+      const { text, size } = fitLine(line, MARRIAGE_SIZE, false, node.width - BOX_PADDING);
+      items.push({ type: 'text', x: centerX, y: my(cursor + MARRIAGE_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, bold: false, color: config.memberTextColor ?? COLORS.son });
+      cursor += MARRIAGE_LINE_HEIGHT;
     }
   }
 

@@ -41,6 +41,9 @@ const people = [
   ...['Phạm Thị Ngô Thùy Dương', 'Vũ Nguyễn Quỳnh Như', 'Đặng', 'Ngô Bảo Châu'].map((name, i) =>
     blankPerson({ id: `g${i}`, full_name: name, gender: i % 2 ? 'nu' : 'nam', birth_year: 1940 + i }),
   ),
+  // Rể lấy hai chị em c1 và c3; c1 còn một đời chồng nữa. Tên dài để thử nhãn "cũng là chồng của …".
+  blankPerson({ id: 're', full_name: 'Hoàng Nguyễn Văn Anh Tuấn Rể', gender: 'nam', birth_year: 1905 }),
+  blankPerson({ id: 're2', full_name: 'Đỗ Văn Hai', gender: 'nam', birth_year: 1906 }),
 ];
 const graph = buildFamilyGraph({
   persons: people,
@@ -48,7 +51,11 @@ const graph = buildFamilyGraph({
     ...[0, 1, 2, 3].map((i) => ({ parent_id: 'to', child_id: `c${i}`, kind: 'ruot' as const })),
     ...[0, 1, 2, 3].map((i) => ({ parent_id: `c${i}`, child_id: `g${i}`, kind: 'ruot' as const })),
   ],
-  unions: [],
+  unions: [
+    { id: 'u1', partner_a: 'c1', partner_b: 're', order_for_a: 1, order_for_b: 1, status: 'goa' },
+    { id: 'u2', partner_a: 'c3', partner_b: 're', order_for_a: 1, order_for_b: 2, status: 'con' },
+    { id: 'u3', partner_a: 'c1', partner_b: 're2', order_for_a: 2, order_for_b: 1, status: 'ly_hon' },
+  ],
   positions: [],
 });
 
@@ -102,4 +109,14 @@ describe('chữ trên Phả đồ không chồng lên nhau', () => {
       }
     }
   }
+});
+
+describe('nhãn hôn phối trên Phả đồ', () => {
+  it('ghi thứ tự, tình trạng và "cũng là chồng của …" cho rể lấy hai chị em', () => {
+    const { drawing } = renderPhaDo(graph, { ...defaultPhaDoConfig(1), paper: 'A1', orientation: 'landscape' }, 'Họ Phạm');
+    const texts = drawing.items.filter((item): item is DrawText => item.type === 'text').map((item) => item.text);
+    expect(texts.some((text) => text.startsWith('Chồng · goá'))).toBe(true);
+    expect(texts.some((text) => text.startsWith('Chồng hai · ly hôn'))).toBe(true);
+    expect(texts.some((text) => text.includes('cũng là chồng của'))).toBe(true);
+  });
 });

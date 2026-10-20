@@ -1,8 +1,9 @@
-import { wrapName, type LayoutNode, type TreeLayout } from '@gia-pha/tree-layout';
+import { MARRIAGE_LINE_HEIGHT, wrapName, type LayoutNode, type TreeLayout } from '@gia-pha/tree-layout';
 import { select } from 'd3-selection';
 import 'd3-transition';
 import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { marriageNote } from '../family/labels';
 import { Button } from '../ui/Button';
 
 export type CanvasPerson = {
@@ -148,11 +149,14 @@ export const FamilyTreeCanvas = ({
             ))}
             {layout.nodes.map((node) => {
               const person = persons.get(node.personId);
+              const note = person && node.marriage ? marriageNote(node.marriage, person.gender, (id) => persons.get(id)?.full_name) : null;
               return person ? (
                 <PersonBox
                   key={node.key}
                   node={node}
                   person={person}
+                  marriageLabel={note?.label ?? null}
+                  marriageAlso={note?.also ?? null}
                   highlighted={node.personId === highlightedId}
                   canToggle={node.role === 'blood' && node.childCount > 0}
                   onOpen={onOpenPerson}
@@ -179,6 +183,9 @@ export const FamilyTreeCanvas = ({
             <rect x="0.5" y="0.5" width="9" height="9" rx="2" fill="none" stroke="var(--color-ink-muted)" strokeWidth="1.5" strokeDasharray="2.5 1.5" />
           </svg>
           Dâu/Rể (viền đứt)
+        </span>
+        <span className="flex items-center gap-1">
+          <span aria-hidden="true" className="text-[10px] leading-none text-son">Vợ hai · goá</span> = thứ tự · tình trạng hôn phối
         </span>
         <span className="flex items-center gap-1">
           <svg aria-hidden="true" viewBox="0 0 10 10" className="size-2.5">
@@ -213,6 +220,9 @@ export const FamilyTreeCanvas = ({
 type BoxProps = {
   node: LayoutNode;
   person: CanvasPerson;
+  /** Ô Dâu/Rể: "Chồng hai · goá" và "cũng là chồng của …" (chỉ khi cần phân biệt). */
+  marriageLabel: string | null;
+  marriageAlso: string | null;
   highlighted: boolean;
   canToggle: boolean;
   onOpen: (personId: string) => void;
@@ -220,8 +230,12 @@ type BoxProps = {
 };
 
 const NAME_CHARS = 18;
+/** Dòng "cũng là chồng của …" dài hơn mức này thì cắt đuôi, để chữ không tràn ô. */
+const MARRIAGE_CHARS = 31;
 
-const PersonBox = memo(({ node, person, highlighted, canToggle, onOpen, onToggle }: BoxProps) => {
+const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text);
+
+const PersonBox = memo(({ node, person, marriageLabel, marriageAlso, highlighted, canToggle, onOpen, onToggle }: BoxProps) => {
   const lines = wrapName(person.full_name, NAME_CHARS);
   const isSpouse = node.role === 'spouse';
   // Viền theo giới tính (nam/nữ/chưa rõ) để nhận ra ngay không cần đọc chữ.
@@ -233,7 +247,8 @@ const PersonBox = memo(({ node, person, highlighted, canToggle, onOpen, onToggle
   const toggleX = node.x + 22;
   // Căn giữa theo chiều dọc: ảnh đại diện (nếu có) rồi tới tên (1–2 dòng) và dòng năm sinh–mất.
   const avatarBlock = person.avatarUrl ? AVATAR_SIZE + AVATAR_GAP : 0;
-  const blockHeight = avatarBlock + lines.length * 18 + (person.lifespan ? 18 : 0);
+  const noteLines = [marriageLabel, marriageAlso].filter((text): text is string => text !== null);
+  const blockHeight = avatarBlock + lines.length * 18 + (person.lifespan ? 18 : 0) + noteLines.length * MARRIAGE_LINE_HEIGHT;
   const avatarTop = node.y + (node.height - blockHeight) / 2;
   const nameTop = avatarTop + avatarBlock + 14;
 
@@ -306,6 +321,20 @@ const PersonBox = memo(({ node, person, highlighted, canToggle, onOpen, onToggle
             {person.is_deceased ? `† ${person.lifespan}` : person.lifespan}
           </text>
         )}
+        {noteLines.map((text, index) => (
+          <text
+            key={text}
+            x={centerX}
+            y={nameTop + (lines.length + (person.lifespan ? 1 : 0)) * 18 - 4 + index * MARRIAGE_LINE_HEIGHT}
+            textAnchor="middle"
+            fontSize={index === 0 && marriageLabel ? 11 : 10}
+            fontStyle={index === 0 && marriageLabel ? undefined : 'italic'}
+            fill="var(--color-son)"
+          >
+            <title>{text}</title>
+            {clip(text, MARRIAGE_CHARS)}
+          </text>
+        ))}
       </g>
 
       {canToggle && (

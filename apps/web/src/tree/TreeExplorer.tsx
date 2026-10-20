@@ -1,4 +1,4 @@
-import { DEFAULT_BOX, layoutTree, outsideGenerationsFilter, type Orientation } from '@gia-pha/tree-layout';
+import { DEFAULT_BOX, layoutTree, MARRIAGE_LINE_HEIGHT, marriageExtraLines, outsideGenerationsFilter, type Orientation } from '@gia-pha/tree-layout';
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { usePersonAvatars } from '../data/tree-queries';
@@ -55,6 +55,7 @@ export const TreeExplorer = <P extends Person>({
   const [showAvatars, setShowAvatars] = useState(false);
   const avatars = usePersonAvatars(graph.persons, allowAvatars && showAvatars);
 
+  const marriageLines = useMemo(() => marriageExtraLines(graph), [graph]);
   const layout = useMemo(
     () =>
       root
@@ -63,10 +64,10 @@ export const TreeExplorer = <P extends Person>({
             collapsed,
             orientation,
             includeChild: outsideGenerationsFilter(outsideGenerations),
-            box: showAvatars ? { ...DEFAULT_BOX, height: DEFAULT_BOX.height + AVATAR_SIZE + AVATAR_GAP } : DEFAULT_BOX,
+            box: { ...DEFAULT_BOX, height: DEFAULT_BOX.height + (showAvatars ? AVATAR_SIZE + AVATAR_GAP : 0) + marriageLines * MARRIAGE_LINE_HEIGHT },
           })
         : null,
-    [graph, root, collapsed, orientation, outsideGenerations, showAvatars],
+    [graph, root, collapsed, orientation, outsideGenerations, showAvatars, marriageLines],
   );
 
   const canvasPersons = useMemo(

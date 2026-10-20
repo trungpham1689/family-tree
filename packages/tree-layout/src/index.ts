@@ -1,6 +1,8 @@
 export {
   DEFAULT_BOX,
   layoutTree,
+  marriageExtraLines,
+  MARRIAGE_LINE_HEIGHT,
   type ChildFilter,
   type LayoutLine,
   type LayoutNode,
@@ -8,6 +10,7 @@ export {
   type LayoutParentLink,
   type LayoutPerson,
   type LayoutUnion,
+  type NodeMarriage,
   type Orientation,
   type TreeLayout,
 } from './layout.ts';

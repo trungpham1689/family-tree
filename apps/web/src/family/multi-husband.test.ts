@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { layoutTree } from '@gia-pha/tree-layout';
+import { layoutTree, marriageExtraLines } from '@gia-pha/tree-layout';
+import { marriageNote } from './labels';
 import { buildFamilyGraph, type GraphPerson } from './family-graph';
 import { describeRelation } from './kinship';
 
@@ -52,6 +53,38 @@ describe('con gái có ba đời chồng', () => {
     expect([x('c1'), x('c2'), x('c3'), x('c4')]).toEqual([...[x('c1'), x('c2'), x('c3'), x('c4')]].sort((a, b) => a - b));
     // Mỗi đời chồng đứng đúng một ô, liền nhau sau Lan.
     expect([x('re1'), x('re2'), x('re3')]).toEqual([...[x('re1'), x('re2'), x('re3')]].sort((a, b) => a - b));
+  });
+
+  it('ô chồng ghi thứ tự và tình trạng hôn phối theo góc nhìn của Lan', () => {
+    const layout = layoutTree({ persons: data.persons, parentLinks: data.parentLinks, unions: data.unions }, { rootId: 'cha' });
+    const notes = ['re1', 're2', 're3'].map((id) => {
+      const node = layout.nodes.find((n) => n.personId === id)!;
+      return marriageNote(node.marriage!, 'nam', () => undefined)?.label;
+    });
+    expect(notes).toEqual(['Chồng · ly hôn', 'Chồng hai · goá', 'Chồng ba · sống chung']);
+    expect(marriageExtraLines(data)).toBe(1);
+  });
+
+  it('cây một vợ một chồng còn chung sống: không ghi nhãn', () => {
+    const layout = layoutTree({ persons: data.persons, parentLinks: data.parentLinks, unions: data.unions }, { rootId: 'cha' });
+    const me = layout.nodes.find((n) => n.personId === 'me')!;
+    expect(marriageNote(me.marriage!, 'nu', () => undefined)).toBeNull();
+    expect(marriageExtraLines({ parentLinks: data.parentLinks, unions: [data.unions[0]!] })).toBe(0);
+  });
+
+  it('rể lấy hai chị em trong họ: mỗi ô ghi người kia, chừa thêm dòng', () => {
+    const persons = [person('to', 'nam'), person('a', 'nu'), person('b', 'nu'), person('re', 'nam')];
+    const parentLinks = ['a', 'b'].map((child_id) => ({ child_id, parent_id: 'to', kind: 'ruot' }));
+    const unions = [
+      { id: 'u1', partner_a: 'a', partner_b: 're', order_for_a: 1, order_for_b: 1, status: 'con' },
+      { id: 'u2', partner_a: 'b', partner_b: 're', order_for_a: 1, order_for_b: 2, status: 'con' },
+    ];
+    const layout = layoutTree({ persons, parentLinks, unions }, { rootId: 'to' });
+    const copies = layout.nodes.filter((n) => n.personId === 're');
+    expect(copies.map((n) => n.key).sort()).toEqual(['s:a:re', 's:b:re']);
+    const nameOf = (id: string) => `Chị ${id}`;
+    expect(copies.map((n) => marriageNote(n.marriage!, 'nam', nameOf)!.also).sort()).toEqual(['cũng là chồng của Chị a', 'cũng là chồng của Chị b']);
+    expect(marriageExtraLines({ parentLinks, unions })).toBe(2);
   });
 
   it('con khác cha cùng mẹ gọi nhau là anh/em cùng mẹ khác cha', () => {
