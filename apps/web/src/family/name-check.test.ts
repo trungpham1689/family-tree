@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { blankPerson } from '../test-support/person';
 import { buildFamilyGraph } from './family-graph';
-import { babyGeneration, checkBabyName, givenNameOf, splitBabyName } from './name-check';
+import { babyGeneration, checkBabyName, givenNameOf, resolveBabyParents, splitBabyName, suggestOtherParent } from './name-check';
 
 /**
  * Đời 1: Phạm Văn Tổ ─ vợ Nguyễn Thị Hoa
@@ -135,5 +135,40 @@ describe('babyGeneration', () => {
     expect(babyGeneration(graph, ['lac'])).toBeNull(); // chưa nối vào cây
     expect(babyGeneration(graph, [null, null])).toBeNull();
     expect(babyGeneration(graph, ['khong-co'])).toBeNull();
+  });
+});
+
+describe('gợi ý Ba/Mẹ còn lại', () => {
+  const person = (id: string, gender: 'nam' | 'nu') => blankPerson({ id, full_name: id, gender });
+  const marriage = (id: string, a: string, b: string, status: string) => ({ id, partner_a: a, partner_b: b, order_for_a: 1, order_for_b: 1, status });
+  const graphWith = (unions: ReturnType<typeof marriage>[]) =>
+    buildFamilyGraph({
+      persons: [person('ba', 'nam'), person('me1', 'nu'), person('me2', 'nu'), person('me3', 'nu')],
+      parentLinks: [],
+      unions,
+      positions: [],
+    });
+
+  it('đúng một vợ/chồng còn hôn phối thì gợi ý; không có thì không', () => {
+    expect(suggestOtherParent(graphWith([marriage('u1', 'ba', 'me1', 'con')]), 'ba')).toBe('me1');
+    expect(suggestOtherParent(graphWith([]), 'ba')).toBeNull();
+  });
+
+  it('ly hôn, goá không được gợi ý; còn đúng một người còn hôn phối trong nhiều người thì chọn người đó', () => {
+    expect(suggestOtherParent(graphWith([marriage('u1', 'ba', 'me1', 'ly_hon')]), 'ba')).toBeNull();
+    expect(suggestOtherParent(graphWith([marriage('u1', 'ba', 'me1', 'goa')]), 'ba')).toBeNull();
+    expect(suggestOtherParent(graphWith([marriage('u1', 'ba', 'me1', 'ly_hon'), marriage('u2', 'ba', 'me2', 'con')]), 'ba')).toBe('me2');
+  });
+
+  it('nhiều người còn hôn phối thì không đoán', () => {
+    expect(suggestOtherParent(graphWith([marriage('u1', 'ba', 'me1', 'con'), marriage('u2', 'ba', 'me2', 'con')]), 'ba')).toBeNull();
+  });
+
+  it('nhập Ba: Mẹ là vợ; nhập Mẹ: Ba là chồng; người dùng bỏ chọn thì để trống', () => {
+    const graph = graphWith([marriage('u1', 'ba', 'me1', 'con')]);
+    expect(resolveBabyParents(graph, 'ba', undefined)).toEqual({ chosenIsMother: false, fatherId: 'ba', motherId: 'me1' });
+    expect(resolveBabyParents(graph, 'me1', undefined)).toEqual({ chosenIsMother: true, fatherId: 'ba', motherId: 'me1' });
+    expect(resolveBabyParents(graph, 'ba', null)).toEqual({ chosenIsMother: false, fatherId: 'ba', motherId: null });
+    expect(resolveBabyParents(graph, 'me1', 'ba')).toEqual({ chosenIsMother: true, fatherId: 'ba', motherId: 'me1' });
   });
 });

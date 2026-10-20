@@ -104,3 +104,28 @@ export const babyGeneration = (graph: FamilyGraph<Person>, parentIds: readonly (
   });
   return generations.length > 0 ? Math.max(...generations) + 1 : null;
 };
+
+export type BabyParentIds = {
+  /** Người đã chọn là Mẹ (nữ) hay Ba (nam, hoặc chưa rõ giới tính). */
+  chosenIsMother: boolean;
+  fatherId: string | null;
+  motherId: string | null;
+};
+
+/** Vợ/chồng của `personId` còn hôn phối (không tính ly hôn, goá) nếu đúng một người; ngược lại null (không đoán). */
+export const suggestOtherParent = (graph: FamilyGraph<Person>, personId: string): string | null => {
+  const active = graph.spousesOf(personId).filter((spouse) => spouse.status === 'con');
+  return active.length === 1 ? active[0]!.person.id : null;
+};
+
+/**
+ * Ba và Mẹ của bé từ người đã chọn (`personId`) và người còn lại (`otherId`): nữ là Mẹ, còn lại là Ba.
+ * `otherId` undefined: lấy gợi ý (xem `suggestOtherParent`); null: người dùng chọn "không chọn".
+ */
+export const resolveBabyParents = (graph: FamilyGraph<Person>, personId: string, otherId: string | null | undefined): BabyParentIds => {
+  const other = otherId === undefined ? suggestOtherParent(graph, personId) : otherId;
+  const chosenIsMother = graph.person(personId)?.gender === 'nu';
+  return chosenIsMother
+    ? { chosenIsMother, fatherId: other, motherId: personId }
+    : { chosenIsMother, fatherId: personId, motherId: other };
+};

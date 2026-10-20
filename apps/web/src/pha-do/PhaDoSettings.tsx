@@ -18,10 +18,12 @@ import {
   type PhaDoConfig,
   type PhaDoFontFamily,
 } from './config';
-import { DEFAULT_DECORATION, defaultTitle, FRAME_LABELS, layoutDecoration, type Decoration, type FrameStyle } from './decoration';
+import { defaultTitle, FRAME_LABELS, type Decoration, type FrameStyle } from './decoration';
+import { useFrameThumbnails } from './frame-thumbnails';
 import { DEFAULT_MEMBER_COLORS } from './render';
-import { drawingToSvg } from './svg';
+import { Chip } from '../ui/Chip';
 import { Select, TextField } from '../ui/fields';
+import { Segmented } from '../ui/Segmented';
 import { onTabKeyDown } from '../ui/tab-keys';
 
 /** Ba nhóm thiết lập của thanh bên: mỗi lúc chỉ hiện một nhóm để thanh bên ngắn gọn. */
@@ -87,79 +89,17 @@ const SectionLabel = ({ children, aside, htmlFor }: { children: ReactNode; aside
 
 const Note = ({ children }: { children: ReactNode }) => <p className="mt-2 text-sm text-ink-muted">{children}</p>;
 
-/** Thanh chọn một trong vài mục, các mục chia đều chiều ngang. */
-const Segmented = <T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: readonly { value: T; label: string }[];
-  value: T;
-  onChange: (value: T) => void;
-}) => (
-  <div role="radiogroup" aria-label={label} className="flex gap-1 rounded-xl bg-line/50 p-1">
-    {options.map((option) => {
-      const on = option.value === value;
-      return (
-        <button
-          key={option.value}
-          type="button"
-          role="radio"
-          aria-checked={on}
-          onClick={() => onChange(option.value)}
-          className={`min-h-10 min-w-0 flex-1 rounded-lg px-1.5 text-sm ${on ? 'bg-surface font-bold text-son shadow-sm' : 'font-medium text-ink hover:bg-surface/60'}`}
-        >
-          {option.label}
-        </button>
-      );
-    })}
-  </div>
-);
-
-/** Nút bật/tắt dạng viên thuốc. */
-const Chip = ({ on, disabled, onClick, children }: { on: boolean; disabled?: boolean; onClick: () => void; children: ReactNode }) => (
-  <button
-    type="button"
-    aria-pressed={on}
-    disabled={disabled}
-    onClick={onClick}
-    className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border-[1.5px] px-4 text-sm ${
-      on ? 'border-son bg-son/7 font-semibold text-son' : 'border-line bg-surface font-medium'
-    } disabled:cursor-not-allowed disabled:text-ink-muted/60`}
-  >
-    {on && (
-      <svg aria-hidden="true" viewBox="0 0 20 20" className="size-4 fill-none stroke-current" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 10.5l4 4 8-9" />
-      </svg>
-    )}
-    {children}
-  </button>
-);
-
-const THUMB_PAGE = { width: 297, height: 420 };
-const thumbnails = new Map<FrameStyle, string>();
-/** Ảnh xem trước một kiểu khung (chỉ khung, không chữ), dựng bằng chính bộ vẽ của Phả đồ nên luôn đúng với bản in. */
-const frameThumbnail = (frame: FrameStyle) => {
-  let url = thumbnails.get(frame);
-  if (!url) {
-    const { below } = layoutDecoration(THUMB_PAGE, { ...DEFAULT_DECORATION, frame }, '');
-    url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(drawingToSvg({ ...THUMB_PAGE, items: below }))}`;
-    thumbnails.set(frame, url);
-  }
-  return url;
-};
+const FRAME_STYLES = Object.keys(FRAME_LABELS) as FrameStyle[];
 const shortLabel = (frame: FrameStyle) => FRAME_LABELS[frame].split(' (')[0]!;
 
 /** Chọn kiểu khung: cả 12 ảnh xem trước luôn hiện (6 cột), bấm một lần là chọn; tên kiểu đang chọn nằm cạnh tiêu đề. */
 const FramePicker = ({ frame, onChange }: { frame: FrameStyle; onChange: (frame: FrameStyle) => void }) => {
-  const styles = Object.keys(FRAME_LABELS) as FrameStyle[];
+  const thumbnails = useFrameThumbnails(FRAME_STYLES);
   return (
     <section>
       <SectionLabel aside={<span className="font-semibold text-son">{shortLabel(frame)}</span>}>Kiểu khung</SectionLabel>
       <div role="radiogroup" aria-label="Kiểu khung" className="grid grid-cols-6 gap-2">
-        {styles.map((style) => (
+        {FRAME_STYLES.map((style) => (
           <label
             key={style}
             title={FRAME_LABELS[style]}
@@ -168,7 +108,11 @@ const FramePicker = ({ frame, onChange }: { frame: FrameStyle; onChange: (frame:
             }`}
           >
             <input type="radio" name="frame-style" className="sr-only" aria-label={FRAME_LABELS[style]} checked={frame === style} onChange={() => onChange(style)} />
-            <img src={frameThumbnail(style)} alt="" className="block aspect-[3/4] w-full rounded-sm border border-line bg-white object-cover" />
+            {thumbnails.get(style) ? (
+              <img src={thumbnails.get(style)} alt="" className="block aspect-[3/4] w-full rounded-sm border border-line bg-white object-cover" />
+            ) : (
+              <span aria-hidden="true" className="block aspect-[3/4] w-full animate-pulse rounded-sm border border-line bg-paper" />
+            )}
           </label>
         ))}
       </div>

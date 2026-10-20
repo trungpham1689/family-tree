@@ -5,7 +5,7 @@ import { buildFamilyGraph } from '../family/family-graph';
 import { defaultPhaDoConfig, hasStoredMemberFont, pageSizeMm, readPhaDoConfig, type PhaDoConfig } from './config';
 import { FRAME_LABELS, layoutDecoration, type FrameStyle } from './decoration';
 import { PT_PER_MM, type DrawItem } from './drawing';
-import { autoMemberFontPx, fitPaperToFont, refitTiming } from './auto-fit';
+import { applyConfigChange, autoMemberFontPx, fitPaperToFont, refitTiming } from './auto-fit';
 import { legendWidthMm, MIN_READABLE_PX, renderPhaDo } from './render';
 import { drawingToSvg } from './svg';
 
@@ -232,6 +232,25 @@ describe('xem trước', () => {
     const svg = drawingToSvg(renderPhaDo(sample(), { ...base, paper: 'A3', orientation: 'landscape' }).drawing);
     expect(svg).toContain('width="420mm" height="297mm"');
     expect(svg).toContain('Phạm Văn Tổ');
+  });
+});
+
+describe('SVG xem trước: màu và chữ được escape', () => {
+  it('màu có ký tự đặc biệt không thoát được khỏi thuộc tính', () => {
+    const evil = '"><script>alert(1)</script>';
+    const svg = drawingToSvg({
+      width: 100,
+      height: 100,
+      items: [
+        { type: 'rect', x: 0, y: 0, width: 10, height: 10, radius: 1, fill: evil, stroke: evil, strokeWidth: 1 },
+        { type: 'line', points: [[0, 0], [1, 1]], stroke: evil, strokeWidth: 1 },
+        { type: 'text', x: 1, y: 1, text: '<b>Tên</b>', sizePt: 10, bold: false, color: evil },
+        { type: 'image', x: 0, y: 0, width: 5, height: 5, href: 'data:image/png;base64,AAA', round: { borderColor: evil, borderWidth: 1 } },
+      ],
+    });
+    expect(svg).not.toContain('<script>');
+    expect(svg).not.toContain('<b>');
+    expect(svg).toContain('&quot;&gt;&lt;script&gt;');
   });
 });
 
@@ -572,5 +591,40 @@ describe('cỡ chữ ô tự suy và chú giải', () => {
     const legendLeft = Math.min(...items.filter((i): i is Extract<DrawItem, { type: 'text' }> => i.type === 'text' && i.align === 'start').map((i) => i.x - 5.5));
     expect(legendWidthMm(a1)).toBeGreaterThan(legendRight - legendLeft); // gồm cả chữ cuối
     expect(legendWidthMm({ width: 420, height: 297 })).toBeCloseTo(legendWidthMm(a1) / 2, 6);
+  });
+});
+
+describe('applyConfigChange: áp thay đổi cấu hình', () => {
+  const marker = (config: PhaDoConfig): PhaDoConfig => ({ ...config, memberFontPx: 99 });
+  const run = (patch: Partial<PhaDoConfig>) => {
+    let calls = 0;
+    const result = applyConfigChange(base, patch, (next) => {
+      calls += 1;
+      return marker(next);
+    });
+    return { ...result, calls };
+  };
+
+  it('đổi bố cục: co giãn lại ngay, không chờ', () => {
+    const { next, deferred, calls } = run({ extraLines: ['gio'] });
+    expect(calls).toBe(1);
+    expect(deferred).toBe(false);
+    expect(next.memberFontPx).toBe(99);
+    expect(next.extraLines).toEqual(['gio']);
+  });
+
+  it('đổi màu: không co giãn, không chờ', () => {
+    const { next, deferred, calls } = run({ memberFillColor: '#ffeecc' });
+    expect(calls).toBe(0);
+    expect(deferred).toBe(false);
+    expect(next).toEqual({ ...base, memberFillColor: '#ffeecc' });
+  });
+
+  it('gõ chữ trang trí: hiện chữ ngay nhưng hoãn co giãn', () => {
+    const { next, deferred, calls } = run({ decoration: { ...base.decoration, title: 'Gia phả họ Phạm' } });
+    expect(calls).toBe(0);
+    expect(deferred).toBe(true);
+    expect(next.decoration.title).toBe('Gia phả họ Phạm');
+    expect(next.memberFontPx).toBe(base.memberFontPx);
   });
 });

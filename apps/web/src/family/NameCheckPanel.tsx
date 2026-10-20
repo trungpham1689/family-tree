@@ -8,7 +8,7 @@ import { Select, TextField } from '../ui/fields';
 import { babyRelationFinder, type BabyRelation } from './baby-relation';
 import type { FamilyGraph } from './family-graph';
 import { kindLabel } from './labels';
-import { babyGeneration, checkBabyName } from './name-check';
+import { babyGeneration, checkBabyName, resolveBabyParents } from './name-check';
 
 /** Tra cứu trùng tên khi đặt tên cho Bé: nhập họ và tên, chọn Ba/Mẹ (suy ra Đời và quan hệ); liệt kê người trùng kèm lý do và quan hệ. */
 export const NameCheckPanel = ({ treeId, graph }: { treeId: string; graph: FamilyGraph<Person> }) => {
@@ -25,16 +25,11 @@ export const NameCheckPanel = ({ treeId, graph }: { treeId: string; graph: Famil
 
   // Người đã nhập là Ba (nam, hoặc chưa rõ giới tính) hay Mẹ (nữ); người còn lại tự tìm trong vợ/chồng của người đó.
   const spouses = useMemo(() => (parentId ? graph.spousesOf(parentId).map(({ person }) => person) : []), [graph, parentId]);
-  // Gợi ý: đúng một vợ/chồng còn hôn phối (không tính ly hôn, goá) thì tự chọn; người dùng đổi hoặc bỏ chọn được.
-  const suggested = useMemo(() => {
-    const active = parentId ? graph.spousesOf(parentId).filter((spouse) => spouse.status === 'con') : [];
-    return active.length === 1 ? active[0]!.person.id : null;
-  }, [graph, parentId]);
-  const otherId = otherChoice === undefined ? suggested : otherChoice;
-  const other = spouses.find((spouse) => spouse.id === otherId) ?? null;
-  const parentIsMother = parentId !== null && graph.person(parentId)?.gender === 'nu';
-  const fatherId = parentIsMother ? (other?.id ?? null) : parentId;
-  const motherId = parentIsMother ? parentId : (other?.id ?? null);
+  const { chosenIsMother: parentIsMother, fatherId, motherId } = useMemo(
+    () => (parentId ? resolveBabyParents(graph, parentId, otherChoice) : { chosenIsMother: false, fatherId: null, motherId: null }),
+    [graph, parentId, otherChoice],
+  );
+  const otherId = parentIsMother ? fatherId : motherId;
   const hasParent = parentId !== null;
 
   const generation = useMemo(() => babyGeneration(graph, [fatherId, motherId]), [graph, fatherId, motherId]);

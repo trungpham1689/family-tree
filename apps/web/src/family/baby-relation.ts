@@ -83,18 +83,20 @@ const phrase = (person: GraphPerson, elder: GraphPerson | null): string => {
   return 'anh/chị/em';
 };
 
-type BloodResult = { relation: BabyRelation; word: string | null; diff: number; cousinDegree: number };
+/** `parentSiblingWord`: bác/chú/cô/cậu/dì khi người đó là anh chị em ruột của cha hoặc mẹ bé (để suy ra thím, mợ, dượng…); còn lại null. */
+type BloodResult = { relation: BabyRelation; parentSiblingWord: string | null };
 
-const bloodRelation = (graph: FamilyGraph<GraphPerson>, parents: BabyParents, targetId: string): BloodResult | null => {
+/** Kết quả dùng chung khi tra nhiều người: bé và tổ tiên của bé chỉ duyệt một lần. */
+type Lookup = { graph: FamilyGraph<GraphPerson>; parents: BabyParents; fromAncestors: Map<string, GraphPerson[]> };
+
+const bloodRelation = ({ graph, parents, fromAncestors }: Lookup, targetId: string): BloodResult | null => {
   const target = graph.person(targetId);
   if (!target) return null;
   const sideOf = (firstParentId: string): 'noi' | 'ngoai' => (firstParentId === parents.fatherId ? 'noi' : 'ngoai');
-  const fromAncestors = ancestorPaths(graph, BABY_ID);
-
   const direct = fromAncestors.get(targetId);
   if (direct) {
     const side = sideOf(direct[0]!.id);
-    return { relation: { term: directTerm(direct.length, target.gender, side), via: null }, word: null, diff: direct.length, cousinDegree: 0 };
+    return { relation: { term: directTerm(direct.length, target.gender, side), via: null }, parentSiblingWord: null };
   }
 
   const toAncestors = ancestorPaths(graph, targetId);
@@ -126,15 +128,10 @@ const bloodRelation = (graph: FamilyGraph<GraphPerson>, parents: BabyParents, ta
   if (diff === 0) {
     if (b === 1) {
       const word = target.gender === 'nam' ? 'Anh' : target.gender === 'nu' ? 'Chị' : 'Anh/Chị';
-      return { relation: { term: `${word}${siblingQualifier(graph, BABY_ID, targetId)}`, via: null }, word: null, diff, cousinDegree: 1 };
+      return { relation: { term: `${word}${siblingQualifier(graph, BABY_ID, targetId)}`, via: null }, parentSiblingWord: null };
     }
     const sex = target.gender === 'nam' ? 'Anh' : target.gender === 'nu' ? 'Chị' : 'Anh/Chị';
-    return {
-      relation: { term: `${sex} ${b === 2 ? 'họ' : 'họ xa'}`, via: `chung ${lcaTerm} ${lca.full_name}` },
-      word: null,
-      diff,
-      cousinDegree: b,
-    };
+    return { relation: { term: `${sex} ${b === 2 ? 'họ' : 'họ xa'}`, via: `chung ${lcaTerm} ${lca.full_name}` }, parentSiblingWord: null };
   }
 
   // Người cùng hàng với bậc tiền bối `elder` của bé (cha mẹ nếu diff = 1, ông bà nếu diff = 2…).
@@ -150,14 +147,12 @@ const bloodRelation = (graph: FamilyGraph<GraphPerson>, parents: BabyParents, ta
     const term = known ? `${capitalize(`${prefix}${word}`.trim())}${qualifier}` : `Họ hàng bậc tổ tiên${qualifier}`;
     return {
       relation: { term, via: `${phrase(target, elder)} của ${elderTerm} (${elder.full_name})` },
-      word,
-      diff,
-      cousinDegree: 1,
+      parentSiblingWord: diff === 1 ? word : null,
     };
   }
   const degree = b === 2 ? 'họ' : 'họ xa';
   const term = known ? `${capitalize(`${prefix}${word}`.trim())} ${degree}` : `Họ hàng bậc tổ tiên (${degree})`;
-  return { relation: { term, via: `chung ${lcaTerm} ${lca.full_name}` }, word, diff, cousinDegree: b };
+  return { relation: { term, via: `chung ${lcaTerm} ${lca.full_name}` }, parentSiblingWord: null };
 };
 
 /** Chồng/vợ của chú, bác, cô, cậu, dì: thím, mợ, bác gái, dượng… */
@@ -199,17 +194,18 @@ export const babyRelationFinder = (graph: FamilyGraph<Person>, parents: BabyPare
     positions: [],
   });
 
+  const lookup: Lookup = { graph: augmented, parents, fromAncestors: ancestorPaths(augmented, BABY_ID) };
   return (targetId) => {
-    const blood = bloodRelation(augmented, parents, targetId);
+    const blood = bloodRelation(lookup, targetId);
     if (blood) return blood.relation;
 
     // Không cùng huyết thống: người đó có thể là vợ/chồng của một người họ hàng của bé.
     const target = augmented.person(targetId);
     if (!target) return null;
     for (const { person: spouse } of augmented.spousesOf(targetId)) {
-      const relative = bloodRelation(augmented, parents, spouse.id);
+      const relative = bloodRelation(lookup, spouse.id);
       if (!relative) continue;
-      const special = relative.diff === 1 && relative.cousinDegree === 1 && relative.word ? spouseOfCollateral(relative.word, target) : null;
+      const special = relative.parentSiblingWord ? spouseOfCollateral(relative.parentSiblingWord, target) : null;
       const spouseWord = target.gender === 'nu' ? 'Vợ' : target.gender === 'nam' ? 'Chồng' : 'Vợ/Chồng';
       const term = special ?? `${spouseWord} của ${lower(relative.relation.term)}`;
       return {

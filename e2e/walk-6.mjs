@@ -196,6 +196,45 @@ await step('Phả ký: bấm tên mở thành viên', async () => {
   await page.waitForURL(/\/nguoi\/[0-9a-f-]{36}$/);
 });
 
+await step('Người phụ trách cúng giỗ: không liệt kê sẵn, gõ tên mới có kết quả', async () => {
+  await page.goto(treeUrl);
+  await page.getByRole('link', { name: /Cha Tổ/ }).first().click();
+  await page.getByRole('button', { name: 'Sửa thông tin' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Đã mất').check();
+  const keeper = dialog.getByLabel('Người phụ trách cúng giỗ');
+  await keeper.waitFor();
+  assert((await dialog.getByRole('button', { name: /Con [ABC]/ }).count()) === 0, 'danh sách người hiện sẵn khi chưa gõ');
+  await keeper.fill('con b');
+  await dialog.getByRole('button', { name: /Con B/ }).click();
+  assert((await dialog.getByRole('button', { name: 'Bỏ chọn' }).count()) === 1, 'chưa chọn được người phụ trách');
+  await dialog.getByRole('button', { name: 'Bỏ chọn' }).click();
+  await keeper.waitFor();
+  await dialog.getByRole('button', { name: 'Huỷ' }).click().catch(() => {});
+});
+
+await step('Phả ký: tuỳ chọn nội dung tóm tắt, nhớ lựa chọn khi tải lại', async () => {
+  await page.goto(`${treeUrl}/pha-ky`);
+  await page.locator('article').first().waitFor();
+  const lines = () => page.locator('article p').count();
+  const all = await lines();
+  assert(all >= 4, 'thiếu dòng tóm tắt');
+  // Mặc định chỉ bật Tên gọi khác, Cha mẹ, Chức vụ & vai vế; Thứ tự con không chọn sẵn.
+  const pressed = async (name) => (await page.getByRole('button', { name, exact: true }).getAttribute('aria-pressed')) === 'true';
+  assert((await pressed('Cha mẹ')) && (await pressed('Tên gọi khác')) && (await pressed('Chức vụ & vai vế')), 'mặc định thiếu nhóm');
+  assert(!(await pressed('Thứ tự con')) && !(await pressed('Nghề nghiệp')), 'mặc định bật thừa nhóm (Thứ tự con phải không chọn sẵn)');
+  assert(!(await page.locator('article').getByText('Con trưởng.').count()), 'Thứ tự con hiện dù không chọn');
+  await page.getByRole('button', { name: 'Cha mẹ', exact: true }).click();
+  assert(!(await pressed('Cha mẹ')), 'chip chưa tắt');
+  assert((await lines()) === 0, `bỏ Cha mẹ rồi vẫn còn ${await lines()} dòng`);
+  await page.reload();
+  await page.locator('article').first().waitFor();
+  assert((await lines()) === 0, 'lựa chọn không được nhớ sau khi tải lại');
+  await page.getByRole('button', { name: 'Chọn tất cả' }).click();
+  assert((await pressed('Nghề nghiệp')) && (await pressed('Thứ tự con')), 'Chọn tất cả chưa bật hết');
+  await page.getByText('Con trưởng.').first().waitFor();
+});
+
 await step('Tra cứu: Đặt tên cho Bé — chọn Ba/Mẹ suy ra Đời, liệt kê người trùng kèm lý do và quan hệ', async () => {
   await page.goto(`${treeUrl}/quan-he`);
   await page.getByRole('tab', { name: 'Đặt tên cho Bé' }).click();

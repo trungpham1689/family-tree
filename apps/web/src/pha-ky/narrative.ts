@@ -30,60 +30,101 @@ const labelled = (label: string, value: string | null | undefined): string[] => 
   return text ? [`${label}: ${text}.`] : [];
 };
 
-const personNarrative = (graph: FamilyGraph<Person>, person: Person): { lifespan: string | null; lines: string[] } => {
+/** Các nhóm nội dung có thể bật/tắt trong tóm tắt từng Người của Phả ký, theo thứ tự hiện ở các nút chọn (nhóm mặc định đứng đầu). */
+export const NARRATIVE_FIELDS = [
+  { id: 'names', label: 'Tên gọi khác' },
+  { id: 'parents', label: 'Cha mẹ' },
+  { id: 'role', label: 'Chức vụ & vai vế' },
+  { id: 'order', label: 'Thứ tự con' },
+  { id: 'birthPlace', label: 'Nơi sinh' },
+  { id: 'hometown', label: 'Nguyên quán' },
+  { id: 'residence', label: 'Nơi ở' },
+  { id: 'marriage', label: 'Hôn nhân' },
+  { id: 'occupation', label: 'Nghề nghiệp' },
+  { id: 'education', label: 'Học vấn' },
+  { id: 'death', label: 'Hưởng thọ' },
+  { id: 'burial', label: 'An táng' },
+  { id: 'worship', label: 'Thờ phụng' },
+  { id: 'biography', label: 'Tiểu sử' },
+] as const;
+export type NarrativeField = (typeof NARRATIVE_FIELDS)[number]['id'];
+export const ALL_NARRATIVE_FIELDS: readonly NarrativeField[] = NARRATIVE_FIELDS.map((field) => field.id);
+/** Nhóm nội dung hiện sẵn trên trang Phả ký khi chưa chọn gì. */
+export const DEFAULT_NARRATIVE_FIELDS: readonly NarrativeField[] = ['names', 'parents', 'role'];
+
+const MARRIAGE_STATUS_NOTE: Record<string, string> = { ly_hon: ' (đã ly hôn)', goa: ' (góa)' };
+
+const personNarrative = (
+  graph: FamilyGraph<Person>,
+  person: Person,
+  fields: ReadonlySet<NarrativeField>,
+): { lifespan: string | null; lines: string[] } => {
   const placement = graph.placement(person.id);
   const lifespan = lifespanText(person);
   const sentences: string[] = [];
 
-  const commonName = cleanFreeText(person.common_name);
-  if (commonName) sentences.push(`Còn gọi là ${commonName}.`);
-  sentences.push(...labelled('Tên tự / hiệu', person.courtesy_name));
-
-  if (placement.kind === 'thuy_to') {
-    sentences.push('Thuỷ tổ của dòng họ, người đời đầu tiên còn ghi lại được.');
-  } else {
-    if (person.birth_order !== null) sentences.push(`${birthOrderLabel(person.birth_order)}.`);
-    const parents = graph.parentsOf(person.id).map((p) => p.person.full_name);
-    if (parents.length > 0) sentences.push(`Con của ${parents.join(' và ')}.`);
+  if (fields.has('names')) {
+    const commonName = cleanFreeText(person.common_name);
+    if (commonName) sentences.push(`Còn gọi là ${commonName}.`);
+    sentences.push(...labelled('Tên tự / hiệu', person.courtesy_name));
   }
 
-  sentences.push(...labelled('Nơi sinh', person.birth_place));
-  sentences.push(...labelled('Nguyên quán', person.hometown));
-  if (cleanFreeText(person.residence) && cleanFreeText(person.residence) !== cleanFreeText(person.hometown)) {
+  if (placement.kind === 'thuy_to') {
+    if (fields.has('parents')) sentences.push('Thuỷ tổ của dòng họ, người đời đầu tiên còn ghi lại được.');
+  } else {
+    if (fields.has('order') && person.birth_order !== null) sentences.push(`${birthOrderLabel(person.birth_order)}.`);
+    if (fields.has('parents')) {
+      const parents = graph.parentsOf(person.id).map((p) => p.person.full_name);
+      if (parents.length > 0) sentences.push(`Con của ${parents.join(' và ')}.`);
+    }
+  }
+
+  if (fields.has('birthPlace')) sentences.push(...labelled('Nơi sinh', person.birth_place));
+  if (fields.has('hometown')) sentences.push(...labelled('Nguyên quán', person.hometown));
+  if (fields.has('residence') && cleanFreeText(person.residence) && (!fields.has('hometown') || cleanFreeText(person.residence) !== cleanFreeText(person.hometown))) {
     sentences.push(`Sinh sống tại ${cleanFreeText(person.residence)}.`);
   }
 
-  const spouses = graph.spousesOf(person.id).map((s) => s.person.full_name);
-  if (spouses.length > 0) sentences.push(`Kết hôn với ${spouses.join(', ')}.`);
-
-  sentences.push(...labelled('Chức vụ / danh hiệu', person.title));
-  sentences.push(...labelled('Vai vế', person.role_note));
-  sentences.push(...labelled('Nghề nghiệp', person.occupation));
-  sentences.push(...labelled('Học vấn', person.education));
-
-  if (person.is_deceased) {
-    const age = ageAtDeath(person);
-    sentences.push(age !== null ? `Mất, ${deathAgeLabel(age).toLowerCase()} ${age} tuổi.` : 'Đã mất.');
-    if (cleanFreeText(person.burial_place)) sentences.push(`An táng tại ${cleanFreeText(person.burial_place)}.`);
-    if (cleanFreeText(person.worship_place)) sentences.push(`Thờ phụng tại ${cleanFreeText(person.worship_place)}.`);
+  if (fields.has('marriage')) {
+    const spouses = graph.spousesOf(person.id).map((s) => `${s.person.full_name}${MARRIAGE_STATUS_NOTE[s.status] ?? ''}`);
+    if (spouses.length > 0) sentences.push(`Kết hôn với ${spouses.join(', ')}.`);
   }
 
-  if (person.biography) sentences.push(person.biography.trim());
+  if (fields.has('role')) {
+    sentences.push(...labelled('Chức vụ / danh hiệu', person.title));
+    sentences.push(...labelled('Vai vế', person.role_note));
+  }
+  if (fields.has('occupation')) sentences.push(...labelled('Nghề nghiệp', person.occupation));
+  if (fields.has('education')) sentences.push(...labelled('Học vấn', person.education));
+
+  if (person.is_deceased) {
+    if (fields.has('death')) {
+      const age = ageAtDeath(person);
+      sentences.push(age !== null ? `Mất, ${deathAgeLabel(age).toLowerCase()} ${age} tuổi.` : 'Đã mất.');
+    }
+    if (fields.has('burial') && cleanFreeText(person.burial_place)) sentences.push(`An táng tại ${cleanFreeText(person.burial_place)}.`);
+    if (fields.has('worship') && cleanFreeText(person.worship_place)) sentences.push(`Thờ phụng tại ${cleanFreeText(person.worship_place)}.`);
+  }
+
+  if (fields.has('biography') && person.biography) sentences.push(person.biography.trim());
 
   return { lifespan: lifespan || null, lines: sentences };
 };
 
-export const buildNarrative = (graph: FamilyGraph<Person>): NarrativeGeneration[] =>
-  graph.generations().map((group) => ({
+/** Văn bản tường thuật theo Đời; `fields` là các nhóm nội dung được hiện (mặc định tất cả). */
+export const buildNarrative = (graph: FamilyGraph<Person>, fields: Iterable<NarrativeField> = ALL_NARRATIVE_FIELDS): NarrativeGeneration[] => {
+  const shown = new Set(fields);
+  return graph.generations().map((group) => ({
     generation: group.generation,
     male: group.male,
     female: group.female,
     total: group.total,
     items: group.persons.map((person) => {
-      const { lifespan, lines } = personNarrative(graph, person);
+      const { lifespan, lines } = personNarrative(graph, person, shown);
       return { personId: person.id, kind: graph.placement(person.id).kind, gender: person.gender, adopted: graph.parentsOf(person.id).some((parent) => parent.kind === 'nuoi'), name: person.full_name, lifespan, lines };
     }),
   }));
+};
 
 export type NotablePerson = { personId: string; fullName: string; title: string; generation: number | null };
 

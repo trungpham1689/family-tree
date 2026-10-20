@@ -127,3 +127,17 @@ export const refitTiming = (config: PhaDoConfig, patch: Partial<PhaDoConfig>): '
   }
   return 'now';
 };
+
+/**
+ * Áp một thay đổi lên cấu hình: tính lại khổ giấy/cỡ chữ ngay (`now`), hoặc giữ nguyên bố cục (`none`), hoặc chờ gõ xong (`later`, `deferred` = true:
+ * bên gọi lên lịch gọi `refit` sau một lúc).
+ */
+export const applyConfigChange = (
+  config: PhaDoConfig,
+  patch: Partial<PhaDoConfig>,
+  refit: (next: PhaDoConfig) => PhaDoConfig,
+): { next: PhaDoConfig; deferred: boolean } => {
+  const next = { ...config, ...patch };
+  const timing = refitTiming(config, patch);
+  return timing === 'now' ? { next: refit(next), deferred: false } : { next, deferred: timing === 'later' };
+};

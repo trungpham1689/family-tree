@@ -3,7 +3,7 @@ import type { Person } from '../data/trees';
 import { blankPerson } from '../test-support/person';
 import { buildFamilyGraph } from '../family/family-graph';
 import type { NarrativeItem } from './narrative';
-import { branchSummaries, buildNarrative, closingNote, notablePersons, originSummary } from './narrative';
+import { ALL_NARRATIVE_FIELDS, DEFAULT_NARRATIVE_FIELDS, NARRATIVE_FIELDS, branchSummaries, buildNarrative, closingNote, notablePersons, originSummary } from './narrative';
 
 const sample = () =>
   buildFamilyGraph({
@@ -152,6 +152,71 @@ describe('mục hồ sơ có nhãn riêng, không dính chùm', () => {
     expect(detail).toContain('Còn gọi là Cậu Tổ. Tên tự / hiệu: Văn Tổ.');
     expect(detail).toContain('Nơi sinh: Huế.');
     expect(detail).toContain('An táng tại Nghĩa trang X. Thờ phụng tại Từ đường.');
+  });
+});
+
+describe('tuỳ chọn nội dung tóm tắt', () => {
+  const linesOf = (fields?: Parameters<typeof buildNarrative>[1], id = 'to') =>
+    buildNarrative(sample(), fields)
+      .flatMap((g) => g.items)
+      .find((item) => item.personId === id)!.lines;
+
+  it('mặc định hiện tất cả; mỗi nhóm có đúng một nhãn', () => {
+    expect(linesOf()).toEqual(linesOf(ALL_NARRATIVE_FIELDS));
+    expect(new Set(NARRATIVE_FIELDS.map((f) => f.id)).size).toBe(NARRATIVE_FIELDS.length);
+  });
+
+  it('mặc định trên trang: Tên gọi khác, Cha mẹ, Chức vụ & vai vế (không có Thứ tự con)', () => {
+    expect(DEFAULT_NARRATIVE_FIELDS).toEqual(['names', 'parents', 'role']);
+    // Các nút chọn xếp nhóm mặc định lên đầu, đúng thứ tự đó.
+    expect(NARRATIVE_FIELDS.slice(0, 3).map((field) => field.id)).toEqual([...DEFAULT_NARRATIVE_FIELDS]);
+  });
+
+  it('chỉ chọn một nhóm thì chỉ còn đúng nhóm đó', () => {
+    expect(linesOf(['hometown'])).toEqual(['Nguyên quán: Làng Đông, Thái Bình.']);
+    expect(linesOf(['marriage'])).toEqual(['Kết hôn với Trần Thị Hoa.']);
+    expect(linesOf(['death'])).toEqual(['Mất, hưởng thọ 71 tuổi.']);
+    expect(linesOf(['burial'])).toEqual(['An táng tại Nghĩa trang dòng họ.']);
+    expect(linesOf(['worship'])).toEqual(['Thờ phụng tại Nhà thờ họ Nguyễn.']);
+    expect(linesOf(['occupation'], 'con')).toEqual(['Nghề nghiệp: Lý trưởng.']);
+    expect(linesOf(['role'], 'con')).toEqual(['Chức vụ / danh hiệu: Liệt sĩ chống Pháp.', 'Vai vế: Trưởng chi 1.']);
+    expect(linesOf(['order'], 'con')).toEqual(['Con trưởng.']);
+    expect(linesOf(['parents'], 'con')).toEqual(['Con của Nguyễn Văn Tổ và Trần Thị Hoa.']);
+    expect(linesOf(['parents'])).toEqual(['Thuỷ tổ của dòng họ, người đời đầu tiên còn ghi lại được.']);
+    expect(linesOf(['order'])).toEqual([]);
+    expect(linesOf([])).toEqual([]);
+  });
+
+  it('bỏ Nguyên quán thì Nơi ở vẫn hiện dù trùng; còn Nguyên quán thì không lặp', () => {
+    const graph = buildFamilyGraph({
+      persons: [blankPerson({ id: 'p', full_name: 'Phạm Tổ', gender: 'nam', hometown: 'Hà Nội', residence: 'Hà Nội' })],
+      parentLinks: [],
+      unions: [],
+      positions: [{ person_id: 'p', generation: 1, branch_id: null, kind: 'thuy_to' }],
+    });
+    const lines = (fields: Parameters<typeof buildNarrative>[1]) => buildNarrative(graph, fields)[0]!.items[0]!.lines;
+    expect(lines(['hometown', 'residence'])).toEqual(['Nguyên quán: Hà Nội.']);
+    expect(lines(['residence'])).toEqual(['Sinh sống tại Hà Nội.']);
+  });
+
+  it('Hôn nhân ghi tình trạng: ly hôn, góa', () => {
+    const graph = buildFamilyGraph({
+      persons: [
+        blankPerson({ id: 'a', full_name: 'Phạm A', gender: 'nam' }),
+        blankPerson({ id: 'b', full_name: 'Vợ Một', gender: 'nu' }),
+        blankPerson({ id: 'c', full_name: 'Vợ Hai', gender: 'nu' }),
+        blankPerson({ id: 'd', full_name: 'Vợ Ba', gender: 'nu' }),
+      ],
+      parentLinks: [],
+      unions: [
+        { id: 'u1', partner_a: 'a', partner_b: 'b', order_for_a: 1, order_for_b: 1, status: 'ly_hon' },
+        { id: 'u2', partner_a: 'a', partner_b: 'c', order_for_a: 2, order_for_b: 1, status: 'goa' },
+        { id: 'u3', partner_a: 'a', partner_b: 'd', order_for_a: 3, order_for_b: 1, status: 'con' },
+      ],
+      positions: [{ person_id: 'a', generation: 1, branch_id: null, kind: 'thuy_to' }],
+    });
+    const item = buildNarrative(graph, ['marriage']).flatMap((g) => g.items).find((i) => i.personId === 'a')!;
+    expect(item.lines).toEqual(['Kết hôn với Vợ Một (đã ly hôn), Vợ Hai (góa), Vợ Ba.']);
   });
 });
 

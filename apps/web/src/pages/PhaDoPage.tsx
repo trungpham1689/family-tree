@@ -12,7 +12,7 @@ import type { Person, TreeWithRole } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
 import { FONT_FAMILY_CSS, hasStoredMemberFont, readPhaDoConfig, type PhaDoConfig } from '../pha-do/config';
 import { DESKTOP_LIMITS, IOS_LIMITS, isAppleMobile, planPng } from '../pha-do/png';
-import { autoMemberFontPx, fitPaperToFont, refitTiming } from '../pha-do/auto-fit';
+import { applyConfigChange, autoMemberFontPx, fitPaperToFont } from '../pha-do/auto-fit';
 import { renderPhaDo } from '../pha-do/render';
 import { drawingToSvg } from '../pha-do/svg';
 import { TreeTabs } from '../tree/TreeTabs';
@@ -107,14 +107,10 @@ const PhaDoDesigner = ({
   const refitTimer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(refitTimer.current), []);
   const update = (patch: Partial<PhaDoConfig>) => {
-    const next = { ...config, ...patch };
     window.clearTimeout(refitTimer.current);
-    const timing = refitTiming(config, patch);
-    if (timing === 'now') return setConfig(refit(next));
+    const { next, deferred } = applyConfigChange(config, patch, refit);
     setConfig(next);
-    if (timing === 'later') {
-      refitTimer.current = window.setTimeout(() => setConfig(latest.current.refit(latest.current.config)), 300);
-    }
+    if (deferred) refitTimer.current = window.setTimeout(() => setConfig(latest.current.refit(latest.current.config)), 300);
   };
   /** Người dùng chọn khổ giấy/kích thước cụ thể: giữ khổ đó, cỡ chữ tự chỉnh theo. */
   const updatePaper = (patch: Partial<PhaDoConfig>) => setConfig(refit({ ...config, ...patch, autoPaper: false }));

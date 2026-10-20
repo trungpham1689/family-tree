@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { todayInVietnam } from '../calendar/month-grid';
 import { firstPhotoOfEvents, useEventPhotoImages, useEventPhotos, useTreeEvents } from '../data/calendar-queries';
@@ -9,7 +9,9 @@ import type { FamilyGraph } from '../family/family-graph';
 import { TreePageShell } from '../tree/TreePageShell';
 import { kindLabel } from '../family/labels';
 import { useTreeExport } from '../export/use-tree-export';
-import { branchSummaries, buildNarrative, closingNote, notablePersons, originSummary } from '../pha-ky/narrative';
+import { FieldOptions } from '../pha-ky/FieldOptions';
+import { browserStorage, readStoredFields, writeStoredFields } from '../pha-ky/stored-fields';
+import { branchSummaries, buildNarrative, closingNote, notablePersons, originSummary, type NarrativeField } from '../pha-ky/narrative';
 import { buildFrontSections, phaKyEvents, type PhaKySection } from '../pha-ky/sections';
 import { Button } from '../ui/Button';
 import { ErrorBanner } from '../ui/fields';
@@ -24,12 +26,18 @@ export const PhaKyPage = () => {
   );
 };
 
+// v2: mặc định đổi (thêm Thứ tự con); lựa chọn lưu theo bản cũ không còn dùng.
 const PhaKyBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Person> }) => {
   const { running, error: exportError, run: runExport } = useTreeExport(tree.name);
   const exporting = running !== null;
 
   const today = useMemo(() => todayInVietnam(), []);
-  const generations = useMemo(() => buildNarrative(graph), [graph]);
+  const [fields, setFields] = useState<Set<NarrativeField>>(() => readStoredFields(browserStorage()));
+  const changeFields = (next: Set<NarrativeField>) => {
+    setFields(next);
+    writeStoredFields(browserStorage(), next);
+  };
+  const generations = useMemo(() => buildNarrative(graph, fields), [graph, fields]);
   const notable = useMemo(() => notablePersons(graph), [graph]);
   const origin = useMemo(() => originSummary(graph), [graph]);
   const branches = useMemo(() => branchSummaries(graph), [graph]);
@@ -79,6 +87,7 @@ const PhaKyBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Per
       </div>
       <p className="mt-1 text-ink-muted">Nguồn gốc, các chi, nhân vật tiêu biểu và văn bản tường thuật từng đời — suy từ dữ liệu Người đã ghi.</p>
       {exportError && <ErrorBanner>{exportError}</ErrorBanner>}
+      {generations.length > 0 && <FieldOptions fields={fields} onChange={changeFields} />}
 
       <div className="mt-6">
         {generations.length === 0 && <p className="text-ink-muted">Gia phả chưa có ai.</p>}

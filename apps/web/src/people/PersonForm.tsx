@@ -1,11 +1,11 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import type { Person } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
-import { searchPersons } from '../tree/tree-search';
 import { Button } from '../ui/Button';
 import { ErrorBanner, TextAreaField, TextField } from '../ui/fields';
 import { findDuplicates } from './duplicate-check';
 import { personLabel } from './person-label';
+import { PersonPicker } from './PersonPicker';
 import { PartialDateField } from './PartialDateField';
 import {
   parsePersonForm,
@@ -231,28 +231,17 @@ type WorshipKeeperFieldProps = {
   onChange: (personId: string | null) => void;
 };
 
-/** Tìm & chọn Người phụ trách cúng giỗ; gợi ý mặc định con/cháu của người đang sửa. */
+/** Tìm & chọn Người phụ trách cúng giỗ: gõ tên (có dấu hay không đều được) mới hiện kết quả, không liệt kê sẵn ai. */
 const WorshipKeeperField = ({ graph, currentPersonId, value, onChange }: WorshipKeeperFieldProps) => {
-  const [query, setQuery] = useState('');
-
-  const defaults = useMemo(() => {
-    if (!graph || !currentPersonId) return [];
-    const children = graph.childrenOf(currentPersonId).map(({ person }) => person);
-    const grandchildren = children.flatMap(({ id }) => graph.childrenOf(id).map(({ person }) => person));
-    const seen = new Set<string>([currentPersonId]);
-    return [...children, ...grandchildren].filter((person) => !seen.has(person.id) && seen.add(person.id));
-  }, [graph, currentPersonId]);
-
-  const candidates = graph ? graph.persons.filter((person) => person.id !== currentPersonId) : [];
-  const results = query.trim() !== '' ? searchPersons(candidates, query, 8) : defaults;
+  const excluded = useMemo(() => (currentPersonId ? new Set([currentPersonId]) : undefined), [currentPersonId]);
+  if (!graph) return null;
 
   if (value) {
-    const selected = graph?.person(value);
     return (
       <div>
         <label className="mb-1 block font-medium">Người phụ trách cúng giỗ</label>
         <div className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4">
-          <span>{selected && graph ? personLabel(graph, value) : 'Người đã bị xoá'}</span>
+          <span>{graph.person(value) ? personLabel(graph, value) : 'Người đã bị xoá'}</span>
           <button type="button" className="font-semibold text-son" onClick={() => onChange(null)}>
             Bỏ chọn
           </button>
@@ -261,36 +250,7 @@ const WorshipKeeperField = ({ graph, currentPersonId, value, onChange }: Worship
     );
   }
 
-  return (
-    <div>
-      <TextField
-        label="Người phụ trách cúng giỗ"
-        placeholder="Gõ tên để tìm, có dấu hay không đều được"
-        autoComplete="off"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-      />
-      {results.length > 0 && (
-        <ul className="mt-2 divide-y divide-line overflow-hidden rounded-xl border border-line">
-          {results.map((person) => (
-            <li key={person.id}>
-              <button
-                type="button"
-                className="flex min-h-12 w-full items-center px-4 text-left hover:bg-paper"
-                onClick={() => {
-                  onChange(person.id);
-                  setQuery('');
-                }}
-              >
-                {person.full_name}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {query.trim() === '' && results.length === 0 && <p className="mt-1 text-sm text-ink-muted">Gõ tên để tìm người trong gia phả.</p>}
-    </div>
-  );
+  return <PersonPicker graph={graph} label="Người phụ trách cúng giỗ" onPick={onChange} {...(excluded ? { exclude: excluded } : {})} />;
 };
 
 const DETAIL_KEYS = [
