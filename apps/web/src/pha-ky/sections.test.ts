@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildFrontSections, toPdfSections } from './sections';
+import { buildFrontSections } from './sections';
 
 const origin = {
   progenitorId: 'p0', progenitorName: 'Phạm Tổ', hometown: 'Nam Định', anniversaryDay: 7, anniversaryMonth: 8,
@@ -8,7 +8,7 @@ const origin = {
 const today = { year: 2026, month: 10, day: 20 };
 
 describe('khối Phả ký', () => {
-  it('đủ dữ liệu: bốn khối theo thứ tự; PDF có cùng chữ với trang web', () => {
+  it('đủ dữ liệu: bốn khối theo thứ tự, nơi thờ/mộ tổ thành từng dòng nhãn–giá trị', () => {
     const sections = buildFrontSections({
       description: 'Lời mở',
       origin,
@@ -17,12 +17,9 @@ describe('khối Phả ký', () => {
       today,
     });
     expect(sections.map((s) => s.kind)).toEqual(['intro', 'origin', 'branches', 'notable']);
-    const pdf = toPdfSections(sections);
-    expect(pdf[1]!.paragraphs[0]).toBe('Dòng họ tôn Phạm Tổ làm Thuỷ tổ — người đời đầu tiên còn ghi lại được. Quê quán tại Nam Định.');
-    expect(pdf[1]!.paragraphs).toContain('Nơi thờ: Nhà thờ họ (người phụ trách: Phạm Trưởng)');
-    expect(pdf[1]!.paragraphs).toContain('Mộ tổ: Núi X');
-    expect(pdf[2]!.paragraphs).toEqual(['Chi Cả — 12 người.']);
-    expect(pdf[3]!.paragraphs).toEqual(['Cụ Nghè — Tiến sĩ']);
+    const origin_ = sections[1]!;
+    expect(origin_.kind === 'origin' && origin_.facts).toContainEqual({ label: 'Nơi thờ', value: 'Nhà thờ họ (người phụ trách: Phạm Trưởng)' });
+    expect(origin_.kind === 'origin' && origin_.facts).toContainEqual({ label: 'Mộ tổ', value: 'Núi X' });
   });
 
   it('thiếu dữ liệu thì bỏ khối đó', () => {

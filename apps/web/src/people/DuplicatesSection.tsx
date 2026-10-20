@@ -1,57 +1,48 @@
 import { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link } from 'react-router';
 import { useMergePersons } from '../data/tree-queries';
-import { TreePageShell } from '../tree/TreePageShell';
 import type { Person } from '../data/trees';
-import { duplicateGroups } from '../people/duplicate-check';
-import { lifespanText } from '../people/person-display';
+import { duplicateGroups } from './duplicate-check';
+import { lifespanText } from './person-display';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
 import { ErrorBanner } from '../ui/fields';
 import type { FamilyGraph } from '../family/family-graph';
 
-/** Gộp những Người nhập trùng làm một (chỉ Chủ sở hữu). Quan hệ, ảnh, hồ sơ được dồn về người được giữ. */
-export const DuplicatesPage = () => {
-  const { treeId = '' } = useParams();
-  return <TreePageShell treeId={treeId}>{({ graph, isOwner }) => <DuplicatesBody treeId={treeId} graph={graph} isOwner={isOwner} />}</TreePageShell>;
-};
-
-const DuplicatesBody = ({ treeId, graph, isOwner }: { treeId: string; graph: FamilyGraph<Person>; isOwner: boolean }) => {
+/** Gộp những Người nhập trùng làm một (chỉ hiện cho Chủ sở hữu). Quan hệ, ảnh, hồ sơ được dồn về người được giữ. */
+export const DuplicatesSection = ({ treeId, graph }: { treeId: string; graph: FamilyGraph<Person> }) => {
   const merge = useMergePersons(treeId);
   const groups = useMemo(() => duplicateGroups(graph.persons), [graph]);
 
   return (
-    <>
-      <h1 className="font-serif text-3xl font-bold text-son">Người trùng</h1>
+    <section className="mt-12">
+      <h2 className="font-serif text-2xl font-bold text-son">Thành viên trùng</h2>
       <p className="mt-1 text-ink-muted">
         Những Người cùng tên (và năm sinh không mâu thuẫn) có thể là một người nhập hai lần, thường sau khi nhập Excel. Chọn người
         cần giữ, phần còn lại sẽ được gộp vào.
       </p>
-      {!isOwner && <ErrorBanner>Chỉ Chủ sở hữu gia phả mới gộp được Người trùng.</ErrorBanner>}
 
       {groups.length === 0 && (
         <p className="mt-6 rounded-2xl border border-dashed border-line bg-surface px-6 py-10 text-center text-ink-muted">
-          Không thấy Người nào nghi trùng.
+          Không thấy thành viên nào nghi trùng.
         </p>
       )}
 
-      {isOwner && (
-        <div className="mt-6 space-y-6">
-          {groups.map((group) => (
-            <GroupCard
-              key={group.map((person) => person.id).join('-')}
-              treeId={treeId}
-              group={group}
-              graph={graph}
-              busy={merge.isPending}
-              error={merge.error?.message ?? null}
-              // Gộp cả nhóm trong một lần (tải lại gia phả một lần); lỗi hiện ở `merge.error`.
-              onMerge={(keepId, dropIds, done) => merge.mutate({ keepId, dropIds }, { onSuccess: done })}
-            />
-          ))}
-        </div>
-      )}
-    </>
+      <div className="mt-6 space-y-6">
+        {groups.map((group) => (
+          <GroupCard
+            key={group.map((person) => person.id).join('-')}
+            treeId={treeId}
+            group={group}
+            graph={graph}
+            busy={merge.isPending}
+            error={merge.error?.message ?? null}
+            // Gộp cả nhóm trong một lần (tải lại gia phả một lần); lỗi hiện ở `merge.error`.
+            onMerge={(keepId, dropIds, done) => merge.mutate({ keepId, dropIds }, { onSuccess: done })}
+          />
+        ))}
+      </div>
+    </section>
   );
 };
 
@@ -109,9 +100,9 @@ const GroupCard = ({
       </Button>
       {error && <ErrorBanner>{error}</ErrorBanner>}
 
-      <Dialog open={confirming} title="Gộp người trùng" onClose={() => setConfirming(false)}>
+      <Dialog open={confirming} title="Gộp thành viên trùng" onClose={() => setConfirming(false)}>
         <p>
-          Gộp {dropIds.length} người trùng vào <strong>{keep.full_name}</strong>. Cha mẹ, con, vợ/chồng và ảnh của họ chuyển sang người
+          Gộp {dropIds.length} thành viên trùng vào <strong>{keep.full_name}</strong>. Cha mẹ, con, vợ/chồng và ảnh của họ chuyển sang người
           được giữ; thông tin nào người được giữ còn trống sẽ lấy từ người bị gộp. <strong>Không hoàn tác được.</strong>
         </p>
         <div className="mt-4 flex gap-2">

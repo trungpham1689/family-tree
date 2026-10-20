@@ -4,6 +4,7 @@ import type { FamilyGraph } from '../family/family-graph';
 import { lifespanText } from '../people/person-display';
 import { pageSizeMm, type ExtraLine, type PhaDoConfig } from './config';
 import { layoutDecoration } from './decoration';
+import { fitSize, truncateToFit } from './glyph-widths';
 import { PT_PER_MM, type Drawing, type DrawItem } from './drawing';
 
 /** Dưới cỡ này (pt) chữ in ra khó đọc với người lớn tuổi. */
@@ -18,6 +19,10 @@ const EXTRA_LINE_HEIGHT = 17;
 const NAME_SIZE = 15;
 const SMALL_SIZE = 12;
 const NAME_CHARS = 18;
+/** Lề trái + phải trong ô: chữ luôn nằm gọn trong chiều rộng còn lại. */
+const BOX_PADDING = 10;
+/** Dòng dài hơn ô thì thu nhỏ chữ cho vừa, tới tối thiểu bằng ngần này cỡ gốc; nhỏ hơn nữa thì cắt đuôi, thêm "…". */
+const MIN_LINE_RATIO = 0.55;
 const AVATAR_SIZE = 52;
 const AVATAR_GAP = 6;
 /** Dải chú giải (giới tính, đã mất) dưới cùng vùng cây, tính bằng mm trên trang. */
@@ -43,6 +48,14 @@ export type PhaDoResult = {
   warning: string | null;
   /** Gốc của phạm vi không còn tồn tại (ví dụ Người đã bị xoá). */
   missingRoot: boolean;
+};
+
+/** Chữ vừa chiều rộng ô: thu nhỏ khi vượt, cắt đuôi khi phải thu quá nhiều. Không bao giờ để chữ tràn ra ngoài ô. */
+const fitLine = (text: string, size: number, bold: boolean, maxWidth: number): { text: string; size: number } => {
+  const fitted = fitSize(text, size, bold, maxWidth);
+  if (fitted >= size * MIN_LINE_RATIO) return { text, size: fitted };
+  const floor = size * MIN_LINE_RATIO;
+  return { text: truncateToFit(text, floor, bold, maxWidth), size: floor };
 };
 
 const extraText = (line: ExtraLine, person: Person, generation: number | null): string | null => {
@@ -151,7 +164,6 @@ export const renderPhaDo = (
   const maxNamePt = MAX_NAME_PT * (config.fontScale || 1);
   const scale = Math.min(fitScale, maxNamePt / (NAME_SIZE * PT_PER_MM));
   const namePt = NAME_SIZE * scale * PT_PER_MM;
-  const smallPt = SMALL_SIZE * scale * PT_PER_MM;
 
   // Căn giữa cây trong vùng còn trống.
   const offsetX = area.x + (availableWidth - layout.width * scale) / 2;
@@ -230,12 +242,14 @@ export const renderPhaDo = (
       });
       cursor += AVATAR_SIZE + AVATAR_GAP;
     }
-    for (const text of nameLines) {
-      items.push({ type: 'text', x: centerX, y: my(cursor + NAME_SIZE / 2), text, sizePt: namePt, bold: !isSpouse, color: COLORS.ink });
+    for (const line of nameLines) {
+      const { text, size } = fitLine(line, NAME_SIZE, !isSpouse, node.width - BOX_PADDING);
+      items.push({ type: 'text', x: centerX, y: my(cursor + NAME_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, bold: !isSpouse, color: COLORS.ink });
       cursor += NAME_SIZE + lineGap;
     }
-    for (const text of detailLines) {
-      items.push({ type: 'text', x: centerX, y: my(cursor + SMALL_SIZE / 2), text, sizePt: smallPt, bold: false, color: COLORS.muted });
+    for (const line of detailLines) {
+      const { text, size } = fitLine(line, SMALL_SIZE, false, node.width - BOX_PADDING);
+      items.push({ type: 'text', x: centerX, y: my(cursor + SMALL_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, bold: false, color: COLORS.muted });
       cursor += SMALL_SIZE + lineGap;
     }
   }

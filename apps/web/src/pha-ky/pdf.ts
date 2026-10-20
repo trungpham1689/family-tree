@@ -1,283 +1,386 @@
-import { jsPDF } from 'jspdf';
-import type { PdfFonts } from '../pha-do/pdf';
+import { COLOR, CONTENT_BOTTOM, CONTENT_TOP, createOfficialPdf, MARGIN, MID, PAGE_W, type Rgb } from '../export/official-pdf';
 import { kindLabel } from '../family/labels';
+import type { PdfFonts } from '../pha-do/pdf';
 import type { NarrativeGeneration } from './narrative';
+import type { PhaKySection } from './sections';
 
-const FONT = 'NotoSerif';
-const MARGIN = 20;
-const PAGE_WIDTH = 210;
-const PAGE_HEIGHT = 297;
-const LINE_HEIGHT = 6;
-const PARA_LINE = LINE_HEIGHT * 0.85;
-const PARA_GAP = 2;
-const CARD_HEADING_GAP = LINE_HEIGHT * 1.3;
-const CARD_PAD = 6;
-const SECTION_GAP = 9;
-const ITEM_GAP = 3.5;
-
-/** Màu thương hiệu, lấy đúng từ `--color-*` trong index.css, để PDF cùng tông với trang web. */
-const COLOR = {
-  son: [138, 28, 28] as const,
-  kim: [184, 137, 43] as const,
-  ink: [31, 26, 23] as const,
-  inkMuted: [92, 83, 76] as const,
-  line: [228, 220, 209] as const,
-  paper: [251, 248, 243] as const,
-  neutral: [163, 154, 143] as const,
-  /** son pha giấy: 20% cho gạch chân tiêu đề Đời, 10% cho nhãn vai trò. */
-  sonSoft: [228, 204, 200] as const,
-  sonSoft10: [240, 226, 222] as const,
-};
-
-/** Một khối trước/sau phần theo Đời: Lời mở đầu, Nguồn gốc, Các chi, Người tiêu biểu, Lời kết. */
-export type PdfSection = { heading: string; paragraphs: readonly string[] };
-
-/** Ảnh nhúng vào PDF (data URL JPEG): ảnh cả gia phả dưới tiêu đề, ảnh đại diện từng Người theo personId. */
+/** Ảnh nhúng vào PDF (data URL JPEG): ảnh cả gia phả dưới tiêu đề bìa, ảnh đại diện từng Người theo personId. */
 export type PdfPhotos = { cover?: string | undefined; people?: ReadonlyMap<string, string> | undefined };
 
-const COVER_WIDTH = 110;
-const COVER_MAX_HEIGHT = 75;
-const PERSON_PHOTO = 18;
+const WIDTH = PAGE_W - MARGIN * 2;
+const SECTION_GAP = 9.5;
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+const BODY = { size: 12, lineHeight: 6.98 };
+const ROW_LINE = 6.35;
+const ROW_PAD = 2.1;
+const TEXT_X = MARGIN + 9;
+const PHOTO = 19;
+const NAME_LINE = 6.67;
+/** Màu viền chấm giới tính (nền trắng): vàng kim = Nam, đỏ son = Nữ, xám = chưa rõ. */
+const GENDER_BORDER: Record<'nam' | 'nu' | 'unknown', Rgb> = { nam: COLOR.kim, nu: COLOR.son, unknown: [163, 154, 143] };
+const RAIL_X = MARGIN + 1.6;
 
-/** Phả ký ra PDF khổ A4, chữ thật (NotoSerif, có dấu tiếng Việt), cùng tông màu và bố cục với trang web. */
+type Meta = { treeName: string; /** Ngày lập, YYYY-MM-DD. */ date: string };
+
+/**
+ * Phả ký ra PDF khổ A4 theo dạng văn bản chính thức, cùng khung với Dòng thời gian (bìa viền kép, đầu/chân trang, khối xác nhận):
+ * các mục I–IV (đoạn văn, bảng), từng Đời với chấm tròn giới tính và ảnh, chú giải, Lời kết. Bố cục theo trang web Phả ký.
+ */
 export const narrativeToPdf = (
   generations: readonly NarrativeGeneration[],
   fonts: PdfFonts,
-  title: string,
-  before: readonly PdfSection[] = [],
-  after: readonly PdfSection[] = [],
+  { treeName, date }: Meta,
+  front: readonly PhaKySection[],
+  closing: string | null,
   photos: PdfPhotos = {},
-): jsPDF => {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  doc.addFileToVFS('NotoSerif-Regular.ttf', fonts.regular);
-  doc.addFileToVFS('NotoSerif-Bold.ttf', fonts.bold);
-  doc.addFont('NotoSerif-Regular.ttf', FONT, 'normal');
-  doc.addFont('NotoSerif-Bold.ttf', FONT, 'bold');
-  doc.setProperties({ title, creator: 'Gia Phả' });
+) => {
+  const { doc, font, stroke, spaced, ornament, coverTop, coverBottom, newPage: startPage, signature, signatureHeight, finish } = createOfficialPdf(fonts, {
+    title: `Phả ký ${treeName}`,
+    runningTitle: 'PHẢ KÝ',
+    treeName,
+    date,
+  });
 
-  const maxWidth = PAGE_WIDTH - MARGIN * 2;
-  let y = MARGIN;
-  const ensureSpace = (needed: number) => {
-    if (y + needed > PAGE_HEIGHT - MARGIN) {
-      doc.addPage();
-      y = MARGIN;
-    }
-  };
-
-  doc.setFont(FONT, 'bold');
-  doc.setTextColor(...COLOR.son);
-  doc.setFontSize(20);
-  ensureSpace(LINE_HEIGHT * 2.6);
-  doc.text(title, PAGE_WIDTH / 2, y, { align: 'center' });
-  y += LINE_HEIGHT * 1.1;
-  doc.setDrawColor(...COLOR.kim);
-  doc.setLineWidth(0.6);
-  doc.line(PAGE_WIDTH / 2 - 16, y, PAGE_WIDTH / 2 + 16, y);
-  y += LINE_HEIGHT * 1.6;
-
+  // ── Trang bìa ────────────────────────────────────────────────────────────────
+  coverTop();
+  font(54, true, COLOR.son);
+  spaced('PHẢ KÝ', MID, 99, 0.1, 'center');
+  ornament(115.3, 23.8, 6.8);
+  let nameSize = 27;
+  font(nameSize, true, COLOR.ink);
+  while (nameSize > 14 && doc.getTextWidth(treeName) > 150) {
+    nameSize -= 1;
+    doc.setFontSize(nameSize);
+  }
+  doc.text(treeName, MID, 137, { align: 'center' });
+  font(13.5, false, COLOR.inkMuted);
+  doc.text('Nguồn gốc, các chi, nhân vật tiêu biểu', MID, 148, { align: 'center' });
+  doc.text('và tường thuật từng đời', MID, 155.6, { align: 'center' });
   if (photos.cover) {
     const { width, height } = doc.getImageProperties(photos.cover);
-    const coverHeight = Math.min(COVER_MAX_HEIGHT, (COVER_WIDTH * height) / width);
-    const coverWidth = (coverHeight * width) / height;
-    ensureSpace(coverHeight + LINE_HEIGHT);
-    doc.addImage(photos.cover, 'JPEG', (PAGE_WIDTH - coverWidth) / 2, y, coverWidth, coverHeight);
-    y += coverHeight + LINE_HEIGHT * 1.2;
+    const h = Math.min(50, (90 * height) / width);
+    const w = (h * width) / height;
+    doc.addImage(photos.cover, 'JPEG', MID - w / 2, 168, w, h);
   }
+  const progenitor = front.find((section) => section.kind === 'origin');
+  if (progenitor?.kind === 'origin') {
+    font(9, true, COLOR.kimText);
+    spaced('THUỶ TỔ', MID, 236, 0.2, 'center');
+    font(15, true, COLOR.son);
+    doc.text(progenitor.progenitorName, MID, 244.5, { align: 'center' });
+  }
+  coverBottom();
 
-  /** Lời mở đầu, Nguồn gốc, Các chi, Người tiêu biểu, Lời kết: thẻ nền giấy, viền mảnh — như card trên web. */
-  const writeCard = (heading: string, paragraphs: readonly string[]) => {
-    // Đo xuống dòng bằng đúng cỡ chữ thân bài sẽ vẽ (không phải cỡ tiêu đề, to hơn nên làm xuống dòng quá sớm).
-    doc.setFont(FONT, 'normal');
-    doc.setFontSize(10.5);
-    const lineSets = paragraphs.map((paragraph) => doc.splitTextToSize(paragraph, maxWidth - CARD_PAD * 2) as string[]);
-    const bodyHeight = lineSets.reduce((total, lines) => total + lines.length * PARA_LINE + PARA_GAP, 0);
-    const cardHeight = CARD_PAD + CARD_HEADING_GAP + bodyHeight + CARD_PAD * 0.5;
-    ensureSpace(cardHeight + LINE_HEIGHT * 0.5);
-
-    const cardTop = y;
-    doc.setFillColor(...COLOR.paper);
-    doc.setDrawColor(...COLOR.line);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(MARGIN, cardTop, maxWidth, cardHeight, 3, 3, 'FD');
-
-    let cy = cardTop + CARD_PAD;
-    doc.setFont(FONT, 'bold');
-    doc.setFontSize(13);
-    doc.setTextColor(...COLOR.son);
-    doc.text(heading, MARGIN + CARD_PAD, cy);
-    cy += CARD_HEADING_GAP;
-
-    doc.setFont(FONT, 'normal');
-    doc.setFontSize(10.5);
-    doc.setTextColor(...COLOR.ink);
-    for (const lines of lineSets) {
-      doc.text(lines, MARGIN + CARD_PAD, cy);
-      cy += lines.length * PARA_LINE + PARA_GAP;
+  // ── Các trang nội dung ───────────────────────────────────────────────────────
+  let y = CONTENT_TOP;
+  /** Đường kẻ dọc nối các chấm của một Đời: vẽ từng đoạn theo từng trang; chấm vẽ sau cùng để nằm đè lên đường. */
+  let railFrom: number | null = null;
+  const deferredDots: { page: number; cy: number; gender: string | null; dashed: boolean }[] = [];
+  let railLast = 0;
+  /** Vẽ đoạn đường từ chấm đầu đến chấm cuối của trang hiện tại (không thò ra ngoài hai chấm). */
+  const flushRail = () => {
+    if (railFrom !== null && railLast > railFrom) {
+      stroke(0.5, COLOR.rule);
+      doc.line(RAIL_X, railFrom, RAIL_X, railLast);
     }
-    y = cardTop + cardHeight + LINE_HEIGHT * 0.7;
+    railFrom = null;
+  };
+  const newPage = () => {
+    flushRail();
+    startPage();
+    y = CONTENT_TOP;
+  };
+  startPage();
+  const ensure = (height: number) => {
+    if (y + height > CONTENT_BOTTOM) newPage();
+  };
+  const gap = (amount = SECTION_GAP) => {
+    if (y > CONTENT_TOP) y += amount;
   };
 
-  /** Chú thích chấm tròn, cùng nội dung với trang web, ở cuối trên Lời kết. */
-  const writeLegend = () => {
-    const entries: { label: string; draw: (cx: number, cy: number) => void }[] = [
-      { label: 'Nam', draw: (cx, cy) => dot(cx, cy, { gender: 'nam', kind: 'dinh' }) },
-      { label: 'Nữ', draw: (cx, cy) => dot(cx, cy, { gender: 'nu', kind: 'dinh' }) },
-      { label: 'Dâu/Rể (viền đứt — vào họ, không cùng huyết thống)', draw: (cx, cy) => dot(cx, cy, { gender: 'nam', kind: 'dau_re' }) },
+  /** Dòng căn đều hai bên: giãn đều khoảng trắng giữa các từ. */
+  const justified = (line: string, x: number, baseline: number, width: number) => {
+    const words = line.split(' ');
+    const extra = words.length > 1 ? (width - doc.getTextWidth(line)) / (words.length - 1) : 0;
+    let cursor = x;
+    for (const word of words) {
+      doc.text(word, cursor, baseline);
+      cursor += doc.getTextWidth(`${word} `) + extra;
+    }
+  };
+  /** Đoạn văn căn đều (dòng cuối căn trái), tự sang trang giữa hai dòng. */
+  const paragraph = (text: string, x: number, width: number, size: number, lineHeight: number, color: Rgb) => {
+    font(size, false, color);
+    const lines = doc.splitTextToSize(text, width) as string[];
+    for (const [index, line] of lines.entries()) {
+      ensure(lineHeight);
+      font(size, false, color);
+      const baseline = y + lineHeight * 0.72;
+      if (index < lines.length - 1) justified(line, x, baseline, width);
+      else doc.text(line, x, baseline);
+      y += lineHeight;
+    }
+  };
+
+  /** Tiêu đề mục: số La Mã vàng kim + tên son đậm, gạch chân vàng kim. */
+  const sectionHeading = (numeral: string | null, title: string) => {
+    gap();
+    ensure(12.9 + 18);
+    let x = MARGIN;
+    if (numeral) {
+      font(10.5, true, COLOR.kimText);
+      x += spaced(`${numeral}.`, MARGIN, y + 5.8, 0.1, 'left') + 3.7;
+    }
+    font(16.5, true, COLOR.son);
+    doc.text(title, x, y + 5.8);
+    stroke(0.26, COLOR.kim);
+    doc.line(MARGIN, y + 9.2, PAGE_W - MARGIN, y + 9.2);
+    y += 12.9;
+  };
+  const rowRule = (color: Rgb) => {
+    stroke(0.26, color);
+    doc.line(MARGIN, y, PAGE_W - MARGIN, y);
+  };
+
+  const factsTable = (facts: readonly { label: string; value: string }[]) => {
+    const labelW = 39.7;
+    const valueX = MARGIN + labelW + 3.2;
+    y += 3.2;
+    rowRule(COLOR.rule);
+    for (const [index, fact] of facts.entries()) {
+      font(12, false, COLOR.ink);
+      const lines = doc.splitTextToSize(fact.value, PAGE_W - MARGIN - valueX) as string[];
+      const height = ROW_PAD * 2 + lines.length * ROW_LINE;
+      ensure(height);
+      const baseline = y + ROW_PAD + ROW_LINE * 0.72;
+      font(8.25, true, COLOR.kimText);
+      spaced(fact.label.toUpperCase(), MARGIN, baseline, 0.14, 'left');
+      font(12, false, COLOR.ink);
+      doc.text(lines, valueX, baseline, { lineHeightFactor: ROW_LINE / (12 * 0.3528) });
+      y += height;
+      rowRule(index === facts.length - 1 ? COLOR.rule : COLOR.line);
+    }
+  };
+
+  const branchesTable = (items: readonly { name: string; memberCount: number }[]) => {
+    const nameX = MARGIN + 23.8 + 3.2;
+    y += 3.2;
+    ensure(7.6 + ROW_PAD * 2 + ROW_LINE);
+    stroke(0.53, COLOR.son);
+    doc.line(MARGIN, y, PAGE_W - MARGIN, y);
+    font(8.25, true, COLOR.inkMuted);
+    const head = y + 1.6 + 3.1;
+    spaced('CHI', MARGIN, head, 0.14, 'left');
+    spaced('NGƯỜI ĐỨNG ĐẦU CHI', nameX, head, 0.14, 'left');
+    const right = 'THÀNH VIÊN';
+    const width = doc.getTextWidth(right) + 0.14 * 8.25 * 0.3528 * (right.length - 1);
+    spaced(right, PAGE_W - MARGIN - width, head, 0.14, 'left');
+    y += 7.6;
+    rowRule(COLOR.rule);
+    for (const [index, item] of items.entries()) {
+      const height = ROW_PAD * 2 + ROW_LINE;
+      ensure(height);
+      const baseline = y + ROW_PAD + ROW_LINE * 0.72;
+      font(12, true, COLOR.son);
+      doc.text(`Chi ${index + 1}`, MARGIN, baseline);
+      font(12, false, COLOR.ink);
+      doc.text(item.name, nameX, baseline);
+      doc.text(`${item.memberCount} người`, PAGE_W - MARGIN, baseline, { align: 'right' });
+      y += height;
+      rowRule(index === items.length - 1 ? COLOR.rule : COLOR.line);
+    }
+  };
+
+  const notableList = (items: readonly { name: string; title: string }[]) => {
+    y += 2.1;
+    for (const [index, item] of items.entries()) {
+      const height = ROW_PAD * 2 + ROW_LINE;
+      ensure(height);
+      const baseline = y + ROW_PAD + ROW_LINE * 0.72;
+      font(12, true, COLOR.ink);
+      doc.text(item.name, MARGIN, baseline);
+      font(12, false, COLOR.inkMuted);
+      doc.text(item.title, PAGE_W - MARGIN, baseline, { align: 'right' });
+      y += height;
+      rowRule(index === items.length - 1 ? COLOR.rule : COLOR.line);
+    }
+  };
+
+  for (const [index, section] of front.entries()) {
+    sectionHeading(ROMAN[index] ?? null, section.heading);
+    y += 0.5;
+    switch (section.kind) {
+      case 'intro':
+        for (const text of section.text.split('\n').filter((line) => line.trim())) {
+          paragraph(text.trim(), MARGIN, WIDTH, BODY.size, BODY.lineHeight, COLOR.ink);
+          y += 1.5;
+        }
+        break;
+      case 'origin':
+        paragraph(`${section.before}${section.progenitorName}${section.after}`, MARGIN, WIDTH, BODY.size, BODY.lineHeight, COLOR.ink);
+        if (section.facts.length > 0) factsTable(section.facts);
+        break;
+      case 'branches':
+        branchesTable(section.items);
+        break;
+      case 'notable':
+        notableList(section.items);
+        break;
+    }
+  }
+
+  /** Chấm tròn giới tính: viền vàng = Nam, đỏ = Nữ, xám = chưa rõ, nền trắng; nét đứt = Dâu/Rể (cùng quy ước Phả đồ). */
+  const dot = (cx: number, cy: number, gender: string | null, dashed: boolean) => {
+    stroke(0.53, gender === 'nam' ? GENDER_BORDER.nam : gender === 'nu' ? GENDER_BORDER.nu : GENDER_BORDER.unknown);
+    doc.setFillColor(255, 255, 255);
+    if (dashed) doc.setLineDashPattern([0.7, 0.5], 0);
+    doc.circle(cx, cy, 1.35, 'FD');
+    doc.setLineDashPattern([], 0);
+  };
+
+  /** Một Người: chấm tròn, tên đậm + (năm sinh–mất) + nhãn vai trò, đoạn mô tả căn đều, ảnh bên phải. */
+  const person = (item: NarrativeGeneration['items'][number]) => {
+    const photo = photos.people?.get(item.personId);
+    const textRight = photo ? PAGE_W - MARGIN - PHOTO - 2.1 : PAGE_W - MARGIN;
+    const textWidth = textRight - TEXT_X;
+    font(11.25, false, COLOR.ink);
+    const detailLines = item.detail ? (doc.splitTextToSize(item.detail, textWidth) as string[]) : [];
+    ensure(3.7 + NAME_LINE + (detailLines.length > 0 ? 1.06 + ROW_LINE * Math.min(2, detailLines.length) : 0));
+
+    const rowTop = y;
+    const startPageNumber = doc.getCurrentPageInfo().pageNumber;
+    if (railFrom === null) railFrom = rowTop + 7.15;
+    railLast = rowTop + 7.15;
+    deferredDots.push({ page: startPageNumber, cy: rowTop + 7.15, gender: item.gender, dashed: item.kind === 'dau_re' });
+
+    // Dòng tên: tên, chấm con nuôi, (năm), nhãn vai trò; hết chỗ thì xuống dòng.
+    let x = TEXT_X;
+    let baseline = rowTop + 3.7 + 4.9;
+    const place = (width: number, draw: (at: number) => void) => {
+      if (x > TEXT_X && x + width > textRight) {
+        x = TEXT_X;
+        baseline += NAME_LINE;
+      }
+      draw(x);
+      x += width;
+    };
+    font(13.5, true, COLOR.ink);
+    place(doc.getTextWidth(item.name), (at) => doc.text(item.name, at, baseline));
+    if (item.adopted) {
+      x += 1.6;
+      place(1.1, (at) => {
+        doc.setFillColor(...COLOR.inkMuted);
+        doc.circle(at + 0.55, baseline - 1.3, 0.55, 'F');
+      });
+    }
+    if (item.lifespan) {
+      x += 2.65;
+      font(10.5, false, COLOR.inkMuted);
+      const text = `(${item.lifespan})`;
+      place(doc.getTextWidth(text), (at) => doc.text(text, at, baseline));
+    }
+    if (item.kind !== 'dinh') {
+      x += 2.65;
+      const label = kindLabel(item.kind, item.gender).toUpperCase();
+      font(8.25, true, COLOR.son);
+      const width = doc.getTextWidth(label) + 0.12 * 8.25 * 0.3528 * (label.length - 1);
+      place(width + 4.2, (at) => {
+        doc.setFillColor(...COLOR.sonPill);
+        doc.roundedRect(at, baseline - 3.6, width + 4.2, 4.8, 2.4, 2.4, 'F');
+        font(8.25, true, COLOR.son);
+        spaced(label, at + 2.1, baseline - 0.3, 0.12, 'left');
+      });
+    }
+    y = baseline - 4.9 + NAME_LINE;
+
+    if (detailLines.length > 0) {
+      y += 1.06;
+      font(11.25, false, COLOR.ink);
+      for (const [index, line] of detailLines.entries()) {
+        ensure(ROW_LINE);
+        font(11.25, false, COLOR.ink);
+        const lineBase = y + ROW_LINE * 0.72;
+        if (index < detailLines.length - 1) justified(line, TEXT_X, lineBase, textWidth);
+        else doc.text(line, TEXT_X, lineBase);
+        y += ROW_LINE;
+      }
+    }
+    if (photo) {
+      // Ảnh cạnh đầu mục; nếu mô tả đã tràn sang trang khác thì ảnh nằm ở trang của đầu mục.
+      const current = doc.getCurrentPageInfo().pageNumber;
+      doc.setPage(startPageNumber);
+      doc.addImage(photo, 'JPEG', PAGE_W - MARGIN - PHOTO, rowTop + 3.7, PHOTO, PHOTO);
+      doc.setPage(current);
+      if (current === startPageNumber) y = Math.max(y, rowTop + 3.7 + PHOTO);
+    }
+    y += 3.7;
+  };
+
+  for (const group of generations) {
+    gap();
+    ensure(11.8 + 28);
+    font(21, true, COLOR.son);
+    doc.text(`Đời ${group.generation}`, MARGIN, y + 6.9);
+    font(9.75, false, COLOR.inkMuted);
+    const stat = `${group.total} người${group.male + group.female > 0 ? ` · ${group.male} nam · ${group.female} nữ` : ''}`;
+    doc.text(stat, PAGE_W - MARGIN, y + 6.9, { align: 'right' });
+    stroke(0.26, COLOR.son);
+    doc.line(MARGIN, y + 11, PAGE_W - MARGIN, y + 11);
+    doc.line(MARGIN, y + 11.8, PAGE_W - MARGIN, y + 11.8);
+    y += 11.8;
+    railFrom = null;
+    for (const item of group.items) person(item);
+    flushRail();
+  }
+  const lastPage = doc.getNumberOfPages();
+  for (const { page, cy, gender, dashed } of deferredDots) {
+    doc.setPage(page);
+    dot(RAIL_X, cy, gender, dashed);
+  }
+  doc.setPage(lastPage);
+
+  /** Chú giải chấm tròn (bảng 2×2), cùng nội dung với trang web. */
+  if (generations.length > 0) {
+    gap(10.6);
+    ensure(4.6 + 9.4 * 2 + 2);
+    font(9, true, COLOR.inkMuted);
+    spaced('CHÚ GIẢI', MARGIN, y + 3, 0.14, 'left');
+    y += 4.6;
+    rowRule(COLOR.rule);
+    const cells: { label: string; draw: (cx: number, cy: number) => void }[] = [
+      { label: 'Nam', draw: (cx, cy) => dot(cx, cy, 'nam', false) },
+      { label: 'Nữ', draw: (cx, cy) => dot(cx, cy, 'nu', false) },
+      { label: 'Dâu / Rể (vào họ, không cùng huyết thống)', draw: (cx, cy) => dot(cx, cy, 'nu', true) },
       {
         label: 'Con nuôi (chấm đặc cạnh tên)',
         draw: (cx, cy) => {
           doc.setFillColor(...COLOR.inkMuted);
-          doc.circle(cx, cy, 0.9, 'F');
+          doc.circle(cx, cy, 1.05, 'F');
         },
       },
     ];
-    doc.setFont(FONT, 'normal');
-    doc.setFontSize(9);
-    const cardHeight = CARD_PAD + LINE_HEIGHT * 1.1 + entries.length * 5.2 + CARD_PAD * 0.4;
-    ensureSpace(cardHeight + LINE_HEIGHT * 0.5);
-    doc.setFillColor(...COLOR.paper);
-    doc.setDrawColor(...COLOR.line);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(MARGIN, y, maxWidth, cardHeight, 3, 3, 'FD');
-    let cy = y + CARD_PAD;
-    doc.setTextColor(...COLOR.inkMuted);
-    doc.text('Chấm tròn trước mỗi tên dùng chung quy ước với Phả đồ:', MARGIN + CARD_PAD, cy);
-    cy += LINE_HEIGHT * 1.1;
-    for (const entry of entries) {
-      entry.draw(MARGIN + CARD_PAD + 1.5, cy - 1.2);
-      doc.setTextColor(...COLOR.inkMuted);
-      doc.text(entry.label, MARGIN + CARD_PAD + 6, cy);
-      cy += 5.2;
+    for (let row = 0; row < 2; row += 1) {
+      for (let col = 0; col < 2; col += 1) {
+        const cell = cells[row * 2 + col]!;
+        const left = MARGIN + col * (WIDTH / 2);
+        cell.draw(left + 1.6, y + 4.7);
+        font(9.75, false, COLOR.inkMuted);
+        doc.text(cell.label, left + 3.2 + 2.65, y + 4.7 + 1.2);
+      }
+      y += 9.4;
+      rowRule(row === 1 ? COLOR.rule : COLOR.line);
     }
-    y += cardHeight + LINE_HEIGHT * 0.9;
-  };
-
-  for (const section of before) writeCard(section.heading, section.paragraphs);
-
-  /**
-   * Theo từng Đời, đúng bố cục trang web: tiêu đề Đời + thống kê + gạch chân đỏ nhạt; bên dưới là đường kẻ dọc,
-   * mỗi người một chấm tròn nằm trên đường (viền vàng = Nam, đỏ = Nữ, nét đứt = Dâu/Rể), tên đậm,
-   * nhãn vai trò dạng viên thuốc, chi tiết bên dưới.
-   */
-  const indent = 7;
-  const railX = MARGIN + 1.3;
-  const dot = (cx: number, cy: number, item: { gender: string | null; kind: NarrativeGeneration['items'][number]['kind'] }) => {
-    const border: readonly [number, number, number] = item.gender === 'nam' ? COLOR.kim : item.gender === 'nu' ? COLOR.son : COLOR.neutral;
-    doc.setFillColor(...COLOR.paper);
-    doc.setDrawColor(...border);
-    doc.setLineWidth(0.45);
-    if (item.kind === 'dau_re') doc.setLineDashPattern([0.7, 0.5], 0);
-    doc.circle(cx, cy, 1.5, 'FD');
-    doc.setLineDashPattern([], 0);
-  };
-
-  if (before.length > 0 && generations.length > 0) y += SECTION_GAP - LINE_HEIGHT * 0.7;
-  for (const group of generations) {
-    doc.setFont(FONT, 'bold');
-    doc.setFontSize(17);
-    ensureSpace(LINE_HEIGHT * 5);
-    doc.setTextColor(...COLOR.son);
-    doc.text(`Đời ${group.generation}`, MARGIN, y);
-
-    doc.setFont(FONT, 'normal');
-    doc.setFontSize(9.5);
-    doc.setTextColor(...COLOR.inkMuted);
-    const stat = `${group.total} người${group.male + group.female > 0 ? ` · ${group.male} nam · ${group.female} nữ` : ''}`;
-    doc.text(stat, PAGE_WIDTH - MARGIN, y, { align: 'right' });
-
-    y += 2.5;
-    doc.setDrawColor(...COLOR.sonSoft);
-    doc.setLineWidth(0.6);
-    doc.line(MARGIN, y, PAGE_WIDTH - MARGIN, y);
-    y += LINE_HEIGHT * 1.4;
-
-    let railFromY: number | null = null;
-    let railPage = doc.getCurrentPageInfo().pageNumber;
-    for (const [index, item] of group.items.entries()) {
-      const photo = photos.people?.get(item.personId);
-      const textWidth = maxWidth - indent - (photo ? PERSON_PHOTO + 3 : 0);
-      doc.setFont(FONT, 'normal');
-      doc.setFontSize(10.5);
-      const detailLines = item.detail ? (doc.splitTextToSize(item.detail, textWidth) as string[]) : [];
-      const headerHeight = LINE_HEIGHT * 1.05;
-      const bodyHeight = detailLines.length * PARA_LINE;
-      const itemHeight = Math.max(headerHeight + bodyHeight, photo ? PERSON_PHOTO : 0);
-      ensureSpace(Math.min(itemHeight + ITEM_GAP, 90));
-
-      const page = doc.getCurrentPageInfo().pageNumber;
-      if (page !== railPage) {
-        railPage = page;
-        railFromY = null;
-      }
-      const itemTop = y;
-      const dotY = itemTop - 1.3;
-      const rowEnd = itemTop - LINE_HEIGHT * 0.75 + itemHeight + ITEM_GAP;
-      // Đường kẻ dọc liền từ người này sang người kế (kể cả qua khoảng cách giữa hai người).
-      doc.setDrawColor(...COLOR.line);
-      doc.setLineWidth(0.5);
-      // Người đầu danh sách: đường kẻ bắt đầu đúng tâm chấm tròn, không thò lên trên chấm.
-      doc.line(railX, railFromY ?? dotY, railX, index === group.items.length - 1 ? rowEnd - ITEM_GAP : rowEnd);
-      railFromY = rowEnd;
-
-      dot(railX, dotY, item);
-
-      doc.setFont(FONT, 'bold');
-      doc.setFontSize(11.5);
-      doc.setTextColor(...COLOR.ink);
-      doc.text(item.name, MARGIN + indent, itemTop);
-      let cursor = MARGIN + indent + doc.getTextWidth(item.name);
-
-      if (item.adopted) {
-        doc.setFillColor(...COLOR.inkMuted);
-        doc.circle(cursor + 2, itemTop - 1.3, 0.9, 'F');
-        cursor += 3.6;
-      }
-      if (item.lifespan) {
-        doc.setFont(FONT, 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(...COLOR.inkMuted);
-        const lifespan = ` (${item.lifespan})`;
-        doc.text(lifespan, cursor, itemTop);
-        cursor += doc.getTextWidth(lifespan);
-      }
-      if (item.kind !== 'dinh') {
-        const label = kindLabel(item.kind, item.gender);
-        doc.setFont(FONT, 'bold');
-        doc.setFontSize(8);
-        const pillWidth = doc.getTextWidth(label) + 4;
-        doc.setFillColor(...COLOR.sonSoft10);
-        doc.roundedRect(cursor + 2.5, itemTop - 3.9, pillWidth, 4.6, 2.3, 2.3, 'F');
-        doc.setTextColor(...COLOR.son);
-        doc.text(label, cursor + 2.5 + pillWidth / 2, itemTop - 0.6, { align: 'center' });
-      }
-
-      // Ảnh nằm bên phải; chi tiết đã được xuống dòng hẹp lại cho vừa chỗ.
-      if (photo) doc.addImage(photo, 'JPEG', PAGE_WIDTH - MARGIN - PERSON_PHOTO, itemTop - LINE_HEIGHT * 0.75, PERSON_PHOTO, PERSON_PHOTO);
-
-      if (detailLines.length > 0) {
-        doc.setFont(FONT, 'normal');
-        doc.setFontSize(10.5);
-        doc.setTextColor(...COLOR.ink);
-        doc.text(detailLines, MARGIN + indent, itemTop + headerHeight);
-      }
-      y = rowEnd + LINE_HEIGHT * 0.75;
-    }
-    y += SECTION_GAP;
   }
 
-  if (generations.length > 0) writeLegend();
-
-  for (const section of after) writeCard(section.heading, section.paragraphs);
-
-  // Số trang "n / tổng" giữa chân mỗi trang, nằm dưới vùng nội dung (lề dưới MARGIN).
-  const pageCount = doc.getNumberOfPages();
-  doc.setFont(FONT, 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(...COLOR.inkMuted);
-  for (let page = 1; page <= pageCount; page += 1) {
-    doc.setPage(page);
-    doc.text(`${page} / ${pageCount}`, PAGE_WIDTH / 2, PAGE_HEIGHT - MARGIN / 2, { align: 'center' });
+  if (closing) {
+    sectionHeading(null, 'Lời kết');
+    y += 0.5;
+    paragraph(closing, MARGIN, WIDTH, BODY.size, BODY.lineHeight, COLOR.ink);
   }
 
-  return doc;
+  if (generations.length > 0) {
+    ensure(signatureHeight(true));
+    signature(y, true);
+  }
+  return finish();
 };

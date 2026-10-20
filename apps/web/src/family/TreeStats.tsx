@@ -49,7 +49,7 @@ export const TreeStats = ({ graph }: { graph: FamilyGraph<Person> }) => {
         ))}
       </dl>
       {visibleFun.length > 0 && (
-        <Collapsible title="Thống kê vui">
+        <Collapsible title="Thống kê">
           <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-[max-content_1fr]">
             {visibleFun.map(([label, value]) => (
               <div key={label} className="contents">

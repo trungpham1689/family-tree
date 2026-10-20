@@ -1,11 +1,24 @@
 import { PT_PER_MM, type DrawItem } from './drawing';
+import { fitSize, textWidthEm } from './glyph-widths';
 
 /**
  * Trang trí Phả đồ (ticket 17): khung truyền thống, tiêu đề, phụ đề, câu đối hai bên.
  * Trả về các phần tử vẽ (mm) và vùng còn trống ở giữa để đặt cây.
  */
 
-export type FrameStyle = 'son-kim' | 'moc' | 'thanh-nha' | 'lam-ngoc' | 'hoang-gia' | 'trieu-nguyen' | 'tram-huong' | 'none';
+export type FrameStyle =
+  | 'son-kim'
+  | 'moc'
+  | 'thanh-nha'
+  | 'lam-ngoc'
+  | 'hoang-gia'
+  | 'trieu-nguyen'
+  | 'tram-huong'
+  | 'cuon-thu'
+  | 'hoanh-phi'
+  | 'dong-son'
+  | 'gam-hoa'
+  | 'none';
 
 export const FRAME_LABELS: Record<FrameStyle, string> = {
   'son-kim': 'Đỏ son – vàng kim',
@@ -15,6 +28,10 @@ export const FRAME_LABELS: Record<FrameStyle, string> = {
   'hoang-gia': 'Hoàng gia (tím – vàng)',
   'trieu-nguyen': 'Triều Nguyễn (huyết dụ – vàng)',
   'tram-huong': 'Trầm hương (nâu bronze)',
+  'cuon-thu': 'Cuốn thư (giấy da, trục gỗ)',
+  'hoanh-phi': 'Hoành phi (viền son, tròn vàng)',
+  'dong-son': 'Đông Sơn (trống đồng)',
+  'gam-hoa': 'Gấm hoa (nền gấm ô thoi)',
   none: 'Không khung',
 };
 
@@ -39,6 +56,10 @@ const PALETTES: Record<FrameStyle, Palette> = {
   'hoang-gia': { background: '#f7f0fa', outer: '#5b2a86', inner: '#b8892b', ornament: '#b8892b', title: '#4a1f6e', text: '#3a1a57' },
   'trieu-nguyen': { background: '#f6ece4', outer: '#5c1414', inner: '#c99a3e', ornament: '#c99a3e', title: '#5c1414', text: '#4a2a12' },
   'tram-huong': { background: '#f1e8da', outer: '#4a3018', inner: '#8a6a3f', ornament: '#8a6a3f', title: '#4a3018', text: '#4a3018' },
+  'cuon-thu': { background: '#f4e9d0', outer: '#5a3a1f', inner: '#8a6a3f', ornament: '#b8892b', title: '#5a3a1f', text: '#4a3018' },
+  'hoanh-phi': { background: '#fbf4e4', outer: '#8a1c1c', inner: '#c99a3e', ornament: '#c99a3e', title: '#8a1c1c', text: '#5a2a12' },
+  'dong-son': { background: '#f2ead9', outer: '#2f5d50', inner: '#8a6a3f', ornament: '#8a6a3f', title: '#1f4a3e', text: '#3b2a14' },
+  'gam-hoa': { background: '#fbf4e4', outer: '#8a1c1c', inner: '#c99a3e', ornament: '#c99a3e', title: '#8a1c1c', text: '#5a2a12' },
   none: { background: '#ffffff', outer: '#ffffff', inner: '#ffffff', ornament: '#ffffff', title: '#8a1c1c', text: '#1f1a17' },
 };
 
@@ -110,6 +131,169 @@ const cornerKey = (cx: number, cy: number, size: number, sx: 1 | -1, sy: 1 | -1,
   ];
 };
 
+/** Các khung "hoạ tiết riêng" (không theo mẫu hai khung + hồi văn góc): cuốn thư, hoành phi, Đông Sơn, gấm hoa. */
+const SIGNATURE_STYLES = new Set<FrameStyle>(['cuon-thu', 'hoanh-phi', 'dong-son', 'gam-hoa']);
+
+type Page = { width: number; height: number };
+
+const rectItem = (x: number, y: number, width: number, height: number, stroke: string, strokeWidth: number, extra: Partial<Extract<DrawItem, { type: 'rect' }>> = {}): DrawItem => ({
+  type: 'rect',
+  x,
+  y,
+  width,
+  height,
+  radius: 0,
+  fill: 'none',
+  stroke,
+  strokeWidth,
+  ...extra,
+});
+/** Hình tròn = ô vuông bo hết cỡ (bản vẽ không có hình tròn riêng). */
+const circleItem = (cx: number, cy: number, r: number, fill: string, stroke: string, strokeWidth: number): DrawItem =>
+  rectItem(cx - r, cy - r, 2 * r, 2 * r, stroke, strokeWidth, { radius: r, fill });
+const strokeItem = (points: [number, number][], stroke: string, strokeWidth: number, seamless = true): DrawItem => ({ type: 'line', points, stroke, strokeWidth, seamless });
+const diamondItem = (cx: number, cy: number, r: number, stroke: string, strokeWidth: number): DrawItem =>
+  strokeItem([[cx, cy - r], [cx + r, cy], [cx, cy + r], [cx - r, cy], [cx, cy - r]], stroke, strokeWidth);
+
+/** Đường gấp khúc răng cưa dọc một đoạn thẳng (`from`→`to`), nhô vào phía `normal` một khoảng `depth`. */
+const zigzag = (from: [number, number], to: [number, number], normal: [number, number], depth: number, idealPeriod: number): [number, number][] => {
+  const length = Math.hypot(to[0] - from[0], to[1] - from[1]);
+  const teeth = Math.max(1, Math.round(length / idealPeriod));
+  return Array.from({ length: teeth * 2 + 1 }, (_, index): [number, number] => {
+    const t = index / (teeth * 2);
+    const out = index % 2 === 1 ? depth : 0;
+    return [from[0] + (to[0] - from[0]) * t + normal[0] * out, from[1] + (to[1] - from[1]) * t + normal[1] * out];
+  });
+};
+
+/** Lưới ô thoi (hai họ đường chéo) chỉ nằm trong dải giữa hình chữ nhật ngoài (`outer` lề) và trong (`inner` lề). */
+const latticeBand = (page: Page, outer: number, inner: number, period: number, color: string, width: number): DrawItem[] => {
+  const items: DrawItem[] = [];
+  const { width: w, height: h } = page;
+  for (const slope of [1, -1] as const) {
+    // Đường y = slope·x + k; đoạn trong khung [lề, kích thước − lề] theo x.
+    const span = (margin: number, k: number): [number, number] =>
+      slope === 1 ? [Math.max(margin, margin - k), Math.min(w - margin, h - margin - k)] : [Math.max(margin, k - h + margin), Math.min(w - margin, k - margin)];
+    const first = slope === 1 ? -w : 0;
+    const last = slope === 1 ? h : w + h;
+    for (let k = first; k <= last; k += period) {
+      const [x1, x2] = span(outer, k);
+      if (x2 - x1 < 1e-6) continue;
+      const [i1, i2] = span(inner, k);
+      const pieces: [number, number][] = i2 - i1 > 1e-6 ? [[x1, Math.min(x2, i1)], [Math.max(x1, i2), x2]] : [[x1, x2]];
+      for (const [from, to] of pieces) {
+        if (to - from > 1e-6) items.push(strokeItem([[from, slope * from + k], [to, slope * to + k]], color, width, false));
+      }
+    }
+  }
+  return items;
+};
+
+/**
+ * Cuốn thư: giấy da giữa hai trục cuộn gỗ có núm vàng, viền đôi mảnh, góc vuông.
+ * Hoành phi: viền dày đỏ son kiểu bức hoành phi, chỉ vàng, tròn vàng ở góc và giữa cạnh trên/dưới.
+ * Đông Sơn: viền xanh gỉ đồng, dải chấm, dải răng cưa, bốn mặt trời trống đồng ở góc.
+ * Gấm hoa: viền đỏ son, nền gấm ô thoi vàng nhạt làm khung lót quanh ô trắng sạch cho cây và chữ.
+ */
+const signatureFrame = (page: Page, style: FrameStyle, unit: number): { items: DrawItem[]; inset: number } => {
+  const palette = PALETTES[style];
+  const { width: w, height: h } = page;
+  const u = unit;
+  const items: DrawItem[] = [rectItem(0, 0, w, h, palette.background, 0, { fill: palette.background })];
+
+  if (style === 'cuon-thu') {
+    const roller = palette.outer;
+    for (const top of [true, false]) {
+      const y = top ? 2.6 * u : h - 5.8 * u;
+      items.push(rectItem(4 * u, y, w - 8 * u, 3.2 * u, roller, 0, { radius: 1.6 * u, fill: roller }));
+      items.push(strokeItem([[6 * u, y + 0.9 * u], [w - 6 * u, y + 0.9 * u]], '#a27b4f', 0.25 * u, false));
+      for (const x of [3.2 * u, w - 3.2 * u]) items.push(circleItem(x, y + 1.6 * u, 2.2 * u, palette.ornament, roller, 0.4 * u));
+    }
+    for (const x of [6.5 * u, w - 6.5 * u]) items.push(strokeItem([[x, 5.8 * u], [x, h - 5.8 * u]], palette.inner, 0.3 * u, false));
+    items.push(rectItem(8 * u, 8.5 * u, w - 16 * u, h - 17 * u, palette.ornament, 0.2 * u), rectItem(8.9 * u, 9.4 * u, w - 17.8 * u, h - 18.8 * u, palette.inner, 0.1 * u));
+    const arm = 2.4 * u;
+    for (const [x, y, sx, sy] of [[9.9 * u, 11 * u, 1, 1], [w - 9.9 * u, 11 * u, -1, 1], [9.9 * u, h - 11 * u, 1, -1], [w - 9.9 * u, h - 11 * u, -1, -1]] as const) {
+      items.push(strokeItem([[x, y + sy * arm], [x, y], [x + sx * arm, y]], palette.ornament, 0.25 * u));
+    }
+    return { items, inset: 14 * u };
+  }
+
+  if (style === 'hoanh-phi') {
+    items.push(
+      rectItem(1.6 * u, 1.6 * u, w - 3.2 * u, h - 3.2 * u, palette.inner, 0.2 * u),
+      rectItem(3.3 * u, 3.3 * u, w - 6.6 * u, h - 6.6 * u, palette.outer, 3.2 * u),
+      rectItem(5 * u, 5 * u, w - 10 * u, h - 10 * u, palette.inner, 0.33 * u),
+      rectItem(3.3 * u, 3.3 * u, w - 6.6 * u, h - 6.6 * u, palette.inner, 0.13 * u, { dash: [0.26 * u, 0.9 * u] }),
+      rectItem(6.8 * u, 6.8 * u, w - 13.6 * u, h - 13.6 * u, palette.outer, 0.2 * u),
+    );
+    const roundels: [number, number, number][] = [
+      [3.4 * u, 3.4 * u, 3.4 * u],
+      [w - 3.4 * u, 3.4 * u, 3.4 * u],
+      [3.4 * u, h - 3.4 * u, 3.4 * u],
+      [w - 3.4 * u, h - 3.4 * u, 3.4 * u],
+      [w / 2, 3.3 * u, 2.2 * u],
+      [w / 2, h - 3.3 * u, 2.2 * u],
+    ];
+    for (const [cx, cy, r] of roundels) items.push(circleItem(cx, cy, r, palette.outer, palette.inner, 0.4 * u), circleItem(cx, cy, r * 0.5, 'none', palette.inner, 0.26 * u));
+    const size = 3 * u;
+    const at = 7.8 * u;
+    for (const [x, y, sx, sy] of [[at, at, 1, 1], [w - at, at, -1, 1], [at, h - at, 1, -1], [w - at, h - at, -1, -1]] as const) {
+      items.push(strokeItem([[x, y + sy * size], [x, y], [x + sx * size, y], [x + sx * size, y + sy * u * 0.8], [x + sx * u * 0.8, y + sy * u * 0.8], [x + sx * u * 0.8, y + sy * size]], palette.inner, 0.3 * u));
+    }
+    return { items, inset: 11.8 * u };
+  }
+
+  if (style === 'dong-son') {
+    const centers: [number, number][] = [[7.6 * u, 7.6 * u], [w - 7.6 * u, 7.6 * u], [7.6 * u, h - 7.6 * u], [w - 7.6 * u, h - 7.6 * u]];
+    items.push(
+      rectItem(2.2 * u, 2.2 * u, w - 4.4 * u, h - 4.4 * u, palette.outer, 0.8 * u),
+      rectItem(3.6 * u, 3.6 * u, w - 7.2 * u, h - 7.2 * u, palette.inner, 0.2 * u),
+      rectItem(4.8 * u, 4.8 * u, w - 9.6 * u, h - 9.6 * u, palette.inner, 0.7 * u, { dash: [0.7 * u, 1.3 * u] }),
+      rectItem(6 * u, 6 * u, w - 12 * u, h - 12 * u, palette.inner, 0.2 * u),
+      rectItem(9.7 * u, 9.7 * u, w - 19.4 * u, h - 19.4 * u, palette.outer, 0.2 * u),
+    );
+    const from = 13.2 * u;
+    const period = 3.7 * u;
+    items.push(
+      strokeItem(zigzag([from, 7.4 * u], [w - from, 7.4 * u], [0, 1], 1.4 * u, period), palette.inner, 0.2 * u),
+      strokeItem(zigzag([from, h - 7.4 * u], [w - from, h - 7.4 * u], [0, -1], 1.4 * u, period), palette.inner, 0.2 * u),
+      strokeItem(zigzag([7.4 * u, from], [7.4 * u, h - from], [1, 0], 1.4 * u, period), palette.inner, 0.2 * u),
+      strokeItem(zigzag([w - 7.4 * u, from], [w - 7.4 * u, h - from], [-1, 0], 1.4 * u, period), palette.inner, 0.2 * u),
+    );
+    for (const [cx, cy] of centers) {
+      items.push(
+        circleItem(cx, cy, 5 * u, palette.background, palette.background, 0),
+        circleItem(cx, cy, 3.4 * u, 'none', palette.outer, 0.4 * u),
+        circleItem(cx, cy, 2.4 * u, 'none', palette.inner, 0.2 * u),
+        circleItem(cx, cy, 1.4 * u, 'none', palette.outer, 0.4 * u),
+        circleItem(cx, cy, 0.5 * u, palette.inner, palette.inner, 0),
+      );
+      for (let ray = 0; ray < 12; ray += 1) {
+        const angle = (ray * Math.PI) / 6;
+        const [dx, dy] = [Math.cos(angle), Math.sin(angle)];
+        items.push(strokeItem([[cx + dx * 3.7 * u, cy + dy * 3.7 * u], [cx + dx * 4.7 * u, cy + dy * 4.7 * u]], palette.inner, 0.3 * u));
+      }
+    }
+    return { items, inset: 13 * u };
+  }
+
+  // gam-hoa
+  const matOuter = 5.3 * u;
+  const panel = 9.2 * u;
+  items.push(...latticeBand(page, matOuter, panel, 3.95 * u, '#dcc58f', 0.15 * u));
+  items.push(
+    rectItem(2.9 * u, 2.9 * u, w - 5.8 * u, h - 5.8 * u, palette.outer, 0.8 * u),
+    rectItem(4.7 * u, 4.7 * u, w - 9.4 * u, h - 9.4 * u, palette.inner, 0.2 * u),
+    rectItem(panel, panel, w - 2 * panel, h - 2 * panel, palette.inner, 0.33 * u, { fill: '#fffdf7' }),
+    rectItem(10.5 * u, 10.5 * u, w - 21 * u, h - 21 * u, palette.outer, 0.13 * u),
+  );
+  const corner = 6.6 * u;
+  for (const [cx, cy] of [[corner, corner], [w - corner, corner], [corner, h - corner], [w - corner, h - corner]] as const) {
+    items.push(diamondItem(cx, cy, 1.5 * u, palette.outer, 1.5 * u), diamondItem(cx, cy, 2.6 * u, palette.inner, 0.3 * u));
+  }
+  return { items, inset: 11.5 * u };
+};
+
 const frameItems = (page: { width: number; height: number }, style: FrameStyle, unit: number): { items: DrawItem[]; inset: number } => {
   const palette = PALETTES[style];
   const background: DrawItem = {
@@ -124,6 +308,7 @@ const frameItems = (page: { width: number; height: number }, style: FrameStyle, 
     strokeWidth: 0,
   };
   if (style === 'none') return { items: [background], inset: BASE_MARGIN };
+  if (SIGNATURE_STYLES.has(style)) return signatureFrame(page, style, unit);
 
   const rect = (inset: number, stroke: string, width: number): DrawItem => ({
     type: 'rect',
@@ -203,15 +388,27 @@ export const layoutDecoration = (page: { width: number; height: number }, decora
   let top = inset;
   const title = decoration.title.trim() || defaultTitle(treeName);
   if (title) {
-    const sizeMm = Math.min(unit * 7, (page.width - 2 * inset) / Math.max(8, title.length * 0.55));
+    const sizeMm = fitSize(title, unit * 7, true, page.width - 2 * inset);
     above.push({ type: 'text', x: page.width / 2, y: top + sizeMm * 0.6, text: title, sizePt: sizeMm * PT_PER_MM, bold: true, color: palette.title });
     top += sizeMm * 1.3;
   }
   const subtitle = decoration.subtitle.trim();
   if (subtitle) {
-    const sizeMm = Math.min(unit * 3, (page.width - 2 * inset) / Math.max(10, subtitle.length * 0.5));
+    const sizeMm = fitSize(subtitle, unit * 3, false, page.width - 2 * inset);
     above.push({ type: 'text', x: page.width / 2, y: top + sizeMm * 0.6, text: subtitle, sizePt: sizeMm * PT_PER_MM, bold: false, color: palette.text });
     top += sizeMm * 1.4;
+  }
+  if (SIGNATURE_STYLES.has(decoration.frame) && (title || subtitle)) {
+    // Vạch ngăn dưới tiêu đề: gạch – thoi – gạch.
+    const y = top + unit * 0.6;
+    const arm = unit * 11;
+    const gap = unit * 3;
+    above.push(
+      strokeItem([[page.width / 2 - gap - arm, y], [page.width / 2 - gap, y]], palette.ornament, unit * 0.2, false),
+      strokeItem([[page.width / 2 + gap, y], [page.width / 2 + gap + arm, y]], palette.ornament, unit * 0.2, false),
+      diamondItem(page.width / 2, y, unit * 0.8, palette.ornament, unit * 0.5),
+    );
+    top += unit * 2.4;
   }
   if (title || subtitle) top += unit * 2;
 
@@ -219,10 +416,15 @@ export const layoutDecoration = (page: { width: number; height: number }, decora
   let right = inset;
   const columns = [words(decoration.coupletLeft), words(decoration.coupletRight)];
   if (columns.some((column) => column.length > 0)) {
-    const columnWidth = unit * 7;
     const availableHeight = page.height - top - inset;
     const longest = Math.max(...columns.map((column) => column.length), 1);
-    const sizeMm = Math.min(columnWidth * 0.55, availableHeight / (longest * 1.45));
+    // Cột rộng theo chữ thật (độ rộng đo theo phông, không ước theo số ký tự): chữ không bao giờ tràn sang vùng cây.
+    const widestEm = Math.max(...columns.flat().map((word) => textWidthEm(word, true)));
+    const padding = unit * 1.2;
+    const maxColumn = page.width * 0.18;
+    let sizeMm = Math.min(unit * 3.85, availableHeight / (longest * 1.45));
+    if (widestEm * sizeMm + padding > maxColumn) sizeMm = (maxColumn - padding) / widestEm;
+    const columnWidth = Math.max(unit * 7, widestEm * sizeMm + padding);
     const drawColumn = (column: string[], centerX: number) => {
       const blockHeight = column.length * sizeMm * 1.45;
       let y = top + (availableHeight - blockHeight) / 2 + sizeMm * 0.7;

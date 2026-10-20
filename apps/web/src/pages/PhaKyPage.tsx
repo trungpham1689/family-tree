@@ -8,7 +8,7 @@ import { TreePageShell } from '../tree/TreePageShell';
 import { kindLabel } from '../family/labels';
 import { useTreeExport } from '../export/use-tree-export';
 import { branchSummaries, buildNarrative, closingNote, notablePersons, originSummary } from '../pha-ky/narrative';
-import { buildFrontSections, toPdfSections, type PhaKySection } from '../pha-ky/sections';
+import { buildFrontSections, type PhaKySection } from '../pha-ky/sections';
 import { Button } from '../ui/Button';
 import { ErrorBanner } from '../ui/fields';
 
@@ -44,8 +44,8 @@ const PhaKyBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Per
   const exportPdf = () =>
     runExport('pha-ky-pdf', {
       generations,
-      front: toPdfSections(frontSections),
-      back: generations.length > 0 ? [{ heading: 'Lời kết', paragraphs: [closingNote(today)] }] : [],
+      front: frontSections,
+      closing: generations.length > 0 ? closingNote(today) : null,
       photos: { cover: cover.data, people: avatars.data },
     });
 
@@ -62,154 +62,179 @@ const PhaKyBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Per
       <p className="mt-1 text-ink-muted">Nguồn gốc, các chi, nhân vật tiêu biểu và văn bản tường thuật từng đời — suy từ dữ liệu Người đã ghi.</p>
       {exportError && <ErrorBanner>{exportError}</ErrorBanner>}
 
-      {(
-        <div className="mt-6 space-y-8">
-          {generations.length === 0 && <p className="text-ink-muted">Gia phả chưa có ai.</p>}
+      <div className="mt-6">
+        {generations.length === 0 && <p className="text-ink-muted">Gia phả chưa có ai.</p>}
 
-          {cover.data && <img src={cover.data} alt={`Ảnh gia phả ${tree.name}`} className="mx-auto max-h-80 rounded-2xl border border-line object-cover" />}
+        {cover.data && <img src={cover.data} alt={`Ảnh gia phả ${tree.name}`} className="mx-auto mb-9 max-h-80 border border-line object-cover" />}
 
-          {frontSections.map((section) => (
-            <FrontSection key={section.kind} section={section} />
-          ))}
-          {generations.map((group) => (
-            <section key={group.generation}>
-              <div className="flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-son/20 pb-2">
-                <h2 className="font-serif text-2xl font-bold text-son">Đời {group.generation}</h2>
-                <p className="text-sm text-ink-muted">
-                  {group.total} người
-                  {group.male + group.female > 0 ? ` · ${group.male} nam · ${group.female} nữ` : ''}
-                </p>
-              </div>
-              <div className="mt-4 space-y-5 border-l-2 border-line pl-6">
-                {group.items.map((item, index) => {
-                  // Cùng quy ước với Phả đồ: viền vàng kim = Nam, viền đỏ son = Nữ; nét đứt = Dâu/Rể (vào họ), nét liền = huyết thống.
-                  const genderBorder = item.gender === 'nam' ? 'border-kim' : item.gender === 'nu' ? 'border-son' : 'border-[#a39a8f]';
-                  const dashed = item.kind === 'dau_re';
-                  return (
-                  <article key={item.personId} id={item.personId} className="relative -ml-px target:rounded-xl target:bg-kim-soft/40">
-                    <span
-                      aria-hidden="true"
-                      className={`absolute -left-[1.9rem] size-3.5 rounded-full border-2 bg-paper ${genderBorder} ${dashed ? 'border-dashed' : 'border-solid'} ${index === 0 ? 'top-0' : 'top-1'}`}
-                    />
-                    <div className="flex items-start gap-3">
-                    <div className="min-w-0 flex-1">
-                    <h3 className="flex flex-wrap items-baseline gap-2 font-serif text-lg font-bold">
-                      {item.name}
-                      {item.adopted && <span role="img" aria-label="Con nuôi" title="Con nuôi" className="size-2 self-center rounded-full bg-ink-muted" />}
-                      {item.lifespan && <span className="text-sm font-normal text-ink-muted">({item.lifespan})</span>}
-                      {item.kind !== 'dinh' && (
-                        <span className="rounded-full bg-son/10 px-2 py-0.5 text-xs font-semibold text-son">
-                          {kindLabel(item.kind, item.gender)}
-                        </span>
-                      )}
-                    </h3>
-                    {item.detail && <p className="mt-1 leading-relaxed text-ink">{item.detail}</p>}
-                    </div>
-                    {avatars.data?.get(item.personId) && (
-                      <img src={avatars.data.get(item.personId)} alt={item.name} className="size-20 shrink-0 rounded-lg border border-line object-cover" />
-                    )}
-                    </div>
-                  </article>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
+        {frontSections.map((section, index) => (
+          <FrontSection key={section.kind} section={section} numeral={ROMAN[index] ?? null} />
+        ))}
 
-          {generations.length > 0 && (
-            <section aria-label="Chú thích" className="rounded-2xl border border-line bg-surface px-5 py-4 text-sm text-ink-muted">
-              <p>Chấm tròn trước mỗi tên dùng chung quy ước với Phả đồ:</p>
-              <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-                <span className="flex items-center gap-1.5">
-                  <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-kim bg-paper" /> Nam
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-son bg-paper" /> Nữ
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-dashed border-kim bg-paper" /> Dâu/Rể (viền đứt — vào họ, không cùng huyết thống)
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span aria-hidden="true" className="size-2 rounded-full bg-ink-muted" /> Con nuôi (chấm đặc cạnh tên)
-                </span>
+        {generations.map((group) => (
+          <section key={group.generation} className="mt-9">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 border-b-[3px] border-double border-son pb-2">
+              <h2 className="font-serif text-3xl font-bold text-son">Đời {group.generation}</h2>
+              <p className="text-[13px] text-ink-muted">
+                {group.total} người
+                {group.male + group.female > 0 ? ` · ${group.male} nam · ${group.female} nữ` : ''}
               </p>
-            </section>
-          )}
+            </div>
+            <div className="mt-3 ml-1.5">
+              {group.items.map((item) => {
+                const dashed = item.kind === 'dau_re';
+                const photo = avatars.data?.get(item.personId);
+                return (
+                  <article
+                    key={item.personId}
+                    id={item.personId}
+                    className="relative grid gap-x-3 py-2.5 pl-6 target:bg-kim-soft/40 sm:grid-cols-[1fr_auto] [&:not(:last-child)]:before:absolute [&:not(:last-child)]:before:top-6 [&:not(:last-child)]:before:-bottom-6 [&:not(:last-child)]:before:-left-0.5 [&:not(:last-child)]:before:w-0.5 [&:not(:last-child)]:before:bg-line"
+                  >
+                    <span aria-hidden="true" className={`absolute top-[1.125rem] -left-[7px] size-3 rounded-full border-2 ${genderDot(item.gender)} ${dashed ? 'border-dashed' : 'border-solid'}`} />
+                    <div className="min-w-0">
+                      <h3 className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 font-serif text-lg font-bold">
+                        {item.name}
+                        {item.adopted && <span role="img" aria-label="Con nuôi" title="Con nuôi" className="size-2 self-center rounded-full bg-ink-muted" />}
+                        {item.lifespan && <span className="text-sm font-normal text-ink-muted">({item.lifespan})</span>}
+                        {item.kind !== 'dinh' && (
+                          <span className="rounded-full bg-son/10 px-2 py-0.5 font-sans text-[11px] font-bold uppercase tracking-[0.12em] text-son">
+                            {kindLabel(item.kind, item.gender)}
+                          </span>
+                        )}
+                      </h3>
+                      {item.detail && <p className="mt-1 text-justify text-[15px] leading-relaxed text-ink">{item.detail}</p>}
+                    </div>
+                    {photo && <img src={photo} alt={item.name} className="mt-2 size-[72px] border border-line object-cover sm:mt-0" />}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ))}
 
-          {generations.length > 0 && (
-            <section aria-label="Lời kết" className="rounded-2xl border border-dashed border-line px-5 py-4">
-              <p className="leading-relaxed text-ink-muted italic">{closingNote(today)}</p>
-            </section>
-          )}
-        </div>
-      )}
+        {generations.length > 0 && (
+          <section aria-label="Chú giải" className="mt-10">
+            <p className="text-xs font-bold tracking-[0.14em] text-ink-muted uppercase">Chú giải</p>
+            <ul className="mt-1.5 grid border-t border-line text-[13px] text-ink-muted sm:grid-cols-2 [&>li]:flex [&>li]:items-center [&>li]:gap-2.5 [&>li]:border-b [&>li]:border-line [&>li]:py-2">
+              <li>
+                <span aria-hidden="true" className={`size-3 rounded-full border-2 ${genderDot('nam')}`} /> Nam
+              </li>
+              <li>
+                <span aria-hidden="true" className={`size-3 rounded-full border-2 ${genderDot('nu')}`} /> Nữ
+              </li>
+              <li>
+                <span aria-hidden="true" className={`size-3 shrink-0 rounded-full border-2 border-dashed ${genderDot('nu')}`} /> Dâu / Rể (vào họ, không cùng huyết thống)
+              </li>
+              <li>
+                <span aria-hidden="true" className="size-2 rounded-full bg-ink-muted" /> Con nuôi (chấm đặc cạnh tên)
+              </li>
+            </ul>
+          </section>
+        )}
+
+        {generations.length > 0 && (
+          <section aria-label="Lời kết" className="mt-9">
+            <SectionHeading numeral={null} title="Lời kết" />
+            <p className="mt-3.5 text-justify leading-[1.65] text-ink">{closingNote(today)}</p>
+          </section>
+        )}
+      </div>
     </>
   );
 };
 
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+
+/** Chấm giới tính (cùng quy ước màu với Phả đồ): viền vàng kim = Nam, đỏ son = Nữ, xám = chưa rõ; nền trắng đặc để đường kẻ dọc không xuyên qua chấm. */
+const genderDot = (gender: string | null) => (gender === 'nam' ? 'border-kim bg-surface' : gender === 'nu' ? 'border-son bg-surface' : 'border-[#a39a8f] bg-surface');
+
+/** Tiêu đề mục kiểu văn bản: số La Mã vàng kim, tên son đậm, gạch chân vàng kim (PDF vẽ y như vậy). */
+const SectionHeading = ({ numeral, title }: { numeral: string | null; title: string }) => (
+  <div className="flex items-baseline gap-3.5 border-b border-kim pb-1.5">
+    {numeral && <span className="text-sm font-bold tracking-[0.1em] text-kim-text">{numeral}.</span>}
+    <h2 className="font-serif text-[22px] leading-tight font-bold text-son">{title}</h2>
+  </div>
+);
+
+const Note = ({ children }: { children: string }) => <p className="mt-1.5 text-sm text-ink-muted">{children}</p>;
+
 /** Một khối trước phần theo Đời, vẽ từ dữ liệu của `buildFrontSections` (cùng nguồn với file PDF). */
-const FrontSection = ({ section }: { section: PhaKySection }) => {
-  switch (section.kind) {
-    case 'intro':
-      return (
-        <section aria-label={section.heading} className="rounded-2xl border border-son/30 bg-son/5 p-5">
-          <h2 className="font-serif text-xl font-bold text-son">{section.heading}</h2>
-          <p className="mt-2 whitespace-pre-line leading-relaxed italic">{section.text}</p>
-        </section>
-      );
-    case 'origin':
-      return (
-        <section aria-label={section.heading} className="rounded-2xl border border-line bg-surface p-5">
-          <h2 className="font-serif text-xl font-bold">{section.heading}</h2>
-          <p className="mt-2 leading-relaxed">
-            {section.before}
-            <a href={`#${section.progenitorId}`} className="font-semibold text-son hover:underline">
-              {section.progenitorName}
-            </a>
-            {section.after}
-          </p>
-          {section.facts.length > 0 && (
-            <ul className="mt-3 space-y-1 text-ink-muted">
-              {section.facts.map((fact) => (
-                <li key={fact}>{fact}</li>
+const FrontSection = ({ section, numeral }: { section: PhaKySection; numeral: string | null }) => {
+  const body = (() => {
+    switch (section.kind) {
+      case 'intro':
+        return <p className="mt-3.5 whitespace-pre-line text-justify leading-[1.65]">{section.text}</p>;
+      case 'origin':
+        return (
+          <>
+            <p className="mt-3.5 text-justify leading-[1.65]">
+              {section.before}
+              <a href={`#${section.progenitorId}`} className="font-bold text-son hover:underline">
+                {section.progenitorName}
+              </a>
+              {section.after}
+            </p>
+            {section.facts.length > 0 && (
+              <dl className="mt-3 divide-y divide-line border-y border-line">
+                {section.facts.map((fact) => (
+                  <div key={fact.label} className="grid grid-cols-[6.5rem_1fr] items-baseline gap-3 py-2 sm:grid-cols-[9.9rem_1fr]">
+                    <dt className="text-[11px] font-bold tracking-[0.14em] text-kim-text uppercase">{fact.label}</dt>
+                    <dd>{fact.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </>
+        );
+      case 'branches':
+        return (
+          <>
+            <table className="mt-3 w-full text-left">
+              <thead>
+                <tr className="border-t-2 border-son border-b border-line text-[11px] tracking-[0.14em] text-ink-muted uppercase">
+                  <th scope="col" className="w-20 py-1.5 pr-3 font-bold">Chi</th>
+                  <th scope="col" className="py-1.5 pr-3 font-bold">Người đứng đầu chi</th>
+                  <th scope="col" className="py-1.5 text-right font-bold">Thành viên</th>
+                </tr>
+              </thead>
+              <tbody>
+                {section.items.map((item, index) => (
+                  <tr key={item.id} className="border-b border-line">
+                    <td className="py-2 pr-3 font-bold text-son">Chi {index + 1}</td>
+                    <td className="py-2 pr-3">
+                      <a href={`#${item.id}`} className="hover:text-son hover:underline">
+                        {item.name}
+                      </a>
+                    </td>
+                    <td className="py-2 text-right whitespace-nowrap">{item.memberCount} người</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        );
+      case 'notable':
+        return (
+          <>
+            <Note>Theo ô "Chức vụ / danh hiệu" trong hồ sơ từng người.</Note>
+            <ul className="mt-2 divide-y divide-line border-b border-line">
+              {section.items.map((item) => (
+                <li key={item.id} className="flex flex-wrap items-baseline justify-between gap-x-3 py-2">
+                  <a href={`#${item.id}`} className="font-bold hover:text-son hover:underline">
+                    {item.name}
+                  </a>
+                  <span className="text-ink-muted">{item.title}</span>
+                </li>
               ))}
             </ul>
-          )}
-        </section>
-      );
-    case 'branches':
-      return (
-        <section aria-label={section.heading} className="rounded-2xl border border-line bg-surface p-5">
-          <h2 className="font-serif text-xl font-bold">{section.heading}</h2>
-          <p className="mt-1 text-sm text-ink-muted">Mỗi chi do một người con của Thuỷ tổ (Đời 2) lập ra.</p>
-          <ul className="mt-3 space-y-2">
-            {section.items.map((item) => (
-              <li key={item.id}>
-                <a href={`#${item.id}`} className="font-semibold text-son hover:underline">
-                  {item.name}
-                </a>
-                <span className="text-ink-muted"> — {item.memberCount} người</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      );
-    case 'notable':
-      return (
-        <section aria-label={section.heading} className="rounded-2xl border border-line bg-surface p-5">
-          <h2 className="font-serif text-xl font-bold">{section.heading}</h2>
-          <p className="mt-1 text-sm text-ink-muted">Theo ô "Chức vụ / danh hiệu" trong hồ sơ từng người.</p>
-          <ul className="mt-3 space-y-2">
-            {section.items.map((item) => (
-              <li key={item.id}>
-                <a href={`#${item.id}`} className="font-semibold text-son hover:underline">
-                  {item.name}
-                </a>
-                <span className="text-ink-muted"> — {item.title}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      );
-  }
+          </>
+        );
+    }
+  })();
+  return (
+    <section aria-label={section.heading} className="mt-9 first:mt-0">
+      <SectionHeading numeral={numeral} title={section.heading} />
+      {body}
+    </section>
+  );
 };

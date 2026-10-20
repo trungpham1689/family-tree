@@ -89,8 +89,8 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
   const exportPng = () => runExport('pha-do-png', { drawing: result.drawing, fontFamily: config.fontFamily, plan: pngPlan });
 
   return (
-    <div className="mt-4 grid gap-6 lg:grid-cols-[22rem_1fr]">
-      <aside className="space-y-3">
+    <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
+      <aside className="min-w-0 space-y-3">
         <Collapsible title="Phạm vi & nội dung" defaultOpen>
           <ScopeSettings graph={graph} config={config} onChange={update} />
 
@@ -115,7 +115,7 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
             Hiện ảnh đại diện trong mỗi ô
           </label>
 
-          <fieldset>
+          <fieldset className="min-w-0">
             <legend className="mb-1 font-medium">Thêm trong mỗi ô (tối đa 2 dòng)</legend>
             <p className="mb-2 text-sm text-ink-muted">Luôn có tên và năm sinh – mất.</p>
             {(Object.keys(EXTRA_LINE_LABELS) as ExtraLine[]).map((line) => {
@@ -138,7 +138,7 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
           </fieldset>
         </Collapsible>
 
-        <Collapsible title="Trang trí" defaultOpen>
+        <Collapsible title="Trang trí">
           <DecorationSettings treeName={tree.name} decoration={config.decoration} onChange={(patch) => update({ decoration: { ...config.decoration, ...patch } })} />
         </Collapsible>
 

@@ -39,7 +39,6 @@ import {
   discardStoredFiles,
   listPersonPhotoPaths,
   deleteTreeWithPhotos,
-  sweepOrphanPhotos,
   removePersonPhoto,
   removeTreePhoto,
   setAvatarPhoto,
@@ -92,8 +91,6 @@ export const useDeleteTree = (treeId: string) => {
     },
   });
 };
-
-export const useSweepOrphanPhotos = (treeId: string) => useMutation({ mutationFn: () => sweepOrphanPhotos(treeId) });
 
 export const useCreatePerson = (treeId: string) =>
   useMutationWithEffects((fields: PersonFields) => createPerson(treeId, fields), () => effects.family(treeId));

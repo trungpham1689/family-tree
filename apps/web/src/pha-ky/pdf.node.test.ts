@@ -26,12 +26,13 @@ const fonts = {
   bold: readFileSync(join(fontDir, 'NotoSerif-700Bold.ttf')).toString('binary'),
 };
 
+const meta = { treeName: 'Gia phả họ Phạm', date: '2026-10-20' };
+
 describe('xuất PDF Phả ký', () => {
   it('khổ A4, nhúng font tiếng Việt, vẽ được thẻ trước/sau cùng các Đời', () => {
     const generations = buildNarrative(family());
-    const before = [{ heading: 'Lời mở đầu', paragraphs: ['Dòng họ ta vốn ở Làng Đông.'] }];
-    const after = [{ heading: 'Lời kết', paragraphs: ['Mong con cháu tiếp tục bổ sung.'] }];
-    const doc = narrativeToPdf(generations, fonts, 'Phả ký họ Phạm', before, after);
+    const front = [{ kind: 'intro' as const, heading: 'Lời mở đầu', text: 'Dòng họ ta vốn ở Làng Đông.' }];
+    const doc = narrativeToPdf(generations, fonts, meta, front, 'Mong con cháu tiếp tục bổ sung.');
 
     expect(doc.internal.pageSize.getWidth()).toBeCloseTo(210, 1);
     expect(doc.internal.pageSize.getHeight()).toBeCloseTo(297, 1);
@@ -45,8 +46,8 @@ describe('xuất PDF Phả ký', () => {
     const jpeg =
       'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
     const generations = buildNarrative(family());
-    const plain = narrativeToPdf(generations, fonts, 'Phả ký họ Phạm').output('arraybuffer').byteLength;
-    const withPhotos = narrativeToPdf(generations, fonts, 'Phả ký họ Phạm', [], [], {
+    const plain = narrativeToPdf(generations, fonts, meta, [], null).output('arraybuffer').byteLength;
+    const withPhotos = narrativeToPdf(generations, fonts, meta, [], null, {
       cover: jpeg,
       people: new Map([['to', jpeg]]),
     }).output('arraybuffer').byteLength;

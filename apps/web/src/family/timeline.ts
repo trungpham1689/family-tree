@@ -6,6 +6,8 @@ export type TimelineEntry = {
   year: number;
   kind: TimelineKind;
   text: string;
+  /** Phần đầu của `text` là tên người (hoặc cặp vợ chồng): in đậm, bấm vào xem hồ sơ. Mốc lịch sử không có. */
+  subject?: string;
   /** Chi tiết phụ: "hưởng thọ 80 tuổi", "khoảng"… */
   detail?: string;
   /** Người để bấm vào xem hồ sơ (cuộc hôn phối thì là một trong hai người). */
@@ -21,6 +23,9 @@ type TimelinePerson = {
   death_approx?: boolean;
 };
 type TimelineUnion = { partner_a: string; partner_b: string; status: string; marriage_year?: number | null };
+
+/** Nhãn chữ của từng loại mốc (trang web viết hoa bằng CSS, PDF dùng toUpperCase). */
+export const KIND_LABEL: Record<TimelineKind, string> = { sinh: 'Sinh', cuoi: 'Kết hôn', mat: 'Qua đời', lich_su: 'Lịch sử' };
 
 const KIND_ORDER: Record<TimelineKind, number> = { sinh: 0, cuoi: 1, mat: 2, lich_su: 3 };
 
@@ -38,19 +43,19 @@ export const buildTimeline = (
 
   for (const person of persons) {
     if (person.birth_year !== null) {
-      entries.push({ year: person.birth_year, kind: 'sinh', text: `${person.full_name} chào đời`, personId: person.id, ...(person.birth_approx ? { detail: 'khoảng' } : {}) });
+      entries.push({ year: person.birth_year, kind: 'sinh', text: `${person.full_name} chào đời`, subject: person.full_name, personId: person.id, ...(person.birth_approx ? { detail: 'khoảng' } : {}) });
     }
     if (person.death_year !== null) {
       const age = person.birth_year !== null ? person.death_year - person.birth_year + 1 : null;
       const detail = [person.death_approx ? 'khoảng' : null, age !== null && age > 0 ? `hưởng thọ ${age} tuổi` : null].filter(Boolean).join(' · ');
-      entries.push({ year: person.death_year, kind: 'mat', text: `${person.full_name} qua đời`, personId: person.id, ...(detail ? { detail } : {}) });
+      entries.push({ year: person.death_year, kind: 'mat', text: `${person.full_name} qua đời`, subject: person.full_name, personId: person.id, ...(detail ? { detail } : {}) });
     }
   }
   for (const union of unions) {
     const a = byId.get(union.partner_a);
     const b = byId.get(union.partner_b);
     if (union.marriage_year == null || !a || !b) continue;
-    entries.push({ year: union.marriage_year, kind: 'cuoi', text: `${a.full_name} & ${b.full_name} kết hôn`, personId: a.id });
+    entries.push({ year: union.marriage_year, kind: 'cuoi', text: `${a.full_name} & ${b.full_name} kết hôn`, subject: `${a.full_name} & ${b.full_name}`, personId: a.id });
   }
 
   if (withHistory && entries.length > 0) {

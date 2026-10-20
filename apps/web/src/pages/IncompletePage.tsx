@@ -2,12 +2,18 @@ import { Link, useParams } from 'react-router';
 import type { Person } from '../data/trees';
 import { findIncomplete, REASON_LABELS } from '../people/incomplete';
 import { lifespanText } from '../people/person-display';
+import { DuplicatesSection } from '../people/DuplicatesSection';
 import { TreePageShell } from '../tree/TreePageShell';
 
-/** Người còn thiếu giới tính, năm sinh, hoặc năm mất — để bổ sung dần. */
+/** Người còn thiếu giới tính, năm sinh, hoặc năm mất — để bổ sung dần; kèm các Người nghi nhập trùng để gộp (Chủ sở hữu). */
 export const IncompletePage = () => {
   const { treeId = '' } = useParams();
-  return <TreePageShell treeId={treeId}>{({ graph }) => <IncompleteBody treeId={treeId} persons={graph.persons} />}</TreePageShell>;
+  return <TreePageShell treeId={treeId}>{({ graph, isOwner }) => (
+        <>
+          <IncompleteBody treeId={treeId} persons={graph.persons} />
+          {isOwner && <DuplicatesSection treeId={treeId} graph={graph} />}
+        </>
+      )}</TreePageShell>;
 };
 
 const IncompleteBody = ({ treeId, persons }: { treeId: string; persons: Person[] }) => {

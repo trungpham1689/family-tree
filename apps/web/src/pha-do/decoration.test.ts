@@ -56,4 +56,28 @@ describe('layoutDecoration', () => {
       }
     },
   );
+
+  it('gấm hoa: lưới ô thoi chỉ nằm trong dải khung lót, không vào ô trắng của cây', () => {
+    const { below } = layoutDecoration(PAGE, { ...DEFAULT_DECORATION, frame: 'gam-hoa' }, 'họ Nguyễn');
+    const unit = PAGE.width / 100;
+    const panel = 9.2 * unit;
+    const lattice = below.filter((item) => item.type === 'line' && !item.seamless && item.strokeWidth < 0.2 * unit);
+    expect(lattice.length).toBeGreaterThan(50);
+    for (const item of lattice) {
+      if (item.type !== 'line') continue;
+      for (const [x, y] of item.points) {
+        const inPanel = x > panel + 1e-6 && x < PAGE.width - panel - 1e-6 && y > panel + 1e-6 && y < PAGE.height - panel - 1e-6;
+        expect(inPanel).toBe(false);
+        expect(x).toBeGreaterThanOrEqual(5.3 * unit - 1e-6);
+        expect(y).toBeGreaterThanOrEqual(5.3 * unit - 1e-6);
+      }
+    }
+  });
+
+  it.each(['cuon-thu', 'hoanh-phi', 'dong-son', 'gam-hoa'] as FrameStyle[])('%s: có nhãn trong danh sách khung và vẽ nhiều chi tiết hơn khung tối giản', (frame) => {
+    expect(FRAME_LABELS[frame]).toBeTruthy();
+    const items = layoutDecoration(PAGE, { ...DEFAULT_DECORATION, frame }, 'họ Nguyễn').below;
+    const minimal = layoutDecoration(PAGE, { ...DEFAULT_DECORATION, frame: 'thanh-nha' }, 'họ Nguyễn').below;
+    expect(items.length).toBeGreaterThan(minimal.length);
+  });
 });

@@ -2,12 +2,14 @@ import type { Occurrence } from '@gia-pha/reminders';
 import { loadFontBinary } from '../data/pha-do';
 import type { Person, TreeWithRole } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
+import type { TimelineEntry } from '../family/timeline';
 import { downloadBlob, exportFileName } from '../lib/download';
 import type { Drawing } from '../pha-do/drawing';
 import { FONT_FAMILY_EXPORT_FILES, type PhaDoFontFamily } from '../pha-do/config';
 import type { PngPlan } from '../pha-do/png';
 import type { NarrativeGeneration } from '../pha-ky/narrative';
-import type { PdfPhotos, PdfSection } from '../pha-ky/pdf';
+import type { PdfPhotos } from '../pha-ky/pdf';
+import type { PhaKySection } from '../pha-ky/sections';
 import type { BackupProgress } from '../backup/download-backup';
 
 /**
@@ -27,9 +29,10 @@ export type ExportJobs = {
   'pha-do-pdf': { input: { drawing: Drawing; fontFamily: PhaDoFontFamily }; result: void };
   'pha-do-png': { input: { drawing: Drawing; fontFamily: PhaDoFontFamily; plan: PngPlan }; result: void };
   'pha-ky-pdf': {
-    input: { generations: NarrativeGeneration[]; front: PdfSection[]; back: PdfSection[]; photos: PdfPhotos };
+    input: { generations: NarrativeGeneration[]; front: PhaKySection[]; closing: string | null; photos: PdfPhotos };
     result: void;
   };
+  'timeline-pdf': { input: { entries: readonly TimelineEntry[] }; result: void };
   xlsx: { input: { graph: FamilyGraph<Person> }; result: void };
   'backup-zip': { input: { tree: TreeWithRole; onProgress: (progress: BackupProgress) => void }; result: { failedImages: number } };
   ics: { input: { occurrences: readonly Occurrence[] }; result: void };
@@ -59,9 +62,16 @@ export const EXPORT_JOBS: { [K in ExportKind]: Job<K> } = {
   },
   'pha-ky-pdf': {
     failure: 'Không tạo được file PDF. Hãy thử lại.',
-    run: async (treeName, date, { generations, front, back, photos }) => {
+    run: async (treeName, date, { generations, front, closing, photos }) => {
       const [{ narrativeToPdf }, fonts] = await Promise.all([import('../pha-ky/pdf'), loadFonts(NOTO)]);
-      narrativeToPdf(generations, fonts, `Phả ký ${treeName}`, front, back, photos).save(exportFileName('Pha-ky', treeName, date, 'pdf'));
+      narrativeToPdf(generations, fonts, { treeName, date }, front, closing, photos).save(exportFileName('Pha-ky', treeName, date, 'pdf'));
+    },
+  },
+  'timeline-pdf': {
+    failure: 'Không tạo được file PDF. Hãy thử lại.',
+    run: async (treeName, date, { entries }) => {
+      const [{ timelineToPdf }, fonts] = await Promise.all([import('../family/timeline-pdf'), loadFonts(NOTO)]);
+      timelineToPdf(entries, fonts, { treeName, date }).save(exportFileName('Dong-thoi-gian', treeName, date, 'pdf'));
     },
   },
   xlsx: {

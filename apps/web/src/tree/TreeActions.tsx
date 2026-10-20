@@ -6,7 +6,6 @@ import {
   useRemoveTreePhoto,
   useRenameTree,
   useSetTreePhoto,
-  useSweepOrphanPhotos,
 } from '../data/tree-queries';
 import type { BackupProgress } from '../backup/download-backup';
 import { ImagePicker } from '../people/PersonPhotos';
@@ -15,24 +14,6 @@ import type { FamilyGraph } from '../family/family-graph';
 import { useTreeExport } from '../export/use-tree-export';
 import { Button } from '../ui/Button';
 import { ErrorBanner, TextAreaField, TextField } from '../ui/fields';
-
-/** Dọn file ảnh mồ côi trên Google Drive (sót lại khi xoá ảnh lỗi hoặc ảnh dư khi gộp người trùng); chỉ Chủ sở hữu. */
-export const SweepPhotosButton = ({ tree }: { tree: TreeWithRole }) => {
-  const sweep = useSweepOrphanPhotos(tree.id);
-  return (
-    <>
-      <Button variant="secondary" disabled={sweep.isPending} onClick={() => sweep.mutate()}>
-        {sweep.isPending ? 'Đang dọn…' : 'Dọn ảnh mồ côi trên Drive'}
-      </Button>
-      {sweep.isError && <ErrorBanner>{sweep.error.message}</ErrorBanner>}
-      {sweep.isSuccess && (
-        <p role="status" className="basis-full text-sm text-ink-muted">
-          {sweep.data === 0 ? 'Không có ảnh mồ côi.' : `Đã xoá ${sweep.data} file ảnh không còn được dùng.`}
-        </p>
-      )}
-    </>
-  );
-};
 
 /** Tải một file .zip chứa toàn bộ dữ liệu và ảnh của gia phả để lưu trên máy. */
 export const BackupButton = ({ tree }: { tree: TreeWithRole }) => {

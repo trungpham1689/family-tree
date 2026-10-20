@@ -1,10 +1,9 @@
 import { anniversaryText } from '../people/person-display';
 import type { BranchSummary, NotablePerson, OriginSummary } from './narrative';
-import type { PdfSection } from './pdf';
 
 /**
  * Các khối trước phần theo Đời của Phả ký, dựng một lần dưới dạng dữ liệu: trang web vẽ chúng bằng JSX, file PDF
- * đổi sang đoạn văn (`toPdfSections`). Nội dung (chữ, thứ tự, khi nào có khối nào) nằm ở đây nên hai bản không lệch nhau.
+ * và file PDF vẽ bằng bảng/đoạn văn (`narrativeToPdf`) từ cùng dữ liệu này. Nội dung (chữ, thứ tự, khi nào có khối nào) nằm ở đây nên hai bản không lệch nhau.
  */
 export type PhaKySection =
   | { kind: 'intro'; heading: string; text: string }
@@ -17,7 +16,7 @@ export type PhaKySection =
       before: string;
       after: string;
       /** Giỗ, nơi thờ, mộ tổ — mỗi dòng một sự thật. */
-      facts: string[];
+      facts: { label: string; value: string }[];
     }
   | { kind: 'branches'; heading: string; items: { id: string; name: string; memberCount: number }[] }
   | { kind: 'notable'; heading: string; items: { id: string; name: string; title: string }[] };
@@ -33,12 +32,13 @@ export const buildFrontSections = (input: {
   const sections: PhaKySection[] = [];
   if (description) sections.push({ kind: 'intro', heading: 'Lời mở đầu', text: description });
   if (origin?.progenitorName && origin.progenitorId) {
+    const anniversary = anniversaryText({ day: origin.anniversaryDay, month: origin.anniversaryMonth }, today);
     const facts = [
-      ...(origin.anniversaryDay !== null && origin.anniversaryMonth !== null
-        ? [`Giỗ Thuỷ tổ: ${anniversaryText({ day: origin.anniversaryDay, month: origin.anniversaryMonth }, today)}`]
+      ...(anniversary ? [{ label: 'Giỗ Thuỷ tổ', value: anniversary }] : []),
+      ...(origin.worshipPlace
+        ? [{ label: 'Nơi thờ', value: `${origin.worshipPlace}${origin.worshipKeeper ? ` (người phụ trách: ${origin.worshipKeeper})` : ''}` }]
         : []),
-      ...(origin.worshipPlace ? [`Nơi thờ: ${origin.worshipPlace}${origin.worshipKeeper ? ` (người phụ trách: ${origin.worshipKeeper})` : ''}`] : []),
-      ...(origin.burialPlace ? [`Mộ tổ: ${origin.burialPlace}`] : []),
+      ...(origin.burialPlace ? [{ label: 'Mộ tổ', value: origin.burialPlace }] : []),
     ];
     sections.push({
       kind: 'origin',
@@ -58,18 +58,3 @@ export const buildFrontSections = (input: {
   }
   return sections;
 };
-
-/** Cùng nội dung dưới dạng đoạn văn cho PDF. */
-export const toPdfSections = (sections: readonly PhaKySection[]): PdfSection[] =>
-  sections.map((section) => {
-    switch (section.kind) {
-      case 'intro':
-        return { heading: section.heading, paragraphs: [section.text] };
-      case 'origin':
-        return { heading: section.heading, paragraphs: [`${section.before}${section.progenitorName}${section.after}`, ...section.facts] };
-      case 'branches':
-        return { heading: section.heading, paragraphs: section.items.map((item) => `${item.name} — ${item.memberCount} người.`) };
-      case 'notable':
-        return { heading: section.heading, paragraphs: section.items.map((item) => `${item.name} — ${item.title}`) };
-    }
-  });

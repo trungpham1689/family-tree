@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Person } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
 import { personLabel } from '../people/person-label';
@@ -10,8 +11,74 @@ import {
   type PhaDoConfig,
   type PhaDoFontFamily,
 } from './config';
-import { defaultTitle, FRAME_LABELS, type Decoration, type FrameStyle } from './decoration';
+import { DEFAULT_DECORATION, defaultTitle, FRAME_LABELS, layoutDecoration, type Decoration, type FrameStyle } from './decoration';
+import { drawingToSvg } from './svg';
 import { Select, TextField } from '../ui/fields';
+
+const THUMB_PAGE = { width: 297, height: 420 };
+const thumbnails = new Map<FrameStyle, string>();
+/** Ảnh xem trước một kiểu khung (chỉ khung, không chữ), dựng bằng chính bộ vẽ của Phả đồ nên luôn đúng với bản in. */
+const frameThumbnail = (frame: FrameStyle) => {
+  let url = thumbnails.get(frame);
+  if (!url) {
+    const { below } = layoutDecoration(THUMB_PAGE, { ...DEFAULT_DECORATION, frame }, '');
+    url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(drawingToSvg({ ...THUMB_PAGE, items: below }))}`;
+    thumbnails.set(frame, url);
+  }
+  return url;
+};
+const shortLabel = (frame: FrameStyle) => FRAME_LABELS[frame].split(' (')[0]!;
+
+/** Chọn kiểu khung: mặc định chỉ một dòng (ảnh + tên kiểu đang chọn); bấm mở lưới ảnh xem trước 4 cột, chọn xong tự thu lại. Không cuộn ngang. */
+const FramePicker = ({ frame, onChange }: { frame: FrameStyle; onChange: (frame: FrameStyle) => void }) => {
+  const [open, setOpen] = useState(false);
+  const styles = Object.keys(FRAME_LABELS) as FrameStyle[];
+  return (
+    <div>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className={`flex min-h-16 w-full items-center gap-3 border px-3 py-2 text-left ${open ? 'rounded-t-xl border-son bg-son/5' : 'rounded-xl border-line'}`}
+      >
+        <img src={frameThumbnail(frame)} alt="" width={40} height={56} className="h-14 w-10 shrink-0 border border-line bg-white object-cover" />
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold text-son">{shortLabel(frame)}</span>
+          <span className="block text-sm text-ink-muted">{open ? 'Chọn một kiểu bên dưới' : `${styles.length} kiểu khung · bấm để đổi`}</span>
+        </span>
+        <svg aria-hidden="true" viewBox="0 0 20 20" className={`size-4 shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`}>
+          <path d="M5 7.5l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div role="radiogroup" aria-label="Kiểu khung" className="grid grid-cols-4 gap-2 rounded-b-xl border border-t-0 border-line p-2 pt-3">
+          {styles.map((style) => (
+            <label
+              key={style}
+              title={FRAME_LABELS[style]}
+              className={`flex min-w-0 cursor-pointer flex-col items-center gap-1.5 rounded-xl border px-0.5 py-1.5 text-center has-focus-visible:outline-3 has-focus-visible:outline-kim ${
+                frame === style ? 'border-son bg-son/5 font-semibold text-son' : 'border-line'
+              }`}
+            >
+              <input
+                type="radio"
+                name="frame-style"
+                className="sr-only"
+                checked={frame === style}
+                onChange={() => {
+                  onChange(style);
+                  setOpen(false);
+                }}
+              />
+              <img src={frameThumbnail(style)} alt="" width={52} height={74} className="h-[74px] w-[52px] border border-line bg-white object-cover" />
+              <span className="w-full text-[11px] leading-tight [overflow-wrap:anywhere]">{shortLabel(style)}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const DecorationSettings = ({
   treeName,
@@ -22,21 +89,9 @@ export const DecorationSettings = ({
   decoration: Decoration;
   onChange: (patch: Partial<Decoration>) => void;
 }) => (
-  <fieldset className="space-y-3">
+  <fieldset className="min-w-0 space-y-3">
     <legend className="mb-1 font-medium">Trang trí</legend>
-    <div className="grid grid-cols-2 gap-2">
-      {(Object.keys(FRAME_LABELS) as FrameStyle[]).map((frame) => (
-        <label
-          key={frame}
-          className={`flex min-h-12 cursor-pointer items-center justify-center rounded-xl border px-2 text-center text-sm ${
-            decoration.frame === frame ? 'border-son bg-son/5 font-semibold text-son' : 'border-line'
-          }`}
-        >
-          <input type="radio" className="sr-only" checked={decoration.frame === frame} onChange={() => onChange({ frame })} />
-          {FRAME_LABELS[frame]}
-        </label>
-      ))}
-    </div>
+    <FramePicker frame={decoration.frame} onChange={(frame) => onChange({ frame })} />
     <TextField
       label="Tiêu đề"
       placeholder={defaultTitle(treeName)}
@@ -94,7 +149,7 @@ export const ScopeSettings = ({
   );
 
   return (
-    <fieldset className="space-y-2">
+    <fieldset className="min-w-0 space-y-2">
       <legend className="mb-1 font-medium">Phạm vi in</legend>
       {option('all', 'Cả gia phả', () => onChange({ scope: { kind: 'all' } }))}
       {option('branch', 'Một Chi', () => {
@@ -144,7 +199,7 @@ export const ScopeSettings = ({
 };
 
 export const PaperSettings = ({ config, onChange }: { config: PhaDoConfig; onChange: (patch: Partial<PhaDoConfig>) => void }) => (
-  <fieldset className="space-y-2">
+  <fieldset className="min-w-0 space-y-2">
     <legend className="mb-1 font-medium">Khổ giấy</legend>
     <Select
       aria-label="Khổ giấy"
@@ -208,7 +263,7 @@ const FONT_SCALE_LABELS: Record<(typeof FONT_SCALE_OPTIONS)[number], string> = {
 };
 
 export const FontSettings = ({ config, onChange }: { config: PhaDoConfig; onChange: (patch: Partial<PhaDoConfig>) => void }) => (
-  <fieldset className="space-y-2 border-t border-line pt-3">
+  <fieldset className="min-w-0 space-y-2 border-t border-line pt-3">
     <legend className="mb-1 font-medium">Cỡ chữ</legend>
     <div className="grid grid-cols-4 gap-2">
       {FONT_SCALE_OPTIONS.map((scale) => (

@@ -8,7 +8,7 @@ import { EXPORT_JOBS, type ExportKind } from './tree-exports';
 describe('EXPORT_JOBS', () => {
   it('mỗi loại xuất có câu báo lỗi tiếng Việt riêng khi hỏng', () => {
     const kinds = Object.keys(EXPORT_JOBS) as ExportKind[];
-    expect(kinds.sort()).toEqual(['backup-zip', 'ics', 'pha-do-pdf', 'pha-do-png', 'pha-ky-pdf', 'xlsx']);
+    expect(kinds.sort()).toEqual(['backup-zip', 'ics', 'pha-do-pdf', 'pha-do-png', 'pha-ky-pdf', 'timeline-pdf', 'xlsx']);
     for (const kind of kinds) expect(EXPORT_JOBS[kind].failure, kind).toMatch(/^Không tạo được/);
   });
 });

@@ -16,7 +16,6 @@ import { IncompletePage } from './pages/IncompletePage';
 import { KinshipPage } from './pages/KinshipPage';
 import { PhaDoPage } from './pages/PhaDoPage';
 import { PhaKyPage } from './pages/PhaKyPage';
-import { DuplicatesPage } from './pages/DuplicatesPage';
 import { TimelinePage } from './pages/TimelinePage';
 import { PublicPersonPage, PublicTreePage } from './pages/PublicTreePage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
@@ -107,14 +106,6 @@ const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <TimelinePage />
-      </RequireAuth>
-    ),
-  },
-  {
-    path: '/gia-pha/:treeId/trung-lap',
-    element: (
-      <RequireAuth>
-        <DuplicatesPage />
       </RequireAuth>
     ),
   },
