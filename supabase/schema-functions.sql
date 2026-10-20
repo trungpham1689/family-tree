@@ -571,28 +571,8 @@ declare
   meta constant jsonb := coalesce(new.raw_user_meta_data, '{}'::jsonb);
   name_text constant text := btrim(coalesce(meta ->> 'full_name', ''));
   phone_text constant text := btrim(coalesce(meta ->> 'phone', ''));
-  birth_text constant text := btrim(coalesce(meta ->> 'birth_date', ''));
-  birth date;
+  birth constant date := private.validate_profile(name_text, btrim(coalesce(meta ->> 'birth_date', '')), phone_text);
 begin
-  if name_text = '' or phone_text = '' or birth_text = '' then
-    raise exception 'PROFILE_REQUIRED'
-      using detail = 'Cần nhập họ và tên, ngày sinh và số điện thoại.', errcode = 'check_violation';
-  end if;
-  begin
-    birth := birth_text::date;
-  exception when others then
-    raise exception 'PROFILE_INVALID' using detail = 'Ngày sinh không hợp lệ.', errcode = 'check_violation';
-  end;
-  if birth < date '1900-01-01' or birth > current_date then
-    raise exception 'PROFILE_INVALID' using detail = 'Ngày sinh không hợp lệ.', errcode = 'check_violation';
-  end if;
-  if char_length(name_text) > 120 then
-    raise exception 'PROFILE_INVALID' using detail = 'Họ và tên tối đa 120 ký tự.', errcode = 'check_violation';
-  end if;
-  if phone_text !~ '^[0-9+(). -]{8,20}$' or char_length(regexp_replace(phone_text, '[^0-9]', '', 'g')) < 8 then
-    raise exception 'PROFILE_INVALID' using detail = 'Số điện thoại không hợp lệ.', errcode = 'check_violation';
-  end if;
-
   insert into public.account_approvals (account_id, email, approved, is_superadmin, approved_at, full_name, birth_date, phone)
   values (new.id, new.email, is_root, is_root, case when is_root then now() end, name_text, birth, phone_text);
   return new;
@@ -663,6 +643,57 @@ CREATE OR REPLACE FUNCTION private.tree_role(target_tree uuid)
 AS $function$
   select role from public.tree_roles
   where tree_id = target_tree and account_id = auth.uid() and private.is_approved()
+$function$;
+
+-- private.validate_profile(name_text text, birth_text text, phone_text text)  [anon: không, authenticated: không, service_role: không]
+CREATE OR REPLACE FUNCTION private.validate_profile(name_text text, birth_text text, phone_text text)
+ RETURNS date
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+declare
+  birth date;
+begin
+  if coalesce(name_text, '') = '' or coalesce(phone_text, '') = '' or coalesce(birth_text, '') = '' then
+    raise exception 'PROFILE_REQUIRED'
+      using detail = 'Cần nhập họ và tên, ngày sinh và số điện thoại.', errcode = 'check_violation';
+  end if;
+  begin
+    birth := birth_text::date;
+  exception when others then
+    raise exception 'PROFILE_INVALID' using detail = 'Ngày sinh không hợp lệ.', errcode = 'check_violation';
+  end;
+  if birth < date '1900-01-01' or birth > current_date then
+    raise exception 'PROFILE_INVALID' using detail = 'Ngày sinh không hợp lệ.', errcode = 'check_violation';
+  end if;
+  if char_length(name_text) > 120 then
+    raise exception 'PROFILE_INVALID' using detail = 'Họ và tên tối đa 120 ký tự.', errcode = 'check_violation';
+  end if;
+  if phone_text !~ '^[0-9+(). -]{8,20}$' or char_length(regexp_replace(phone_text, '[^0-9]', '', 'g')) < 8 then
+    raise exception 'PROFILE_INVALID' using detail = 'Số điện thoại không hợp lệ.', errcode = 'check_violation';
+  end if;
+  return birth;
+end;
+$function$;
+
+-- private.write_profile(target_account uuid, new_name text, new_birth text, new_phone text)  [anon: không, authenticated: không, service_role: không]
+CREATE OR REPLACE FUNCTION private.write_profile(target_account uuid, new_name text, new_birth text, new_phone text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  name_text constant text := btrim(coalesce(new_name, ''));
+  phone_text constant text := btrim(coalesce(new_phone, ''));
+  birth constant date := private.validate_profile(name_text, btrim(coalesce(new_birth, '')), phone_text);
+begin
+  update public.account_approvals set full_name = name_text, birth_date = birth, phone = phone_text where account_id = target_account;
+  if not found then
+    raise exception 'ACCOUNT_NOT_FOUND' using errcode = 'no_data_found';
+  end if;
+end;
 $function$;
 
 -- public.add_child(parent_id uuid, other_parent_id uuid, link_kind text, person jsonb)  [anon: không, authenticated: có, service_role: có]
@@ -922,6 +953,21 @@ begin
   update public.account_approvals
     set is_superadmin = make_superadmin, approved = approved or make_superadmin
     where account_id = target_account;
+end;
+$function$;
+
+-- public.admin_update_profile(target_account uuid, new_name text, new_birth text, new_phone text)  [anon: không, authenticated: có, service_role: có]
+CREATE OR REPLACE FUNCTION public.admin_update_profile(target_account uuid, new_name text, new_birth text, new_phone text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+begin
+  if not private.is_superadmin() then
+    raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
+  end if;
+  perform private.write_profile(target_account, new_name, new_birth, new_phone);
 end;
 $function$;
 
@@ -1606,6 +1652,21 @@ AS $function$
   left join blood b on b.id = p.id
   left join in_laws i on i.id = p.id
   where p.tree_id = target_tree
+$function$;
+
+-- public.update_my_profile(new_name text, new_birth text, new_phone text)  [anon: không, authenticated: có, service_role: có]
+CREATE OR REPLACE FUNCTION public.update_my_profile(new_name text, new_birth text, new_phone text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+begin
+  if auth.uid() is null then
+    raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
+  end if;
+  perform private.write_profile(auth.uid(), new_name, new_birth, new_phone);
+end;
 $function$;
 
 -- public.update_tree_role(target_tree uuid, target_account uuid, new_role text)  [anon: không, authenticated: có, service_role: có]

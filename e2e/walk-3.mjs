@@ -107,14 +107,24 @@ await step('lịch đăng ký: bật, thấy link .ics, tạo lại, tắt', asy
   await page.getByRole('button', { name: 'Bật lịch đăng ký' }).waitFor();
 });
 
-await step('Tiên thường và độ sớm nhắc ở trang Sự kiện của gia phả', async () => {
+await step('Tiên thường và thông báo trước trong Cài đặt của trang Sự kiện', async () => {
   await page.goto(`${treeUrl}/su-kien`);
+  await page.getByRole('button', { name: 'Cài đặt' }).click();
   await page.getByText('Nhắc cả Tiên thường').click();
   await page.waitForTimeout(500);
   if (!(await page.getByLabel(/Nhắc cả Tiên thường/).isChecked())) throw new Error('công tắc Tiên thường không giữ trạng thái');
   await page.reload();
+  await page.getByRole('button', { name: 'Cài đặt' }).click();
   await until(() => page.getByLabel(/Nhắc cả Tiên thường/).isChecked(), 'Tiên thường lưu sau khi tải lại');
   await shot('w3-06-tien-thuong');
+  // Đóng bằng nút X, rồi bằng bấm ra ngoài hộp.
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: 'Đóng' }).click();
+  await dialog.waitFor({ state: 'hidden' });
+  await page.getByRole('button', { name: 'Cài đặt' }).click();
+  await dialog.waitFor();
+  await page.mouse.click(5, 5);
+  await dialog.waitFor({ state: 'hidden' });
 });
 
 await step('Người trùng: thêm người cùng tên, trang gộp liệt kê nhóm và gộp được', async () => {

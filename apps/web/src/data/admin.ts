@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
 import { authErrorMessage } from '../auth/auth-error-message';
 import { supabase } from '../lib/supabase';
 import { effects, queryKeys, useAccountId, useMutationWithEffects } from './query-keys';
+import type { ProfileValues } from './profile';
 import { failOn } from './trees';
 
 export type AdminInviter = { accountId: string; email: string; fullName: string | null };
@@ -113,6 +114,17 @@ export const useSetSuperadmin = () =>
 export const useSetBanned = () =>
   useMutationWithEffects(async ({ accountId, banned }: { accountId: string; banned: boolean }) => {
     const { error } = await supabase.rpc('admin_set_banned', { target_account: accountId, new_banned: banned });
+    failOn(error);
+  }, effects.admin);
+
+export const useAdminUpdateProfile = () =>
+  useMutationWithEffects(async ({ accountId, values }: { accountId: string; values: ProfileValues }) => {
+    const { error } = await supabase.rpc('admin_update_profile', {
+      target_account: accountId,
+      new_name: values.fullName,
+      new_birth: values.birthDate,
+      new_phone: values.phone,
+    });
     failOn(error);
   }, effects.admin);
 

@@ -211,4 +211,26 @@ describe('seam B: Quản trị tài khoản (siêu quản trị)', () => {
     const plain = await newUser(true);
     await expect(db.as(plain).rpcRows('admin_account_counts')).rejects.toThrow(/NOT_ALLOWED/);
   });
+
+  it('sửa hồ sơ: người dùng sửa của mình, siêu quản trị sửa của người khác, người thường không sửa được của người khác; dữ liệu sai bị từ chối', async () => {
+    const alice = await newUser(true);
+    const bob = await newUser(true);
+    const profile = async (user: TestUser) =>
+      (await db.admin.query<{ full_name: string; birth_date: string; phone: string }>(
+        'select full_name, birth_date::text as birth_date, phone from account_approvals where account_id = $1',
+        [user.id],
+      )).rows[0];
+
+    await db.as(alice).rpc('update_my_profile', { new_name: '  Nguyễn An ', new_birth: '1985-03-20', new_phone: '0912 345 678' });
+    expect(await profile(alice)).toEqual({ full_name: 'Nguyễn An', birth_date: '1985-03-20', phone: '0912 345 678' });
+
+    await db.as(root).rpc('admin_update_profile', { target_account: bob.id, new_name: 'Trần Bình', new_birth: '1970-01-02', new_phone: '0987654321' });
+    expect(await profile(bob)).toMatchObject({ full_name: 'Trần Bình' });
+
+    await expect(db.as(alice).rpc('admin_update_profile', { target_account: bob.id, new_name: 'X', new_birth: '1970-01-02', new_phone: '0987654321' })).rejects.toThrow(/NOT_ALLOWED/);
+    await expect(db.as(alice).rpc('update_my_profile', { new_name: '', new_birth: '1985-03-20', new_phone: '0912345678' })).rejects.toThrow(/PROFILE_REQUIRED/);
+    await expect(db.as(alice).rpc('update_my_profile', { new_name: 'An', new_birth: '2999-01-01', new_phone: '0912345678' })).rejects.toThrow(/PROFILE_INVALID/);
+    await expect(db.as(alice).rpc('update_my_profile', { new_name: 'An', new_birth: '1985-03-20', new_phone: 'abc' })).rejects.toThrow(/PROFILE_INVALID/);
+    await expect(db.as(root).rpc('admin_update_profile', { target_account: crypto.randomUUID(), new_name: 'An', new_birth: '1985-03-20', new_phone: '0912345678' })).rejects.toThrow(/ACCOUNT_NOT_FOUND/);
+  });
 });

@@ -3,6 +3,7 @@ import { Link, Navigate, useSearchParams } from 'react-router';
 import { authErrorMessage } from '../auth/auth-error-message';
 import { useAuth } from '../auth/auth-context';
 import { safeRedirectPath } from '../auth/safe-redirect';
+import { profileError, today } from '../data/profile';
 import { supabase } from '../lib/supabase';
 import { Button } from '../ui/Button';
 import { Footer } from '../ui/Footer';
@@ -11,17 +12,6 @@ import { FullPageMessage } from '../ui/FullPageMessage';
 type Mode = 'sign-in' | 'sign-up';
 
 const MIN_PASSWORD_LENGTH = 8;
-const MIN_PHONE_DIGITS = 8;
-
-const today = () => new Date().toLocaleDateString('sv-SE');
-
-/** Lỗi của hồ sơ đăng ký, hoặc null nếu hợp lệ. Database kiểm lại bằng trigger; đây để báo lỗi ngay trên form. */
-const profileError = (fullName: string, birthDate: string, phone: string): string | null => {
-  if (fullName.trim() === '') return 'Hãy nhập họ và tên.';
-  if (birthDate === '' || birthDate < '1900-01-01' || birthDate > today()) return 'Ngày sinh không hợp lệ.';
-  if (!/^[0-9+(). -]{8,20}$/.test(phone.trim()) || phone.replace(/\D/g, '').length < MIN_PHONE_DIGITS) return 'Số điện thoại không hợp lệ.';
-  return null;
-};
 
 export const LoginPage = () => {
   const { state } = useAuth();
@@ -69,7 +59,7 @@ export const LoginPage = () => {
         if (signInError) setError(authErrorMessage(signInError));
         return;
       }
-      const invalid = profileError(fullName, birthDate, phone);
+      const invalid = profileError({ fullName, birthDate, phone });
       if (invalid) {
         setError(invalid);
         return;

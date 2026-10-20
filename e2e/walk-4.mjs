@@ -88,6 +88,30 @@ await step('gốc cấp rồi gỡ quyền siêu quản trị; dòng của gốc
   if (await mine.getByRole('button', { name: /Thu hồi|Gỡ siêu quản trị/ }).count()) throw new Error('gốc có nút thu hồi/gỡ quyền');
 });
 
+await step('quản trị sửa hồ sơ người khác; mọi hộp đóng khi bấm ra ngoài; người dùng sửa hồ sơ của mình', async () => {
+  const row = page.getByRole('listitem').filter({ hasText: userEmail });
+  await row.getByRole('button', { name: 'Sửa hồ sơ' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Họ và tên').fill('Tên Đã Sửa');
+  await dialog.getByRole('button', { name: 'Lưu' }).click();
+  await dialog.waitFor({ state: 'hidden' });
+  await row.getByText('Tên Đã Sửa').waitFor();
+
+  await row.getByRole('button', { name: 'Sửa hồ sơ' }).click();
+  await dialog.waitFor();
+  await page.mouse.click(5, 5);
+  await dialog.waitFor({ state: 'hidden' });
+
+  await page.getByRole('button', { name: 'Hồ sơ', exact: true }).click();
+  await dialog.getByLabel('Số điện thoại').fill('0911222333');
+  await dialog.getByRole('button', { name: 'Lưu' }).click();
+  await dialog.waitFor({ state: 'hidden' });
+  await page.getByRole('button', { name: 'Hồ sơ', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('dialog[open] input[type=tel]')?.value === '0911222333');
+  await page.mouse.click(5, 5);
+  await dialog.waitFor({ state: 'hidden' });
+});
+
 await step('gửi link đặt lại mật khẩu, chặn, bỏ chặn rồi xoá tài khoản (xoá phải gõ lại email)', async () => {
   const recovered = [];
   await page.route('**/auth/v1/recover*', (route) => {

@@ -18,6 +18,8 @@ export const QUERY_ROOTS = {
   'calendar-feed': { persisted: false },
   // Không giữ: quyền siêu quản trị và danh sách tài khoản (email người khác) không nên nằm lại trên máy; quyền thật do database kiểm.
   superadmin: { persisted: false },
+  // Không giữ: họ tên, ngày sinh, số điện thoại là thông tin riêng.
+  profile: { persisted: false },
   admin: { persisted: false },
   'public-card': { persisted: false },
   public: { persisted: false },

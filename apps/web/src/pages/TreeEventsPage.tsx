@@ -77,6 +77,7 @@ export const TreeEventsPage = () => {
   const eventPhotos = useEventPhotos(treeId);
   const photoImages = useEventPhotoImages(eventPhotos.data ?? []);
   const [editing, setEditing] = useState<TreeEvent | 'new' | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   /** Sau khi lưu sự kiện: bộ lọc nhảy tới năm và tên của nó để thấy ngay kết quả. */
   const [focus, setFocus] = useState<(EventSearchInitial & { n: number }) | null>(null);
 
@@ -109,7 +110,12 @@ export const TreeEventsPage = () => {
       <main className="mx-auto max-w-3xl px-4 py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="font-serif text-3xl font-bold text-son">Sự kiện</h1>
-          {canEdit && <Button onClick={() => setEditing('new')}>+ Thêm sự kiện</Button>}
+          <div className="flex flex-wrap items-center gap-2">
+            {canEdit && <Button onClick={() => setEditing('new')}>+ Thêm sự kiện</Button>}
+            <Button variant="secondary" onClick={() => setSettingsOpen(true)}>
+              Cài đặt
+            </Button>
+          </div>
         </div>
 
         {tree.isError && <ErrorBanner>{tree.error.message}</ErrorBanner>}
@@ -136,8 +142,10 @@ export const TreeEventsPage = () => {
           />
         )}
 
-        <section className="mt-8 rounded-xl border border-line bg-surface px-4 py-3">
-          <h2 className="font-serif text-xl font-bold">Thông báo</h2>
+        <Dialog open={settingsOpen} title="Cài đặt" onClose={() => setSettingsOpen(false)}>
+          <section aria-label="Thông báo">
+            <h2 className="font-serif text-xl font-bold">Thông báo</h2>
+
           <p className="mt-1 text-ink-muted">
             Thông báo trước mấy ngày trên chuông thông báo. Email tổng hợp gửi chung cho Chủ sở hữu và Biên tập viên mỗi 5 ngày nếu có giỗ, sinh nhật hay sự kiện sắp tới; bật/tắt email ở đây.
           </p>
@@ -178,7 +186,8 @@ export const TreeEventsPage = () => {
           {(setOffset.isError || setEmailEnabled.isError || setTienThuong.isError) && (
             <ErrorBanner>{setOffset.error?.message ?? setEmailEnabled.error?.message ?? setTienThuong.error?.message}</ErrorBanner>
           )}
-        </section>
+          </section>
+        </Dialog>
 
         <Dialog open={editing !== null} title={editing === 'new' ? 'Thêm sự kiện' : 'Sửa sự kiện'} onClose={() => setEditing(null)}>
           {editing !== null && (

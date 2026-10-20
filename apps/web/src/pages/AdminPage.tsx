@@ -5,6 +5,7 @@ import {
   ADMIN_PAGE_SIZE,
   useAdminAccounts,
   useAdminCounts,
+  useAdminUpdateProfile,
   useDeleteAccount,
   useSendPasswordReset,
   useSetApproval,
@@ -13,6 +14,7 @@ import {
   type AdminAccount,
   type AdminStatusFilter,
 } from '../data/admin';
+import { ProfileForm } from '../profile/ProfileForm';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
@@ -72,6 +74,8 @@ export const AdminPage = () => {
   const setBanned = useSetBanned();
   const deleteAccount = useDeleteAccount();
   const sendReset = useSendPasswordReset();
+  const updateProfile = useAdminUpdateProfile();
+  const [editing, setEditing] = useState<AdminAccount | null>(null);
   const [typed, setTyped] = useState('');
   const [filter, setFilter] = useState<Filter | null>(null);
   const [search, setSearch] = useState('');
@@ -107,6 +111,7 @@ export const AdminPage = () => {
           ? deleteAccount.variables?.accountId
           : undefined;
   const resetAll = () => {
+    updateProfile.reset();
     setApproval.reset();
     setSuperadmin.reset();
     setBanned.reset();
@@ -215,6 +220,10 @@ export const AdminPage = () => {
                 sendReset.mutate({ email: account.email });
               }}
               onAsk={(action) => ask(account, action)}
+              onEdit={() => {
+                resetAll();
+                setEditing(account);
+              }}
             />
           ))}
         </ul>
@@ -232,6 +241,21 @@ export const AdminPage = () => {
             </Button>
           </nav>
         )}
+
+        <Dialog open={editing !== null} title="Sửa hồ sơ" onClose={() => setEditing(null)}>
+          {editing && (
+            <div className="space-y-4">
+              <p className="break-all text-ink-muted">{editing.email}</p>
+              <ProfileForm
+                initial={{ fullName: editing.fullName ?? '', birthDate: editing.birthDate ?? '', phone: editing.phone ?? '' }}
+                pending={updateProfile.isPending}
+                error={updateProfile.error?.message}
+                onCancel={() => setEditing(null)}
+                onSubmit={(values) => updateProfile.mutate({ accountId: editing.accountId, values }, { onSuccess: () => setEditing(null) })}
+              />
+            </div>
+          )}
+        </Dialog>
 
         <Dialog
           open={confirm !== null}
@@ -277,6 +301,7 @@ const AccountRow = ({
   onApprove,
   onSendReset,
   onAsk,
+  onEdit,
 }: {
   account: AdminAccount;
   isMe: boolean;
@@ -285,6 +310,7 @@ const AccountRow = ({
   onApprove: () => void;
   onSendReset: () => void;
   onAsk: (action: Confirm['action']) => void;
+  onEdit: () => void;
 }) => (
   <li className="rounded-2xl border border-line bg-surface p-4">
     <p className="break-words text-lg font-semibold">
@@ -316,6 +342,9 @@ const AccountRow = ({
       Đăng ký {formatDate(account.createdAt)} · Đăng nhập gần nhất {formatDate(account.lastSignInAt)} · {account.treeCount} gia phả
     </p>
     <div className="mt-3 flex flex-wrap gap-2">
+      <Button variant="secondary" disabled={busy} onClick={onEdit}>
+        Sửa hồ sơ
+      </Button>
       {!account.approved && !account.isBanned && (
         <Button disabled={busy} onClick={onApprove}>
           Duyệt

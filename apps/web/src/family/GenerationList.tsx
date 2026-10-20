@@ -54,7 +54,7 @@ export const GenerationList = ({ treeId, graph, canEdit }: { treeId: string; gra
             </nav>
             <div ref={panelRef} className="min-w-0 flex-1 scroll-mt-2">
               {activeGroup && (
-                <p className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-ink-muted">
+                <p className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-ink-muted sm:hidden">
                   <span>
                     <strong className="text-ink">Đời {activeGroup.generation}</strong> · {activeGroup.total} thành viên
                   </span>
@@ -154,12 +154,12 @@ const GenderIcon = ({ gender, className = 'size-4' }: { gender: 'nam' | 'nu'; cl
   </svg>
 );
 
-// Cột dọc ở mọi khổ màn hình: mobile chỉ "Đời" + số (cột hẹp để thẻ thành viên còn rộng), từ sm có thêm số thành viên.
+// Cột dọc ở mọi khổ màn hình: mobile chỉ "Đời" + số (cột hẹp để thẻ thành viên còn rộng; số thành viên, nam, nữ nằm ở dòng trên danh sách), từ sm có thêm số thành viên và số nam, nữ.
 const GenerationTab = ({ group, active, onSelect }: { group: GenerationGroup<Person>; active: boolean; onSelect: () => void }) => (
   <button
     type="button"
     aria-current={active || undefined}
-    aria-label={`Đời ${group.generation}, ${group.total} thành viên`}
+    aria-label={`Đời ${group.generation}, ${group.total} thành viên, ${group.male} nam, ${group.female} nữ`}
     onClick={onSelect}
     className={`flex min-h-14 shrink-0 flex-col items-center justify-center rounded-xl border px-1 py-2 transition-colors sm:flex-row sm:justify-between sm:gap-3 sm:px-4 sm:py-3 ${
       active ? 'border-son bg-son text-white' : 'border-line bg-surface text-ink-muted hover:bg-paper'
@@ -169,7 +169,21 @@ const GenerationTab = ({ group, active, onSelect }: { group: GenerationGroup<Per
       <span className={`text-xs font-semibold sm:font-serif sm:text-xl sm:font-bold ${active ? 'text-white/85 sm:text-white' : 'sm:text-ink'}`}>Đời</span>
       <span className={`font-serif text-xl font-bold ${active ? '' : 'text-ink'}`}>{group.generation}</span>
     </span>
-    <span className={`hidden whitespace-nowrap text-sm sm:inline ${active ? 'text-white/85' : ''}`}>{group.total} thành viên</span>
+    <span className={`hidden flex-col items-end text-sm leading-tight sm:flex ${active ? 'text-white/85' : ''}`}>
+      <span className="whitespace-nowrap">{group.total} thành viên</span>
+      <span className="mt-1 flex items-center gap-3 font-semibold">
+        <span className={`inline-flex items-center gap-1 ${active ? '' : 'text-tram'}`}>
+          <GenderIcon gender="nam" className="size-3.5" />
+          {group.male}
+          <span className="sr-only">nam</span>
+        </span>
+        <span className={`inline-flex items-center gap-1 ${active ? '' : 'text-hong'}`}>
+          <GenderIcon gender="nu" className="size-3.5" />
+          {group.female}
+          <span className="sr-only">nữ</span>
+        </span>
+      </span>
+    </span>
   </button>
 );
 

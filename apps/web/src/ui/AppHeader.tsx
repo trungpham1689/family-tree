@@ -1,13 +1,16 @@
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { useIsSuperadmin } from '../data/admin';
 import { useDueReminders } from '../data/tree-queries';
+import { MyProfileDialog } from '../profile/MyProfileDialog';
 import { Button } from './Button';
 
 export const AppHeader = () => {
   const { signOut } = useAuth();
   const reminders = useDueReminders();
   const superadmin = useIsSuperadmin();
+  const [profileOpen, setProfileOpen] = useState(false);
 
   return (
     <header className="border-b border-line bg-surface">
@@ -31,11 +34,15 @@ export const AppHeader = () => {
               Quản trị
             </Link>
           )}
+          <button type="button" onClick={() => setProfileOpen(true)} className="min-h-11 px-2 font-semibold text-ink hover:text-son">
+            Hồ sơ
+          </button>
           <Button variant="ghost" className="px-3 sm:px-5" onClick={signOut}>
             Đăng xuất
           </Button>
         </div>
       </div>
+      <MyProfileDialog open={profileOpen} onClose={() => setProfileOpen(false)} />
     </header>
   );
 };

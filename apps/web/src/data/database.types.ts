@@ -506,6 +506,8 @@ export type Database = {
         Returns: { total_count: number; pending_count: number; i_am_root: boolean }[];
       };
       admin_set_approval: { Args: { target_account: string; new_approved: boolean }; Returns: undefined };
+      update_my_profile: { Args: { new_name: string; new_birth: string; new_phone: string }; Returns: undefined };
+      admin_update_profile: { Args: { target_account: string; new_name: string; new_birth: string; new_phone: string }; Returns: undefined };
       admin_set_banned: { Args: { target_account: string; new_banned: boolean }; Returns: undefined };
       admin_delete_account: { Args: { target_account: string }; Returns: undefined };
       admin_set_superadmin: { Args: { target_account: string; make_superadmin: boolean }; Returns: undefined };
