@@ -9,8 +9,8 @@ export const COLUMNS = [
   { key: 'code', header: 'Mã', guide: 'Bắt buộc. Mã tự đặt cho từng người, không trùng nhau (ví dụ T1, A2, B15). Mã chỉ dùng để nối quan hệ trong file này, không được lưu vào hệ thống: sau khi nhập, mỗi người có id riêng do hệ thống tạo.' },
   { key: 'fullName', header: 'Họ và tên', guide: 'Bắt buộc.' },
   { key: 'gender', header: 'Giới tính', guide: 'Nam hoặc Nữ. Để trống nếu chưa rõ.' },
-  { key: 'fatherCode', header: 'Mã cha', guide: 'Mã của người cha trong file (nếu có).' },
-  { key: 'motherCode', header: 'Mã mẹ', guide: 'Mã của người mẹ trong file (nếu có).' },
+  { key: 'fatherCode', header: 'Mã cha', guide: 'Mã của người cha trong file (nếu có). Chỉ ghi cha mà cha có đúng một vợ thì người vợ đó tự là mẹ.' },
+  { key: 'motherCode', header: 'Mã mẹ', guide: 'Mã của người mẹ trong file (nếu có). Chỉ ghi mẹ mà mẹ có đúng một chồng thì người chồng đó tự là cha.' },
   { key: 'parentKind', header: 'Con ruột/nuôi', guide: 'Ruột hoặc Nuôi. Để trống là Ruột.' },
   { key: 'birthOrder', header: 'Thứ tự con', guide: 'Số: 1 là con trưởng, 2 là con thứ hai…' },
   {

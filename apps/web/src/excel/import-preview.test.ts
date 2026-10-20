@@ -269,3 +269,40 @@ describe('layoutGenerations', () => {
     });
   });
 });
+
+describe('mô-đun Excel: người chỉ có một vợ/chồng, con chỉ ghi một cha/mẹ', () => {
+  const rows: RawRow[] = [
+    { code: 'T', fullName: 'Phạm Văn Tổ', gender: 'Nam' },
+    { code: 'A', fullName: 'Phạm Văn A', gender: 'Nam', fatherCode: 'T' },
+    { code: 'AV', fullName: 'Vợ của A', gender: 'Nữ', spouseCode: 'A' },
+    { code: 'B', fullName: 'Phạm Văn B', gender: 'Nam', fatherCode: 'T' },
+    { code: 'BV1', fullName: 'Vợ cả của B', gender: 'Nữ', spouseCode: 'B', spouseOrder: '1' },
+    { code: 'BV2', fullName: 'Vợ hai của B', gender: 'Nữ', spouseCode: 'B', spouseOrder: '2' },
+    { code: 'A1', fullName: 'Con của A', gender: 'Nam', fatherCode: 'A' },
+    { code: 'B1', fullName: 'Con của B', gender: 'Nam', fatherCode: 'B' },
+    { code: 'A2', fullName: 'Con ghi cả cha mẹ', gender: 'Nữ', fatherCode: 'A', motherCode: 'AV' },
+  ];
+  const parentsOf = (result: ReturnType<typeof buildImportPreview>, child: string) =>
+    result.payload!.parentLinks.filter((link) => link.child === child).map((link) => link.parent).sort();
+
+  it('mặc định tắt: con chỉ có đúng cha/mẹ được ghi', () => {
+    const result = buildImportPreview(table(rows));
+    expect(parentsOf(result, 'A1')).toEqual(['A']);
+    expect(result.inferredParentLinks).toBe(0);
+  });
+
+  it('bật: cha có đúng một vợ thì vợ đó là mẹ; cha nhiều vợ thì không đoán; con đã ghi đủ không đổi', () => {
+    const result = buildImportPreview(table(rows), { inferSpouseParent: true });
+    expect(result.errors).toEqual([]);
+    expect(parentsOf(result, 'A1')).toEqual(['A', 'AV']);
+    expect(parentsOf(result, 'B1')).toEqual(['B']);
+    expect(parentsOf(result, 'A2')).toEqual(['A', 'AV']);
+    expect(result.inferredParentLinks).toBe(1);
+    expect(result.people.find((person) => person.code === 'A1')?.relation).toBe('Con của Phạm Văn A và Vợ của A');
+  });
+
+  it('chỉ ghi Mã mẹ thì chồng duy nhất của mẹ là cha', () => {
+    const result = buildImportPreview(table([...rows, { code: 'A3', fullName: 'Con chỉ ghi mẹ', gender: 'Nam', motherCode: 'AV' }]), { inferSpouseParent: true });
+    expect(parentsOf(result, 'A3')).toEqual(['A', 'AV']);
+  });
+});

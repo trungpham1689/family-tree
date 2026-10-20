@@ -1,7 +1,7 @@
-import { useState, type ChangeEvent } from 'react';
+import { useMemo, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useImportExcel, useTree } from '../data/tree-queries';
-import { buildImportPreview, type ImportPreview } from '../excel/import-preview';
+import { buildImportPreview, type CellValue } from '../excel/import-preview';
 import { downloadTemplate, readGiaPhaSheet } from '../excel/xlsx-io';
 import { AppHeader } from '../ui/AppHeader';
 import { Button } from '../ui/Button';
@@ -37,7 +37,10 @@ const ImportFlow = ({ treeId, treeName }: { treeId: string | null; treeName: str
   const navigate = useNavigate();
   const save = useImportExcel();
   const [fileName, setFileName] = useState<string | null>(null);
-  const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [rows, setRows] = useState<readonly (readonly CellValue[])[] | null>(null);
+  // Mặc định bật: file tay thường chỉ ghi Mã cha; người chỉ có một vợ/chồng thì người kia cũng là cha/mẹ của con.
+  const [inferSpouseParent, setInferSpouseParent] = useState(true);
+  const preview = useMemo(() => (rows ? buildImportPreview(rows, { inferSpouseParent }) : null), [rows, inferSpouseParent]);
   const [readError, setReadError] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
   const [name, setName] = useState('');
@@ -50,11 +53,10 @@ const ImportFlow = ({ treeId, treeName }: { treeId: string | null; treeName: str
     if (!file) return;
     setReading(true);
     setReadError(null);
-    setPreview(null);
+    setRows(null);
     save.reset();
     try {
-      const rows = await readGiaPhaSheet(file);
-      setPreview(buildImportPreview(rows));
+      setRows(await readGiaPhaSheet(file));
       setFileName(file.name);
       setName((current) => current || file.name.replace(/\.xlsx$/i, ''));
       setShown(PAGE);
@@ -159,6 +161,22 @@ const ImportFlow = ({ treeId, treeName }: { treeId: string | null; treeName: str
           ) : (
             <div className="space-y-4 rounded-2xl border border-line bg-surface p-5">
               <p className="font-semibold text-son">Không có lỗi. Kiểm tra lại các dòng bên dưới rồi xác nhận.</p>
+              <label className="flex min-h-11 cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  className="mt-1 size-5 accent-son"
+                  checked={inferSpouseParent}
+                  onChange={(event) => setInferSpouseParent(event.target.checked)}
+                />
+                <span>
+                  Người chỉ có một vợ/chồng thì người đó cũng là cha/mẹ của con chỉ ghi một cha/mẹ
+                  <span className="block text-sm text-ink-muted">
+                    {inferSpouseParent
+                      ? `Đã bổ sung ${preview.inferredParentLinks} con. Bỏ chọn nếu có con riêng (ví dụ mẹ kế) cần giữ đúng như file.`
+                      : 'Đang tắt: con chỉ có đúng cha/mẹ được ghi trong file.'}
+                  </span>
+                </span>
+              </label>
               {preview.unconnected > 0 && (
                 <p className="text-ink-muted">
                   {preview.unconnected} người chưa nối được vào cây (không có cha/mẹ hay vợ/chồng trong cây). Họ vẫn được lưu

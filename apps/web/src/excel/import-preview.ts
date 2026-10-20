@@ -50,6 +50,8 @@ export type ImportPreview = {
   generations: number;
   progenitorName: string | null;
   unconnected: number;
+  /** Số liên kết cha/mẹ được tự bổ sung theo tuỳ chọn `inferSpouseParent` (0 khi tắt). */
+  inferredParentLinks: number;
   /** Chỉ có khi không còn lỗi. */
   payload: ImportPayload | null;
 };
@@ -410,7 +412,8 @@ const buildRelations = (
   parsed: readonly ParsedRow[],
   byCode: ReadonlyMap<string, ParsedRow>,
   fail: Fail,
-): { parentLinks: ImportPayload['parentLinks']; unions: ImportPayload['unions'] } => {
+  inferSpouseParent: boolean,
+): { parentLinks: ImportPayload['parentLinks']; unions: ImportPayload['unions']; inferredParentLinks: number } => {
   // ---- Quan hệ ----
   const parentLinks: ImportPayload['parentLinks'] = [];
   const unions: ImportPayload['unions'] = [];
@@ -486,16 +489,43 @@ const buildRelations = (
     if (father && mother && entry.parentKind === 'ruot') addUnion(father, mother, null);
   }
 
+  // Tuỳ chọn: người chỉ có đúng một vợ/chồng thì con chỉ ghi một cha/mẹ cũng là con của người kia, để cả hai cùng thấy con.
+  // Nhiều vợ/chồng thì không đoán, con ở lại "chưa rõ cha/mẹ còn lại". Chỉ áp cho con có đúng một cha/mẹ ruột và chưa nối với người kia.
+  // Không tự bật vì có thể sai (ví dụ mẹ kế).
+  const onlySpouse = new Map<string, string>();
+  for (const { a, b } of unions) {
+    for (const [person, partner] of [[a, b], [b, a]] as const) {
+      onlySpouse.set(person, (unionCount.get(person) ?? 0) === 1 ? partner : '');
+    }
+  }
+  const parentsByChild = new Map<string, string[]>();
+  for (const link of parentLinks) parentsByChild.set(link.child, [...(parentsByChild.get(link.child) ?? []), link.parent]);
+  let inferredParentLinks = 0;
+  for (const entry of inferSpouseParent ? parsed : []) {
+    const linked = parentsByChild.get(entry.code) ?? [];
+    const ruot = parentLinks.filter((link) => link.child === entry.code && link.kind === 'ruot');
+    const partner = ruot.length === 1 ? onlySpouse.get(ruot[0]!.parent) : '';
+    if (partner && partner !== entry.code && !linked.includes(partner)) {
+      parentLinks.push({ child: entry.code, parent: partner, kind: 'ruot' });
+      inferredParentLinks += 1;
+    }
+  }
+
   for (const entry of parsed) {
     const keeper = entry.data.worshipKeeperCode?.trim();
     if (!keeper) continue;
     if (keeper === entry.code) fail(entry.row, 'worshipKeeperCode', 'Người phụ trách cúng giỗ không thể là chính người này.');
     else if (!byCode.has(keeper)) fail(entry.row, 'worshipKeeperCode', `Mã người phụ trách cúng giỗ "${keeper}" không có trong file.`);
   }
-  return { parentLinks, unions };
+  return { parentLinks, unions, inferredParentLinks };
 };
 
-export const buildImportPreview = (table: readonly (readonly CellValue[])[]): ImportPreview => {
+export type ImportOptions = {
+  /** Con chỉ ghi một cha/mẹ mà người đó có đúng một vợ/chồng: tự ghi người kia là cha/mẹ còn lại (mặc định tắt: chỉ giữ đúng những gì file ghi). */
+  inferSpouseParent?: boolean;
+};
+
+export const buildImportPreview = (table: readonly (readonly CellValue[])[], options: ImportOptions = {}): ImportPreview => {
   const errors: ImportError[] = [];
   const fail = (row: number, column: ColumnKey | null, message: string) =>
     errors.push({ row, column: column ? HEADER_OF[column] : null, message });
@@ -534,7 +564,7 @@ export const buildImportPreview = (table: readonly (readonly CellValue[])[]): Im
     parsed.push(entry);
   }
 
-  const { parentLinks, unions } = buildRelations(parsed, byCode, fail);
+  const { parentLinks, unions, inferredParentLinks } = buildRelations(parsed, byCode, fail, options.inferSpouseParent === true);
 
   // ---- Vòng lặp tổ tiên ----
   const cycles = findAncestorCycles(parsed.map((entry) => entry.code), parentLinks);
@@ -591,6 +621,7 @@ export const buildImportPreview = (table: readonly (readonly CellValue[])[]): Im
     generations,
     progenitorName: progenitor?.data.fullName ?? null,
     unconnected: people.filter((person) => person.generation === null).length,
+    inferredParentLinks,
     payload:
       errors.length > 0
         ? null
@@ -616,5 +647,6 @@ const emptyPreview = (errors: ImportError[]): ImportPreview => ({
   generations: 0,
   progenitorName: null,
   unconnected: 0,
+  inferredParentLinks: 0,
   payload: null,
 });
