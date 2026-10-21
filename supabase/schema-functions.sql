@@ -266,6 +266,19 @@ begin
 end;
 $function$;
 
+-- private.confirm_email_on_approval()  [anon: không, authenticated: không, service_role: không]
+CREATE OR REPLACE FUNCTION private.confirm_email_on_approval()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+begin
+  update auth.users set email_confirmed_at = coalesce(email_confirmed_at, now()) where id = new.account_id;
+  return new;
+end;
+$function$;
+
 -- private.default_date_precision()  [anon: không, authenticated: không, service_role: không]
 CREATE OR REPLACE FUNCTION private.default_date_precision()
  RETURNS trigger

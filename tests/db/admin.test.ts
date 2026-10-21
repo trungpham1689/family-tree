@@ -68,6 +68,14 @@ describe('seam B: Quản trị tài khoản (siêu quản trị)', () => {
     await expect(db.as(user).query("insert into family_trees (name) values ('B')")).rejects.toThrow();
   });
 
+  it('duyệt tài khoản cũng xác nhận email của họ (khỏi kẹt email_not_confirmed khi project bật Confirm email)', async () => {
+    const user = await newUser();
+    const confirmed = () => db.admin.query<{ email_confirmed_at: string | null }>('select email_confirmed_at from auth.users where id = $1', [user.id]).then((r) => r.rows[0]!.email_confirmed_at);
+    expect(await confirmed()).toBeNull();
+    await db.as(root).rpc('admin_set_approval', { target_account: user.id, new_approved: true });
+    expect(await confirmed()).not.toBeNull();
+  });
+
   it('người thường không tự duyệt, không duyệt người khác, không cấp quyền siêu quản trị cho mình', async () => {
     const user = await newUser(true);
     const pending = await newUser();
