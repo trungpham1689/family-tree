@@ -2,7 +2,7 @@ import type { SolarDate } from '@gia-pha/lunar';
 import type { Occurrence } from '@gia-pha/reminders';
 import { useState, type ReactNode } from 'react';
 import { EventRow } from './EventRow';
-import { eventStatus } from './event-status';
+import { eventStatus, partitionByToday } from './event-status';
 import { weekdayName } from './month-grid';
 
 const hrefOf = (occurrence: Occurrence, linkEvents: boolean) => {
@@ -76,8 +76,7 @@ export const OccurrenceList = ({ occurrences, today, showDate = false, showTree 
     );
   }
 
-  const upcoming = occurrences.filter((occurrence) => !isPast(occurrence));
-  const past = occurrences.filter(isPast).reverse();
+  const { upcoming, past } = partitionByToday(occurrences, today);
   return (
     <ul className={listClass}>
       {upcoming.map((occurrence, index) => row(occurrence, index))}

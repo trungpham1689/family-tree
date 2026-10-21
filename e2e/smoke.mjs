@@ -1,6 +1,6 @@
 /**
  * Test khói end-to-end: bật backend giả lập + bản build e2e của app, rồi chạy lần lượt
- * walk-1 (luồng cơ bản), walk-2 (mọi tính năng), walk-3 (PWA, thống kê, gộp trùng, lịch đăng ký), walk-5 (kéo thả đổi thứ tự con), walk-6 (nhập khổ giấy, cỡ chữ Phả đồ), walk-multi-husband (con gái nhiều đời chồng trên Cây, không ô nào chồng nhau) , walk-invite (mời email chưa có tài khoản), walk-co-parent (cha/mẹ còn lại của con) và walk-mobile (khổ 375px, không tràn ngang).
+ * walk-1 (luồng cơ bản), walk-2 (mọi tính năng), walk-3 (PWA, thống kê, gộp trùng, lịch đăng ký), walk-5 (kéo thả đổi thứ tự con), walk-6 (nhập khổ giấy, cỡ chữ Phả đồ), walk-multi-husband (con gái nhiều đời chồng trên Cây, không ô nào chồng nhau) , walk-invite (mời email chưa có tài khoản), walk-co-parent (cha/mẹ còn lại của con), walk-event-order (sự kiện sắp tới lên trên, đã qua gập sẵn ở mọi danh sách) và walk-mobile (khổ 375px, không tràn ngang).
  * Cần: .tools/postgrest, apps/web/dist-e2e (e2e/rebuild.sh), Chromium cho Playwright.
  * Chạy: node e2e/smoke.mjs
  */
@@ -45,7 +45,7 @@ try {
     '4173',
   );
   const results = [];
-  for (const script of ['walk-1.mjs', 'walk-2.mjs', 'walk-3.mjs', 'walk-4.mjs', 'walk-5.mjs', 'walk-6.mjs', 'walk-multi-husband.mjs', 'walk-invite.mjs', 'walk-co-parent.mjs', 'walk-mobile.mjs']) results.push(await run(script));
+  for (const script of ['walk-1.mjs', 'walk-2.mjs', 'walk-3.mjs', 'walk-4.mjs', 'walk-5.mjs', 'walk-6.mjs', 'walk-multi-husband.mjs', 'walk-invite.mjs', 'walk-co-parent.mjs', 'walk-event-order.mjs', 'walk-mobile.mjs']) results.push(await run(script));
   ok = results.every(Boolean);
 } catch (error) {
   console.error(error.message);

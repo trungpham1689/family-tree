@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { eventStatus, weekdayShort } from './event-status';
+import { eventStatus, partitionByToday, weekdayShort } from './event-status';
 
 const today = { year: 2026, month: 10, day: 21 };
 
@@ -27,5 +27,21 @@ describe('weekdayShort', () => {
   it('T4 cho Thứ Tư, CN cho Chủ nhật', () => {
     expect(weekdayShort(today)).toBe('T4');
     expect(weekdayShort({ year: 2026, month: 10, day: 25 })).toBe('CN');
+  });
+});
+
+describe('partitionByToday', () => {
+  const at = (day: number) => ({ date: { year: 2026, month: 10, day } });
+
+  it('hôm nay và sắp tới giữ thứ tự, đã qua mới nhất trước', () => {
+    const { upcoming, past } = partitionByToday([at(3), at(14), at(21), at(25)], today);
+    expect(upcoming.map((item) => item.date.day)).toEqual([21, 25]);
+    expect(past.map((item) => item.date.day)).toEqual([14, 3]);
+  });
+
+  it('chỉ có đã qua, hoặc chỉ có sắp tới, hoặc rỗng', () => {
+    expect(partitionByToday([at(1), at(2)], today)).toEqual({ upcoming: [], past: [at(2), at(1)] });
+    expect(partitionByToday([at(22)], today)).toEqual({ upcoming: [at(22)], past: [] });
+    expect(partitionByToday([], today)).toEqual({ upcoming: [], past: [] });
   });
 });

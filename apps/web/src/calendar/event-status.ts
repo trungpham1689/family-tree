@@ -16,6 +16,14 @@ export const eventStatus = (date: SolarDate, today: SolarDate): EventStatus => {
   return { state: days <= NEAR_DAYS ? 'near' : 'later', days, label: `Còn ${days} ngày` };
 };
 
+/** Tách danh sách (đã sắp theo ngày tăng dần): từ hôm nay trở đi giữ nguyên thứ tự, đã qua xếp mới nhất trước. */
+export const partitionByToday = <T extends { date: SolarDate }>(items: readonly T[], today: SolarDate): { upcoming: T[]; past: T[] } => {
+  const upcoming: T[] = [];
+  const past: T[] = [];
+  for (const item of items) (eventStatus(item.date, today).state === 'past' ? past : upcoming).push(item);
+  return { upcoming, past: past.reverse() };
+};
+
 /** "T4", "CN": tên thứ rút gọn cho ô ngày. */
 export const weekdayShort = (date: SolarDate): string => SHORT_WEEKDAY[weekdayName(date)] ?? weekdayName(date);
 

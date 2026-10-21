@@ -41,6 +41,32 @@ export const MyTreesPage = () => {
           </div>
         </div>
 
+        {trees.isSuccess && trees.data.length > 0 && (
+          <div className="mt-8">
+            <h2 className="font-serif text-2xl font-bold">Sự kiện trong tháng {today.month}/{today.year}</h2>
+            {/* Ở đầu trang nên chỉ liệt kê Gia phả có sự kiện; không gia phả nào có thì một dòng báo chung. */}
+            <div className="mt-4 space-y-6">
+              {trees.data
+                .filter((tree) => monthByTree.has(tree.id))
+                .map((tree) => (
+                  <OccurrenceSection
+                    key={tree.id}
+                    // Chỉ một gia phả thì không cần nhắc lại tên ngay dưới tiêu đề "Sự kiện trong tháng".
+                    title={trees.data.length > 1 ? tree.name : ''}
+                    occurrences={monthByTree.get(tree.id) ?? []}
+                    today={today}
+                    emptyText=""
+                  />
+                ))}
+              {calendar.isSuccess && monthByTree.size === 0 && (
+                <p className="rounded-2xl border border-dashed border-line bg-surface px-6 py-6 text-center text-ink-muted">
+                  Tháng này chưa có giỗ, sinh nhật hay sự kiện nào.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="mt-8">
           {trees.isPending && <p className="text-ink-muted">Đang tải…</p>}
           {trees.isError && <ErrorBanner>{trees.error.message}</ErrorBanner>}
@@ -73,23 +99,6 @@ export const MyTreesPage = () => {
           )}
         </div>
 
-        {trees.isSuccess && trees.data.length > 0 && (
-          <div className="mt-10">
-            <h2 className="font-serif text-2xl font-bold">Sự kiện trong tháng {today.month}/{today.year}</h2>
-            <div className="mt-4 space-y-6">
-              {trees.data.map((tree) => (
-                <OccurrenceSection
-                  key={tree.id}
-                  // Chỉ một gia phả thì không cần nhắc lại tên ngay dưới tiêu đề "Sự kiện trong tháng".
-                  title={trees.data.length > 1 ? tree.name : ''}
-                  occurrences={monthByTree.get(tree.id) ?? []}
-                  today={today}
-                  emptyText="Tháng này chưa có giỗ, sinh nhật hay sự kiện nào."
-                />
-              ))}
-            </div>
-          </div>
-        )}
       </main>
       <Footer />
 
