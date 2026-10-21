@@ -199,7 +199,10 @@ await step('Trang trí: cỡ chữ cùng hàng phía trên ô chữ tương ứn
   assert(sizes.join() === '50,30,30', `cỡ mặc định ${sizes.join()}`);
   assert((await page.getByRole('radio', { name: /Đỏ son/ }).count()) === 1, 'ảnh khung không hiện sẵn');
   assert((await page.getByRole('radiogroup', { name: 'Kiểu khung' }).getByRole('radio').count()) === 12, 'không đủ 12 kiểu khung');
-  await page.getByRole('radio', { name: /Mộc/ }).check({ force: true });
+  // Bấm vào nhãn như người dùng thật: ô radio ẩn (sr-only) chỉ rộng 1px nên bấm thẳng vào nó dễ trượt ra ngoài ô khi làm tròn điểm ảnh.
+  const moc = page.getByRole('radio', { name: /Mộc/ });
+  await page.getByRole('radiogroup', { name: 'Kiểu khung' }).locator('label', { has: moc }).click();
+  assert(await moc.isChecked(), 'bấm ảnh khung Mộc mà chưa chọn');
   await shot('pha-do-trang-tri');
 });
 
