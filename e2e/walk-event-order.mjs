@@ -78,14 +78,14 @@ const checkMonthList = async (root, label) => {
   if (dataRequests !== before) throw new Error(`${label}: mở/gập gọi thêm ${dataRequests - before} API`);
 };
 
-await step('Gia phả của tôi: sự kiện tháng ở đầu trang, trên danh sách gia phả; sắp tới trên, đã qua gập sẵn', async () => {
+await step('Gia phả của tôi: sự kiện tháng dưới danh sách gia phả; sắp tới trên, đã qua gập sẵn', async () => {
   await page.goto(`${APP}/gia-pha`);
   await page.getByRole('heading', { name: 'Sự kiện trong tháng 10/2026' }).waitFor();
   const section = page.locator('main > div').filter({ has: page.getByRole('heading', { name: 'Sự kiện trong tháng 10/2026' }) });
   await checkMonthList(section, 'Gia phả của tôi');
   const heading = await page.getByRole('heading', { name: 'Sự kiện trong tháng 10/2026' }).boundingBox();
   const card = await page.locator(`a[href="/gia-pha/${treeId}"]`).first().boundingBox();
-  if (heading.y >= card.y) throw new Error('sự kiện phải nằm trên danh sách gia phả');
+  if (heading.y <= card.y) throw new Error('sự kiện phải nằm dưới danh sách gia phả');
   await page.screenshot({ path: `${SHOTS}/eo-home.png`, fullPage: true });
 });
 
