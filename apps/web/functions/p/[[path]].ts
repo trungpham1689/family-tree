@@ -31,8 +31,8 @@ const fetchCard = async (env: Env, token: string): Promise<PublicCard | null> =>
 
 export const onRequestGet = async ({ request, env, params }: Context): Promise<Response> => {
   const url = new URL(request.url);
-  // Mọi đường dẫn của ứng dụng đều trả về index.html (xem public/_redirects).
-  const page = await env.ASSETS.fetch(new Request(new URL('/index.html', url.origin), request));
+  // Lấy '/' chứ không phải '/index.html': Cloudflare Pages chuyển /index.html về / bằng 308, rồi trình duyệt bị đưa về trang chủ.
+  const page = await env.ASSETS.fetch(new Request(new URL('/', url.origin), request));
   if (!page.ok) return page;
 
   const token = params.path?.[0] ?? '';

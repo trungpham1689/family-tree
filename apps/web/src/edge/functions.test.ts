@@ -52,4 +52,23 @@ describe('Pages Function thẻ xem trước link công khai', () => {
     expect(await run(() => Response.json({ nope: 1 }))).toContain('không còn hiệu lực');
     expect(await run(() => new Response('x', { status: 500 }))).toContain('không còn hiệu lực');
   });
+
+  it('lấy trang gốc "/" chứ không phải /index.html (Cloudflare chuyển /index.html về / bằng 308, người xem bị đưa về trang chủ)', async () => {
+    stubFetch(() => Response.json({ name: 'Họ Phạm', description: null, persons: 3 }));
+    const response = await ogPage({
+      request: new Request(`https://app.test/p/${TOKEN}`),
+      env: {
+        ...env,
+        ASSETS: {
+          fetch: async (request: Request) =>
+            new URL(request.url).pathname === '/index.html'
+              ? new Response(null, { status: 308, headers: { location: '/' } })
+              : new Response('<html><head><title>Gia Phả</title></head></html>'),
+        },
+      },
+      params: { path: [TOKEN] },
+    });
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain('Họ Phạm');
+  });
 });
