@@ -17,7 +17,7 @@ export type DeliverDeps = {
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 const retriable = (error: unknown) => !(error instanceof SendError) || error.status === 429 || error.status >= 500;
 
-/** Thử lại `work` với chờ tăng dần (và theo `Retry-After` nếu Resend báo); lỗi không đáng thử lại thì ném ngay. */
+/** Thử lại `work` với chờ tăng dần (và theo `Retry-After` nếu Brevo báo); lỗi không đáng thử lại thì ném ngay. */
 export const withRetry = async <T>(work: () => Promise<T>, sleep: (ms: number) => Promise<void>, maxAttempts: number): Promise<T> => {
   for (let attempt = 1; ; attempt += 1) {
     try {

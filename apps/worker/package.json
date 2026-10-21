@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Cloudflare Worker Cron: tính nhắc nhở đến hạn mỗi tài khoản, gửi Bản tin nhắc qua Resend (SPEC story 65).",
+  "description": "Cloudflare Worker Cron: tính nhắc nhở đến hạn mỗi tài khoản, gửi Bản tin nhắc qua Brevo (SPEC story 65).",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",

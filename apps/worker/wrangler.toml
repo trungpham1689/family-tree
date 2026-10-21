@@ -10,12 +10,11 @@ crons = ["0 0 * * *"]
 # URL Supabase, giống VITE_SUPABASE_URL ở apps/web/.env — không phải bí mật.
 SUPABASE_URL = "https://gihidxqjfcezsrcibrla.supabase.co"
 # Địa chỉ web, để chèn link "Xem trên Gia Phả" trong email.
-APP_URL = "https://gia-pha.pages.dev"
-# Email gửi đi; onboarding@resend.dev dùng được ngay không cần xác minh domain,
-# nhưng Resend giới hạn chỉ gửi về đúng email đã đăng ký tài khoản Resend.
-# Có domain riêng thì đổi sang địa chỉ @tên-miền-của-bạn và xác minh domain đó trên Resend.
-RESEND_FROM = "Gia Phả <onboarding@resend.dev>"
+APP_URL = "https://family-tree-aek.pages.dev"
+# Email gửi đi, dạng "Tên <email>". Địa chỉ phải đã xác minh trong Brevo (Senders, Domains & Dedicated IPs → Senders).
+# Dùng Gmail cá nhân (không có domain riêng) vẫn gửi được nhưng Brevo thay địa chỉ người gửi bằng địa chỉ của Brevo và mail dễ vào Spam.
+BREVO_FROM = "Family Tree <trungpham168@gmail.com>"
 
 # Bí mật — đặt bằng `wrangler secret put <tên>`, không ghi vào đây:
 #   SUPABASE_SERVICE_ROLE_KEY  (Supabase Dashboard → Project Settings → API)
-#   RESEND_API_KEY             (Resend Dashboard → API Keys)
+#   BREVO_API_KEY              (Brevo → SMTP & API → API keys; KHÔNG phải SMTP key)

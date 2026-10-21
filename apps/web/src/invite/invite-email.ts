@@ -1,14 +1,13 @@
-import { resendSender, SendError } from '../../../worker/src/send.ts';
+import { brevoSender, SendError } from '../../../worker/src/send.ts';
 import { EdgeError, supabaseRest, type EdgeEnv, type SupabaseRest } from '../edge/supabase-rest';
 
 /**
  * Logic của /api/invite-email (Cloudflare Pages Function): gửi email mời cho một lời mời ĐANG CHỜ đăng ký.
  * Chỉ Chủ sở hữu gọi được, chỉ gửi tới email đã có lời mời chờ trong gia phả đó (không dùng làm cổng gửi thư tuỳ ý), và có chống gửi dồn
- * (claim_invitation_email). Khoá Resend nằm phía server.
+ * (claim_invitation_email). Khoá Brevo nằm phía server.
  */
-export type InviteEmailEnv = EdgeEnv & { RESEND_API_KEY?: string; RESEND_FROM?: string };
+export type InviteEmailEnv = EdgeEnv & { BREVO_API_KEY?: string; BREVO_FROM?: string };
 
-const DEFAULT_FROM = 'Gia Phả <onboarding@resend.dev>';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const ROLE_LABELS: Record<string, string> = { editor: 'Biên tập viên', viewer: 'Người xem' };
@@ -57,7 +56,7 @@ export const handleInviteEmail = async (request: Request, env: InviteEmailEnv, d
   const treeId = typeof body?.treeId === 'string' ? body.treeId : '';
   const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
   if (!UUID.test(treeId) || !EMAIL.test(email) || email.length > 254) return json({ error: 'Thông tin không hợp lệ.' }, 400);
-  if (!env.RESEND_API_KEY) return json({ error: 'Máy chủ chưa cấu hình gửi email.' }, 503);
+  if (!env.BREVO_API_KEY || !env.BREVO_FROM) return json({ error: 'Máy chủ chưa cấu hình gửi email.' }, 503);
   const rest: SupabaseRest | null = supabaseRest(env, doFetch);
   if (!rest) return json({ error: 'Máy chủ chưa cấu hình Supabase.' }, 500);
 
@@ -84,13 +83,13 @@ export const handleInviteEmail = async (request: Request, env: InviteEmailEnv, d
     });
 
     try {
-      await resendSender({ apiKey: env.RESEND_API_KEY, from: env.RESEND_FROM || DEFAULT_FROM }, doFetch)([email], subject, html, text, `invite-${crypto.randomUUID()}`);
+      await brevoSender({ apiKey: env.BREVO_API_KEY, from: env.BREVO_FROM }, doFetch)([email], subject, html, text, `invite-${crypto.randomUUID()}`);
     } catch (error) {
       await rest.rpc('release_invitation_email', { target_tree: treeId, invite_email: email }, jwt).catch(() => undefined);
       const status = error instanceof SendError ? error.status : 0;
       const hint =
-        status === 403 || status === 422
-          ? 'Resend từ chối địa chỉ này. Gói thử của Resend (onboarding@resend.dev) chỉ gửi được tới email chủ tài khoản Resend; muốn gửi cho người khác cần xác minh tên miền riêng trên Resend.'
+        status === 400 || status === 403 || status === 422
+          ? 'Brevo từ chối email này. Kiểm tra email người gửi (BREVO_FROM) đã được xác minh trong Brevo → Senders và khoá BREVO_API_KEY đúng (API key, không phải SMTP key).'
           : 'Không gửi được email. Lời mời vẫn được lưu; hãy thử gửi lại sau.';
       return json({ error: hint }, 502);
     }

@@ -12,7 +12,7 @@ Webapp lưu giữ gia phả cho nhiều dòng họ: lưu thông tin các đời,
 | Thư mục | Nội dung |
 |---|---|
 | `apps/web` | Giao diện React + TypeScript (Vite, Tailwind) |
-| `apps/worker` | Cloudflare Worker Cron: tính nhắc nhở đến hạn, gửi Bản tin nhắc qua Resend |
+| `apps/worker` | Cloudflare Worker Cron: tính nhắc nhở đến hạn, gửi Bản tin nhắc qua Brevo |
 | `packages/*` | Các mô-đun thuần TypeScript dùng chung (lịch âm, bố cục cây, nhắc nhở…) |
 | `supabase/migrations` | Schema database, áp lên cả Supabase thật và database test |
 | `tests/db` | Test seam B: database chạy trên PGlite với RLS thật ([ADR 0005](docs/adr/0005-test-database-pglite.md)) |
@@ -88,9 +88,10 @@ Vào [Supabase Dashboard](https://supabase.com/dashboard/project/gihidxqjfcezsrc
 
 Chưa làm bước này thì nhắc nhở vẫn chạy trong app (chuông "Nhắc nhở", trang `/nhac-gio`) như thường, chỉ chưa có email nhắc.
 
-1. **Tạo tài khoản [Resend](https://resend.com)** (miễn phí 100 email/ngày) → **API Keys** → tạo key mới.
-   - Chưa có domain riêng: gửi được ngay bằng `onboarding@resend.dev`, nhưng Resend chỉ cho gửi về đúng email bạn dùng để đăng ký tài khoản Resend — đủ để tự thử, không gửi được cho người khác.
-   - Có domain riêng: **Domains** → thêm domain, trỏ các bản ghi DNS Resend đưa ra, rồi đổi `RESEND_FROM` trong `apps/worker/wrangler.toml` sang địa chỉ `@domain-của-bạn`.
+1. **Tạo tài khoản [Brevo](https://www.brevo.com)** (miễn phí 300 email/ngày).
+   - **Senders, Domains & Dedicated IPs → Senders** → thêm email người gửi và bấm link xác minh gửi về hộp thư đó. Ghi địa chỉ này vào `BREVO_FROM` trong `apps/worker/wrangler.toml` (dạng `Gia Phả <email@...>`) và vào biến `BREVO_FROM` của Cloudflare Pages.
+   - **SMTP & API → API keys** → tạo key mới (đây là *API key*, không phải *SMTP key*).
+   - Chưa có domain riêng: dùng được Gmail cá nhân làm người gửi, nhưng Brevo thay địa chỉ người gửi bằng địa chỉ của Brevo và mail dễ vào Spam. Có domain riêng thì xác thực domain (SPF/DKIM) ở **Domains** rồi đổi `BREVO_FROM` sang `@domain-của-bạn`.
 2. **Lấy Service role key**: [Supabase Dashboard](https://supabase.com/dashboard/project/gihidxqjfcezsrcibrla) → Project Settings → API → `service_role` (secret, bỏ qua RLS — không phải khoá `anon`/`publishable` đang dùng ở `apps/web/.env`).
 3. **Đăng nhập Cloudflare từ dòng lệnh** (một lần):
    ```bash
@@ -100,14 +101,14 @@ Chưa làm bước này thì nhắc nhở vẫn chạy trong app (chuông "Nhắ
 4. **Đặt bí mật** (không ghi vào `wrangler.toml`, không commit):
    ```bash
    npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-   npx wrangler secret put RESEND_API_KEY
+   npx wrangler secret put BREVO_API_KEY
    ```
 5. **Kiểm tra cục bộ rồi deploy**:
    ```bash
    pnpm --filter worker typecheck
    npx wrangler deploy
    ```
-   Worker chạy theo lịch đã đặt sẵn trong `wrangler.toml` (`0 0 * * *`, 7:00 sáng giờ Việt Nam hằng ngày; code chỉ gửi mỗi 5 ngày một lần và chỉ khi 5 ngày tới có giỗ/sự kiện), không cần làm gì thêm. Xem log: `npx wrangler tail`. Đổi `APP_URL`/`RESEND_FROM` thì sửa `[vars]` trong `wrangler.toml` rồi deploy lại.
+   Worker chạy theo lịch đã đặt sẵn trong `wrangler.toml` (`0 0 * * *`, 7:00 sáng giờ Việt Nam hằng ngày; code chỉ gửi mỗi 5 ngày một lần và chỉ khi 5 ngày tới có giỗ/sự kiện), không cần làm gì thêm. Xem log: `npx wrangler tail`. Đổi `APP_URL`/`BREVO_FROM` thì sửa `[vars]` trong `wrangler.toml` rồi deploy lại.
 
 ### 4. Ảnh trên Google Drive
 

@@ -2,7 +2,7 @@ import { deliverDigests, withRetry } from './deliver.ts';
 import { buildDigests, DIGEST_PERIOD_DAYS, isDigestDay } from './digest.ts';
 import { loadReminderData } from './fetch-data.ts';
 import { renderDigestHtml, renderDigestText } from './render-email.ts';
-import { resendSender } from './send.ts';
+import { brevoSender } from './send.ts';
 import { todayInVietnam, type SolarDate } from '@gia-pha/lunar';
 
 const parsePinnedDay = (text: string): SolarDate => {
@@ -14,8 +14,8 @@ const parsePinnedDay = (text: string): SolarDate => {
 export interface Env {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
-  RESEND_API_KEY: string;
-  RESEND_FROM: string;
+  BREVO_API_KEY: string;
+  BREVO_FROM: string;
   APP_URL: string;
   /** Chỉ để kiểm tra gửi mail: YYYY-MM-DD thay cho "hôm nay" và bỏ qua quy tắc ngày gửi. Không đặt trong production. */
   DIGEST_TODAY?: string;
@@ -35,7 +35,7 @@ export default {
     const data = await withRetry(() => loadReminderData(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY), (ms) => new Promise((r) => setTimeout(r, ms)), 3);
 
     const report = await deliverDigests(buildDigests({ today, source: data.source, recipientsByTree: data.recipientsByTree }), {
-      send: resendSender({ apiKey: env.RESEND_API_KEY, from: env.RESEND_FROM }),
+      send: brevoSender({ apiKey: env.BREVO_API_KEY, from: env.BREVO_FROM }),
       dateKey: `${today.year}-${today.month}-${today.day}`,
       render: (digest) => {
         const meta = { treeName: digest.treeName, days: DIGEST_PERIOD_DAYS };
