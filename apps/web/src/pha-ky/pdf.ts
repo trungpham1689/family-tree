@@ -57,7 +57,9 @@ export const narrativeToPdf = (
     nameSize -= 1;
     doc.setFontSize(nameSize);
   }
-  doc.text(treeName, MID, 137, { align: 'center' });
+  // Tên dài xuống tối đa hai dòng thay vì tràn ra ngoài khung bìa.
+  const nameLines = (doc.splitTextToSize(treeName, 150) as string[]).slice(0, 2);
+  nameLines.forEach((line, index) => doc.text(line, MID, 137 - (nameLines.length - 1) * 5 + index * 10, { align: 'center' }));
   font(13.5, false, COLOR.inkMuted);
   doc.text('Nguồn gốc, các chi, nhân vật tiêu biểu', MID, 148, { align: 'center' });
   doc.text('và tường thuật từng đời', MID, 155.6, { align: 'center' });
@@ -65,7 +67,7 @@ export const narrativeToPdf = (
     const { width, height } = doc.getImageProperties(photos.cover);
     const h = Math.min(50, (90 * height) / width);
     const w = (h * width) / height;
-    doc.addImage(photos.cover, 'JPEG', MID - w / 2, 168, w, h);
+    doc.addImage(photos.cover, doc.getImageProperties(photos.cover).fileType, MID - w / 2, 168, w, h);
   }
   const progenitor = front.find((section) => section.kind === 'origin');
   if (progenitor?.kind === 'origin') {
@@ -257,7 +259,7 @@ export const narrativeToPdf = (
         const scale = Math.min(PHOTO_W / width, PHOTO_H / imageHeight);
         const w = width * scale;
         const h = imageHeight * scale;
-        doc.addImage(photo, 'JPEG', PAGE_W - MARGIN - w, y + ROW_PAD, w, h);
+        doc.addImage(photo, doc.getImageProperties(photo).fileType, PAGE_W - MARGIN - w, y + ROW_PAD, w, h);
       }
       y += height;
       rowRule(index === items.length - 1 ? COLOR.rule : COLOR.line);
@@ -375,7 +377,7 @@ export const narrativeToPdf = (
       // Ảnh cạnh đầu mục; nếu mô tả đã tràn sang trang khác thì ảnh nằm ở trang của đầu mục.
       const current = doc.getCurrentPageInfo().pageNumber;
       doc.setPage(startPageNumber);
-      doc.addImage(photo, 'JPEG', PAGE_W - MARGIN - PHOTO, rowTop + 3.7, PHOTO, PHOTO);
+      doc.addImage(photo, doc.getImageProperties(photo).fileType, PAGE_W - MARGIN - PHOTO, rowTop + 3.7, PHOTO, PHOTO);
       doc.setPage(current);
       if (current === startPageNumber) y = Math.max(y, rowTop + 3.7 + PHOTO);
     }

@@ -291,3 +291,35 @@ export const fetchPhotoBlob = (path: string): Promise<Blob> => storeFor(path).fe
 
 /** Tải ảnh về và đổi thành data URL (hiện trực tiếp, và nhúng được vào Phả đồ/PDF không cần CORS). */
 export const fetchAvatarDataUrl = async (path: string): Promise<string> => blobToDataUrl(await fetchPhotoBlob(path));
+
+/** Số ảnh tải cùng lúc và số ảnh nhớ tối đa; ảnh đổi thì đường dẫn đổi theo nên bản nhớ cũ không bao giờ bị dùng sai. */
+const AVATAR_CONCURRENCY = 6;
+const AVATAR_CACHE_LIMIT = 3000;
+const avatarCache = new Map<string, string>();
+
+/**
+ * Tải nhiều ảnh thành data URL, tối đa `AVATAR_CONCURRENCY` ảnh cùng lúc, mỗi ảnh nhớ theo đường dẫn (đổi một ảnh chỉ tải lại ảnh đó).
+ * Ảnh nào lỗi (đã xoá, mất mạng) thì bị bỏ qua, không làm mất các ảnh còn lại.
+ */
+export const fetchAvatarDataUrls = async <Key>(items: readonly { key: Key; path: string }[]): Promise<Map<Key, string>> => {
+  const result = new Map<Key, string>();
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const { key, path } = items[next++]!;
+      let url = avatarCache.get(path);
+      if (url === undefined) {
+        try {
+          url = await fetchAvatarDataUrl(path);
+        } catch {
+          continue;
+        }
+        avatarCache.set(path, url);
+        if (avatarCache.size > AVATAR_CACHE_LIMIT) avatarCache.delete(avatarCache.keys().next().value!);
+      }
+      result.set(key, url);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(AVATAR_CONCURRENCY, items.length) }, worker));
+  return result;
+};

@@ -47,9 +47,16 @@ const TimelineBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<
   }, [baseEntries, covers, coverImages.data]);
   const years = useMemo(() => {
     const groups = new Map<number, typeof entries>();
-    for (const entry of entries) groups.set(entry.year, [...(groups.get(entry.year) ?? []), entry]);
+    for (const entry of entries) {
+      const group = groups.get(entry.year);
+      if (group) group.push(entry);
+      else groups.set(entry.year, [entry]);
+    }
     return [...groups];
   }, [entries]);
+  // Sự kiện/ảnh còn đang tải hoặc đã lỗi: xuất PDF lúc này sẽ thiếu mốc hoặc ảnh mà không báo gì.
+  const loadingData = treeEvents.isLoading || eventPhotos.isLoading || coverImages.isLoading;
+  const dataError = treeEvents.error ?? eventPhotos.error;
 
 
   return (
@@ -57,13 +64,14 @@ const TimelineBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-serif text-3xl font-bold text-son">Dòng thời gian</h1>
         {entries.length > 0 && (
-          <Button disabled={running !== null} onClick={() => runExport('timeline-pdf', { entries })}>
-            {running !== null ? 'Đang tạo…' : 'Xuất PDF'}
+          <Button disabled={running !== null || loadingData || dataError !== null} onClick={() => runExport('timeline-pdf', { entries })}>
+            {running !== null ? 'Đang tạo…' : loadingData ? 'Đang tải…' : 'Xuất PDF'}
           </Button>
         )}
       </div>
       <p className="mt-1 text-ink-muted">Những mốc sinh, cưới, mất và sự kiện của gia đình theo năm. Thêm ngày cưới ở trang của từng người; sự kiện thêm ở tab Sự kiện (chọn đưa vào Dòng thời gian).</p>
       {exportError && <ErrorBanner>{exportError}</ErrorBanner>}
+      {dataError && <ErrorBanner>Không tải được sự kiện của gia phả, nên Dòng thời gian thiếu sự kiện và chưa xuất PDF được: {dataError.message}</ErrorBanner>}
 
       <label className="mt-4 flex min-h-11 items-center gap-3">
         <input type="checkbox" className="size-5 shrink-0 accent-son" checked={withHistory} onChange={(event) => setWithHistory(event.target.checked)} />

@@ -5,7 +5,7 @@ import { useAuth } from '../auth/auth-context';
 import { disableCalendarFeed, getCalendarFeedToken, rotateCalendarFeed } from './calendar-feed';
 import { listMyTrees } from './trees';
 import { listTreeEvents, loadMyCalendar, removeTreeEvent, saveTreeEvent } from './calendar';
-import { fetchAvatarDataUrl, listEventPhotos, removeEventPhoto, uploadEventPhoto, type EventPhoto } from './photos';
+import { fetchAvatarDataUrls, listEventPhotos, removeEventPhoto, uploadEventPhoto, type EventPhoto } from './photos';
 
 /** Hiện ảnh trong trang một lúc rồi bỏ khỏi bộ nhớ sớm, như ảnh đại diện (data URL nặng). */
 const IMAGE_GC_MS = 5 * 60 * 1000;
@@ -69,7 +69,7 @@ export const firstPhotoOfEvents = (photos: readonly EventPhoto[]): Map<string, E
 export const useEventPhotoImages = (photos: readonly EventPhoto[], enabled = true) =>
   useQuery({
     queryKey: queryKeys.avatars(photos.map((photo) => `event:${photo.id}:${photo.storage_path}`)),
-    queryFn: async () => new Map(await Promise.all(photos.map(async (photo) => [photo.id, await fetchAvatarDataUrl(photo.storage_path)] as const))),
+    queryFn: () => fetchAvatarDataUrls(photos.map((photo) => ({ key: photo.id, path: photo.storage_path }))),
     enabled: enabled && photos.length > 0,
     staleTime: Infinity,
     gcTime: IMAGE_GC_MS,

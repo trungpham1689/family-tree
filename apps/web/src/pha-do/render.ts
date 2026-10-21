@@ -1,4 +1,4 @@
-import { layoutTree, MARRIAGE_LINE_HEIGHT, marriageExtraLines, outsideGenerationsFilter, wrapName } from '@gia-pha/tree-layout';
+import { DEFAULT_BOX, layoutTree, MARRIAGE_LINE_HEIGHT, marriageExtraLines, NAME_CHARS, outsideGenerationsFilter, wrapName } from '@gia-pha/tree-layout';
 import type { Person } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
 import { marriageNote } from '../family/labels';
@@ -13,12 +13,11 @@ import { MM_PER_PX, paperScale, PT_PER_MM, type Drawing, type DrawItem } from '.
 export const MIN_READABLE_PX = 8;
 
 // Kích thước trong hệ toạ độ bố cục (đơn vị trừu tượng, cùng tỉ lệ với cỡ chữ bên dưới).
-const BOX_WIDTH = 168;
-const BASE_BOX_HEIGHT = 72;
+const BOX_WIDTH = DEFAULT_BOX.width;
+const BASE_BOX_HEIGHT = DEFAULT_BOX.height;
 const EXTRA_LINE_HEIGHT = 17;
 const NAME_SIZE = 15;
 const SMALL_SIZE = 12;
-const NAME_CHARS = 18;
 /** Lề trái + phải trong ô: chữ luôn nằm gọn trong chiều rộng còn lại. */
 const BOX_PADDING = 10;
 /** Dòng dài hơn ô thì thu nhỏ chữ cho vừa, tới tối thiểu bằng ngần này cỡ gốc; nhỏ hơn nữa thì cắt đuôi, thêm "…". */

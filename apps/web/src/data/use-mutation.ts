@@ -5,7 +5,7 @@ import {
   type UseMutationOptions,
   type UseMutationResult,
 } from '@tanstack/react-query';
-import { useRef } from 'react';
+import { useState } from 'react';
 
 /**
  * Chạy `run` một lần tại một thời điểm theo `slot`: gọi lại khi lần trước chưa xong thì không gọi API nữa, trả về chính lời hứa đang chạy.
@@ -31,7 +31,8 @@ export const useMutation = <TData = unknown, TError = DefaultError, TVariables =
   options: UseMutationOptions<TData, TError, TVariables, TOnMutateResult>,
 ): UseMutationResult<TData, TError, TVariables, TOnMutateResult> => {
   const base = useBaseMutation(options);
-  const slot = useRef<Promise<TData> | null>(null);
+  // Hộp đựng lời hứa đang chạy: giữ bằng state (không phải ref) vì được đọc trong lúc vẽ, và không bao giờ thay đối tượng.
+  const [slot] = useState<{ current: Promise<TData> | null }>(() => ({ current: null }));
   const mutateAsync = guardOnce(slot, base.mutateAsync);
   // Lỗi đã vào `error` của mutation và `onError`; `mutate` không ném lỗi ra ngoài.
   const mutate = ((...args: Parameters<typeof base.mutateAsync>) => {

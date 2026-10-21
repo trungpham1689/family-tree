@@ -32,6 +32,8 @@ type TimelinePerson = {
 };
 type TimelineUnion = { partner_a: string; partner_b: string; status: string; marriage_year?: number | null };
 
+const byText = new Intl.Collator('vi').compare;
+
 /** Nhãn chữ của từng loại mốc (trang web viết hoa bằng CSS, PDF dùng toUpperCase). */
 export const KIND_LABEL: Record<TimelineKind, string> = { sinh: 'Sinh', cuoi: 'Kết hôn', mat: 'Qua đời', su_kien: 'Sự kiện', lich_su: 'Lịch sử' };
 
@@ -91,5 +93,5 @@ export const buildTimeline = (
     }
   }
 
-  return entries.sort((a, b) => a.year - b.year || KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.text.localeCompare(b.text, 'vi'));
+  return entries.sort((a, b) => a.year - b.year || KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || byText(a.text, b.text));
 };

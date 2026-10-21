@@ -20,17 +20,20 @@ const isTabActive = (tab: (typeof TABS)[number], treeId: string, pathname: strin
 /** Thanh tab chuyển giữa các phần của một gia phả: menu hamburger dưới 900px (8 tab cần ~840px, hẹp hơn sẽ bị cắt tab cuối), hàng tab từ 900px trở lên. */
 export const TreeTabs = ({ treeId }: { treeId: string }) => {
   const location = useLocation();
-  const [open, setOpen] = useState(false);
+  // Menu mở ở đúng trang đã bấm: đổi trang thì tự coi như đóng, không cần effect đặt lại state.
+  const [openPath, setOpenPath] = useState<string | null>(null);
+  const open = openPath === location.pathname;
+  const setOpen = (value: boolean | ((current: boolean) => boolean)) =>
+    setOpenPath((current) => ((typeof value === 'function' ? value(current === location.pathname) : value) ? location.pathname : null));
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   // Trang không thuộc tab nào (như trang một Người) thì không tô tab nào cả.
   const active = TABS.find((tab) => isTabActive(tab, treeId, location.pathname));
 
-  useEffect(() => setOpen(false), [location.pathname]);
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      setOpen(false);
+      setOpenPath(null);
       menuButtonRef.current?.focus();
     };
     window.addEventListener('keydown', onKey);

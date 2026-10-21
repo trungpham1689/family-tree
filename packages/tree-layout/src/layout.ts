@@ -16,6 +16,9 @@ export type LayoutPerson = {
   gender: string | null;
   birth_order: number | null;
   birth_year: number | null;
+  /** Không bắt buộc (bản công khai không gửi); có thì dùng để xếp anh chị em cùng năm sinh. */
+  birth_month?: number | null;
+  birth_day?: number | null;
 };
 
 export type LayoutParentLink = { child_id: string; parent_id: string };
@@ -105,9 +108,14 @@ type Unit = {
 
 const byName = new Intl.Collator('vi').compare;
 
+const LAST = Number.MAX_SAFE_INTEGER;
+
+/** Cùng thứ tự với `compareSiblings` của family-graph (Thứ tự con, rồi năm-tháng-ngày sinh, rồi tên) để Cây khớp danh sách các Đời. */
 const compareSiblings = (a: LayoutPerson, b: LayoutPerson): number =>
-  (a.birth_order ?? Number.MAX_SAFE_INTEGER) - (b.birth_order ?? Number.MAX_SAFE_INTEGER) ||
-  (a.birth_year ?? Number.MAX_SAFE_INTEGER) - (b.birth_year ?? Number.MAX_SAFE_INTEGER) ||
+  (a.birth_order ?? LAST) - (b.birth_order ?? LAST) ||
+  (a.birth_year ?? LAST) - (b.birth_year ?? LAST) ||
+  (a.birth_month ?? LAST) - (b.birth_month ?? LAST) ||
+  (a.birth_day ?? LAST) - (b.birth_day ?? LAST) ||
   byName(a.full_name, b.full_name);
 
 const pushTo = <K, V>(map: Map<K, V[]>, key: K, value: V) => {

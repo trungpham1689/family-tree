@@ -1,8 +1,8 @@
-import { MARRIAGE_LINE_HEIGHT, wrapName, type LayoutNode, type TreeLayout } from '@gia-pha/tree-layout';
+import { MARRIAGE_LINE_HEIGHT, NAME_CHARS, wrapName, type LayoutNode, type TreeLayout } from '@gia-pha/tree-layout';
 import { select } from 'd3-selection';
 import 'd3-transition';
 import { zoom, zoomIdentity, zoomTransform, type ZoomBehavior } from 'd3-zoom';
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type FocusEvent } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FocusEvent } from 'react';
 import { marriageNote } from '../family/labels';
 import { Button } from '../ui/Button';
 
@@ -126,6 +126,12 @@ export const FamilyTreeCanvas = ({
     select(svg).transition().duration(animationMs(150)).call(behavior.translateBy, dx / k, dy / k);
   };
 
+  const linePaths = useMemo(() => {
+    const paths = { union: '', descent: '' };
+    for (const line of layout.lines) paths[line.kind] += `M${line.points.map(([x, y]) => `${x} ${y}`).join('L')}`;
+    return paths;
+  }, [layout.lines]);
+
   const layoutRef = useRef(layout);
   useLayoutEffect(() => {
     layoutRef.current = layout;
@@ -162,15 +168,9 @@ export const FamilyTreeCanvas = ({
       >
         <g ref={groupRef}>
           <g transform={`translate(${PADDING} ${PADDING})`}>
-            {layout.lines.map((line, index) => (
-              <polyline
-                key={index}
-                points={line.points.map(([x, y]) => `${x},${y}`).join(' ')}
-                fill="none"
-                stroke={line.kind === 'union' ? 'var(--color-kim)' : 'var(--color-ink-muted)'}
-                strokeWidth={line.kind === 'union' ? 2 : 1.5}
-              />
-            ))}
+            {/* Hàng nghìn đoạn nối gộp thành hai <path>: ít phần tử DOM, thu/mở nhánh không phải cập nhật từng đoạn. */}
+            <path d={linePaths.union} fill="none" stroke="var(--color-kim)" strokeWidth={2} />
+            <path d={linePaths.descent} fill="none" stroke="var(--color-ink-muted)" strokeWidth={1.5} />
             {layout.nodes.map((node) => {
               const person = persons.get(node.personId);
               const note = person && node.marriage ? marriageNote(node.marriage, person.gender, (id) => persons.get(id)?.full_name) : null;
@@ -279,14 +279,32 @@ type BoxProps = {
   onToggle: (personId: string) => void;
 };
 
-const NAME_CHARS = 18;
 /** Dòng "cũng là chồng của …" dài hơn mức này thì cắt đuôi, để chữ không tràn ô. */
 const MARRIAGE_CHARS = 27;
 
 const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text);
 
+/** `node` là object mới sau mỗi lần xếp lại Cây; so từng trường để ô không đổi gì thì không vẽ lại khi thu/mở nhánh khác. */
+const samePersonBox = (a: BoxProps, b: BoxProps): boolean =>
+  a.person === b.person &&
+  a.marriageLabel === b.marriageLabel &&
+  a.marriageAlso === b.marriageAlso &&
+  a.highlighted === b.highlighted &&
+  a.canToggle === b.canToggle &&
+  a.onOpen === b.onOpen &&
+  a.onToggle === b.onToggle &&
+  a.node.key === b.node.key &&
+  a.node.x === b.node.x &&
+  a.node.y === b.node.y &&
+  a.node.width === b.node.width &&
+  a.node.height === b.node.height &&
+  a.node.collapsed === b.node.collapsed &&
+  a.node.hiddenChildren === b.node.hiddenChildren;
+
 const PersonBox = memo(({ node, person, marriageLabel, marriageAlso, highlighted, canToggle, onOpen, onToggle }: BoxProps) => {
   const lines = wrapName(person.full_name, NAME_CHARS);
+  // Một Người có thể có hai ô (vừa huyết thống vừa Dâu/Rể): id theo ô, không theo Người, kẻo hai clipPath trùng id.
+  const clipId = `avatar-${node.key.replaceAll(':', '-')}`;
   const isSpouse = node.role === 'spouse';
   // Viền theo giới tính (nam/nữ/chưa rõ) để nhận ra ngay không cần đọc chữ.
   const genderColor = person.gender === 'nu' ? 'var(--color-son)' : person.gender === 'nam' ? 'var(--color-kim-text)' : 'var(--color-control)';
@@ -357,7 +375,7 @@ const PersonBox = memo(({ node, person, marriageLabel, marriageAlso, highlighted
         {person.adopted && <circle cx={node.x + 10} cy={node.y + node.height - 10} r={3.5} fill="var(--color-ink-muted)" />}
         {person.avatarUrl && (
           <>
-            <clipPath id={`avatar-${person.id}`}>
+            <clipPath id={clipId}>
               <circle cx={centerX} cy={avatarTop + AVATAR_SIZE / 2} r={AVATAR_SIZE / 2} />
             </clipPath>
             <image
@@ -367,7 +385,7 @@ const PersonBox = memo(({ node, person, marriageLabel, marriageAlso, highlighted
               width={AVATAR_SIZE}
               height={AVATAR_SIZE}
               preserveAspectRatio="xMidYMid slice"
-              clipPath={`url(#avatar-${person.id})`}
+              clipPath={`url(#${clipId})`}
             />
             <circle
               cx={centerX}
@@ -448,5 +466,5 @@ const PersonBox = memo(({ node, person, marriageLabel, marriageAlso, highlighted
       )}
     </g>
   );
-});
+}, samePersonBox);
 PersonBox.displayName = 'PersonBox';

@@ -7,6 +7,7 @@ import { useParams, useSearchParams } from 'react-router';
 import type { TreeEvent } from '../data/calendar';
 import { EventSearchPanel, type EventSearchInitial } from '../events/EventSearchPanel';
 import { checkImageFile, MAX_PHOTOS_PER_EVENT, PHOTO_SPECS, type EventPhoto } from '../data/photos';
+import { todayInVietnam } from '../calendar/month-grid';
 import { personLabel } from '../people/person-label';
 import { PersonPicker } from '../people/PersonPicker';
 import type { FamilyGraph } from '../family/family-graph';
@@ -94,7 +95,9 @@ export const TreeEventsPage = () => {
   const initial = useMemo<EventSearchInitial | undefined>(() => {
     if (focus) return focus;
     const event = watched ? events.data?.find((item) => item.id === watched) : undefined;
-    return event ? { from: `${event.year ?? new Date().getFullYear()}-01-01`, to: `${event.year ?? new Date().getFullYear()}-12-31`, query: event.title } : undefined;
+    if (!event) return undefined;
+    const year = event.year ?? todayInVietnam().year;
+    return { from: `${year}-01-01`, to: `${year}-12-31`, query: event.title };
   }, [watched, events.data, focus]);
 
   if (tree.isPending) return <FullPageMessage>Đang tải…</FullPageMessage>;

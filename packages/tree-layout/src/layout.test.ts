@@ -291,3 +291,18 @@ describe('wrapName', () => {
     expect(wrapName('Abcdefghijklmnop', 8, 1)).toEqual(['Abcdefg…']);
   });
 });
+
+describe('thứ tự anh chị em cùng năm sinh', () => {
+  it('xếp theo tháng rồi ngày sinh, giống danh sách các Đời', () => {
+    const persons = [
+      person('cha'),
+      person('c', { birth_year: 1990, birth_month: 5, birth_day: 2 }),
+      person('a', { birth_year: 1990, birth_month: 2, birth_day: 20 }),
+      person('b', { birth_year: 1990, birth_month: 2, birth_day: 25 }),
+    ];
+    const parentLinks = ['a', 'b', 'c'].map((child_id) => ({ child_id, parent_id: 'cha' }));
+    const layout = layoutTree({ persons, parentLinks, unions: [] }, { rootId: 'cha' });
+    const order = layout.nodes.filter((node) => node.depth === 1).sort((x, y) => x.x - y.x).map((node) => node.personId);
+    expect(order).toEqual(['a', 'b', 'c']);
+  });
+});

@@ -65,21 +65,23 @@ export const planReveal = (input: {
     else children.set(link.parent_id, [link.child_id]);
   }
 
-  // BFS theo đường máu mủ, ưu tiên đường có ít đời "ngoại" nhất (0-1 BFS).
+  // Đường máu mủ ít đời "ngoại" nhất. Mỗi bước tăng 0 hoặc 1 nên xử lý theo từng mức (ngăn xếp của mức hiện tại, hàng chờ của mức kế): không dịch mảng như deque.
   const outside = new Map<string, number>([[input.rootId, 0]]);
   const via = new Map<string, string>();
-  const queue: string[] = [input.rootId];
-  while (queue.length > 0) {
-    const id = queue.shift()!;
-    const depth = outside.get(id)!;
-    for (const child of children.get(id) ?? []) {
-      const childDepth = outsideDepthOfChild(depth, { gender: input.genderOf(id) });
-      const known = outside.get(child);
-      if (known !== undefined && known <= childDepth) continue;
-      outside.set(child, childDepth);
-      via.set(child, id);
-      if (childDepth === depth) queue.unshift(child);
-      else queue.push(child);
+  const buckets: string[][] = [[input.rootId]];
+  for (let level = 0; level < buckets.length; level += 1) {
+    const bucket = buckets[level]!;
+    while (bucket.length > 0) {
+      const id = bucket.pop()!;
+      if (outside.get(id) !== level) continue;
+      for (const child of children.get(id) ?? []) {
+        const childDepth = outsideDepthOfChild(level, { gender: input.genderOf(id) });
+        const known = outside.get(child);
+        if (known !== undefined && known <= childDepth) continue;
+        outside.set(child, childDepth);
+        via.set(child, id);
+        (buckets[childDepth] ??= []).push(child);
+      }
     }
   }
 
@@ -94,6 +96,15 @@ export const planReveal = (input: {
   if (anchor === undefined) return null;
 
   const collapsed = new Set(input.collapsed);
-  for (let current = via.get(anchor); current !== undefined; current = via.get(current)) collapsed.delete(current);
+  // Mở mọi cha/mẹ của người trên đường đi, không chỉ cha/mẹ của đường ngắn nhất: bố cục vẽ con dưới cha/mẹ nào gặp trước.
+  const parents = new Map<string, string[]>();
+  for (const link of input.parentLinks) {
+    const list = parents.get(link.child_id);
+    if (list) list.push(link.parent_id);
+    else parents.set(link.child_id, [link.parent_id]);
+  }
+  for (let step: string | undefined = anchor; step !== undefined; step = via.get(step)) {
+    for (const parent of parents.get(step) ?? []) if (outside.has(parent)) collapsed.delete(parent);
+  }
   return { collapsed, outsideGenerations: Math.max(input.outsideGenerations, outside.get(anchor)!) };
 };

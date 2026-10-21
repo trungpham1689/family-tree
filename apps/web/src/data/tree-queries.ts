@@ -37,6 +37,7 @@ import {
 } from './trees';
 import {
   fetchAvatarDataUrl,
+  fetchAvatarDataUrls,
   listPersonPhotos,
   discardStoredFiles,
   listPersonPhotoPaths,
@@ -164,12 +165,7 @@ export const usePersonAvatars = (persons: readonly { id: string; avatar_path: st
   const withAvatar = persons.filter((person) => person.avatar_path !== null);
   return useQuery({
     queryKey: queryKeys.avatars(withAvatar.map((person) => `${person.id}:${person.avatar_path}`)),
-    queryFn: async () => {
-      const entries = await Promise.all(
-        withAvatar.map(async (person) => [person.id, await fetchAvatarDataUrl(person.avatar_path!)] as const),
-      );
-      return new Map(entries);
-    },
+    queryFn: () => fetchAvatarDataUrls(withAvatar.map((person) => ({ key: person.id, path: person.avatar_path! }))),
     enabled: enabled && withAvatar.length > 0,
     staleTime: Infinity,
     gcTime: SHORT_GC_MS,

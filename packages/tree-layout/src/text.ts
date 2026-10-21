@@ -1,3 +1,6 @@
+/** Số ký tự tối đa mỗi dòng tên trong ô của Cây và Phả đồ. */
+export const NAME_CHARS = 18;
+
 /**
  * Ngắt họ tên thành tối đa `maxLines` dòng, mỗi dòng không quá `maxChars` ký tự,
  * ngắt ở khoảng trắng; phần thừa ở dòng cuối thay bằng "…".

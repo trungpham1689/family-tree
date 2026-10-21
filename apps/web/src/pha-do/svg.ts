@@ -1,7 +1,10 @@
 import type { Drawing } from './drawing';
 import { PT_PER_MM } from './drawing';
 
-const escape = (text: string) => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+// Ký tự điều khiển (trừ tab, xuống dòng) không hợp lệ trong XML: một ký tự như vậy trong tên làm SVG không đọc được khi xuất PNG.
+// oxlint-disable-next-line no-control-regex -- khớp ký tự điều khiển là chủ đích
+const XML_INVALID = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g;
+const escape = (text: string) => text.replace(XML_INVALID, '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 const escapeAttr = (text: string) => escape(text).replaceAll('"', '&quot;');
 const n = (value: number) => Number(value.toFixed(3));
 

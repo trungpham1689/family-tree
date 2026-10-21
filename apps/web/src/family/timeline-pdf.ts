@@ -42,14 +42,18 @@ export const timelineToPdf = (entries: readonly TimelineEntry[], fonts: PdfFonts
     nameSize -= 1;
     doc.setFontSize(nameSize);
   }
-  doc.text(treeName, MID, 146, { align: 'center' });
+  // Tên dài xuống tối đa hai dòng thay vì tràn ra ngoài khung bìa.
+  const nameLines = (doc.splitTextToSize(treeName, 150) as string[]).slice(0, 2);
+  nameLines.forEach((line, index) => doc.text(line, MID, 146 - (nameLines.length - 1) * 5 + index * 10, { align: 'center' }));
   font(13.5, false, COLOR.inkMuted);
   doc.text('Các mốc sinh, kết hôn, qua đời và sự kiện', MID, 157, { align: 'center' });
   doc.text('của gia đình theo năm', MID, 164.6, { align: 'center' });
 
-  const years = entries.map((entry) => entry.year);
-  font(15, true, COLOR.son);
-  spaced(`${Math.min(...years)} — ${Math.max(...years)}`, MID, 246, 0.12, 'center');
+  if (entries.length > 0) {
+    font(15, true, COLOR.son);
+    // Danh sách đã xếp theo năm: năm đầu và năm cuối là hai đầu mảng.
+    spaced(`${entries[0]!.year} — ${entries.at(-1)!.year}`, MID, 246, 0.12, 'center');
+  }
   coverBottom();
 
   // ── Các trang bảng ───────────────────────────────────────────────────────────
@@ -89,7 +93,9 @@ export const timelineToPdf = (entries: readonly TimelineEntry[], fonts: PdfFonts
     const wrapped = doc.splitTextToSize(entry.text, TEXT_W) as string[];
     let from = 0;
     const lines = wrapped.map((line) => {
-      const start = entry.text.indexOf(line, from);
+      // splitTextToSize bỏ khoảng trắng ở chỗ ngắt dòng; không tìm thấy thì coi như dòng nối tiếp.
+      const found = entry.text.indexOf(line, from);
+      const start = found === -1 ? from : found;
       from = start + line.length;
       const cut = Math.max(0, Math.min(line.length, subjectLength - start));
       return [
@@ -105,7 +111,7 @@ export const timelineToPdf = (entries: readonly TimelineEntry[], fonts: PdfFonts
     const detailLines = detail === '' || inline ? [] : (doc.splitTextToSize(detail, TEXT_W) as string[]);
     // Sự kiện: mô tả (chữ nhạt) và ảnh đầu tiên bên dưới, rộng tối đa PHOTO_W, cao tối đa PHOTO_H.
     font(10.5, false, COLOR.inkMuted);
-    const descLines = entry.description ? (doc.splitTextToSize(entry.description, TEXT_W) as string[]) : [];
+    let descLines = entry.description ? (doc.splitTextToSize(entry.description, TEXT_W) as string[]) : [];
     let photoW = 0;
     let photoH = 0;
     if (entry.photo) {
@@ -113,6 +119,14 @@ export const timelineToPdf = (entries: readonly TimelineEntry[], fonts: PdfFonts
       const scale = Math.min(PHOTO_W / width, PHOTO_H / imageHeight);
       photoW = width * scale;
       photoH = imageHeight * scale;
+    }
+    // Một mốc không được dài hơn một trang (không có chỗ ngắt giữa mốc): mô tả quá dài bị cắt bớt, thêm "…".
+    const room = CONTENT_BOTTOM - CONTENT_TOP - PAD * 2 - (photoH > 0 ? photoH + 1.5 : 0);
+    const maxLines = Math.max(lines.length + detailLines.length + 1, Math.floor(room / lineHeight));
+    const descAllowed = maxLines - lines.length - detailLines.length;
+    if (descLines.length > descAllowed) {
+      descLines = descLines.slice(0, descAllowed);
+      descLines[descAllowed - 1] = `${descLines[descAllowed - 1]!.trimEnd().replace(/[.,;:]+$/, '')}…`;
     }
     const height = PAD * 2 + (lines.length + detailLines.length + descLines.length) * lineHeight + (photoH > 0 ? photoH + 1.5 : 0);
     return { history, size, lineHeight, lines, lastWidth, detail, inline, detailLines, descLines, photoW, photoH, height };
@@ -147,7 +161,7 @@ export const timelineToPdf = (entries: readonly TimelineEntry[], fonts: PdfFonts
       doc.text(line, TEXT_X, lineY);
       lineY += lineHeight;
     }
-    if (entry.photo && photoH > 0) doc.addImage(entry.photo, 'JPEG', TEXT_X, lineY - lineHeight * 0.71 + 1, photoW, photoH);
+    if (entry.photo && photoH > 0) doc.addImage(entry.photo, doc.getImageProperties(entry.photo).fileType, TEXT_X, lineY - lineHeight * 0.71 + 1, photoW, photoH);
     y += height;
   };
 

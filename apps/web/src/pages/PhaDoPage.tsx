@@ -58,6 +58,8 @@ export const PhaDoPage = () => {
 };
 
 type Zoom = 'fit' | 1 | 2 | 4;
+/** 96 dpi: 1 mm trên giấy = 3,78 px; mức phóng `n` hiện bản in ở n/4 kích thước thật (4 = 100%). */
+const PX_PER_MM = 96 / 25.4;
 
 const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: FamilyGraph<Person>; initial: PhaDoConfig }) => {
   const { config, change } = usePhaDoDesign({ graph, treeName: tree.name }, initial);
@@ -81,6 +83,9 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
   const exportPng = () => runExport('pha-do-png', { drawing: result.drawing, fontFamily: config.fontFamily, plan: pngPlan });
 
   const namePx = result.personCount > 0 ? result.namePx : null;
+  // Ảnh đại diện còn đang tải: xuất bây giờ sẽ thiếu ảnh mà không báo gì.
+  const loadingImages = avatars.isLoading;
+  const cannotExport = exporting !== null || result.personCount === 0 || loadingImages;
 
   return (
     <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[24rem_minmax(0,1fr)] lg:items-start">
@@ -110,15 +115,16 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
         {/* Điện thoại: nút Xuất PDF/PNG nằm ở thanh dính đáy màn hình (cuối trang), ở đây chỉ còn Lưu cấu hình. */}
         <div className="space-y-2 border-t border-line bg-paper/60 px-5 pb-4 pt-3">
           <div className="hidden lg:block">{exportError && <ErrorBanner>{exportError}</ErrorBanner>}</div>
+          {loadingImages && <p className="text-sm text-ink-muted">Đang tải ảnh đại diện…</p>}
           {save.isError && <ErrorBanner>{save.error.message}</ErrorBanner>}
           <div className="hidden lg:block">
-            <Button className="w-full" disabled={exporting !== null || result.personCount === 0} onClick={exportPdf}>
+            <Button className="w-full" disabled={cannotExport} onClick={exportPdf}>
               {exporting === 'pha-do-pdf' ? 'Đang tạo PDF…' : 'Xuất PDF (in ấn)'}
             </Button>
           </div>
           <div className="flex gap-2">
             <div className="hidden min-w-0 flex-1 lg:block">
-              <Button variant="secondary" className="w-full px-3" disabled={exporting !== null || result.personCount === 0} onClick={exportPng}>
+              <Button variant="secondary" className="w-full px-3" disabled={cannotExport} onClick={exportPng}>
                 {exporting === 'pha-do-png' ? 'Đang vẽ…' : 'Xuất ảnh PNG'}
               </Button>
             </div>
@@ -153,11 +159,11 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
                 className="min-h-11 min-w-0 flex-1 px-2 text-sm sm:min-h-12 sm:flex-none sm:px-5 sm:text-base"
                 onClick={() => setZoom(level)}
               >
-                {level === 'fit' ? 'Vừa khung' : `${level * 100}%`}
+                {level === 'fit' ? 'Vừa khung' : `${level * 25}%`}
               </Button>
             ))}
           </div>
-          <p className="text-sm text-ink-muted sm:hidden">Bản xem trước đang thu nhỏ vừa màn hình. Chọn 100% trở lên rồi vuốt để đọc rõ chữ.</p>
+          <p className="text-sm text-ink-muted sm:hidden">Bản xem trước đang thu nhỏ vừa màn hình. Chọn 50% trở lên rồi vuốt để đọc rõ chữ.</p>
         </div>
         {result.missingRoot && (
           <ErrorBanner>Người được chọn làm gốc không còn trong gia phả. Hãy chọn lại phạm vi.</ErrorBanner>
@@ -170,7 +176,7 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
         <div className="max-h-[78dvh] overflow-auto rounded-2xl border border-line bg-paper p-4">
           <div
             className="mx-auto bg-white shadow-lg [&>svg]:h-auto [&>svg]:w-full"
-            style={{ width: zoom === 'fit' ? '100%' : `${result.drawing.width * 3.78 * (zoom / 4)}px` }}
+            style={{ width: zoom === 'fit' ? '100%' : `${result.drawing.width * PX_PER_MM * (zoom / 4)}px` }}
             // SVG do chính app dựng, chữ đã được thoát ký tự (drawingToSvg).
             dangerouslySetInnerHTML={{ __html: svg }}
           />
@@ -184,10 +190,10 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
           </p>
         )}
         <div className="flex gap-2">
-          <Button className="min-w-0 flex-1 px-3" disabled={exporting !== null || result.personCount === 0} onClick={exportPdf}>
+          <Button className="min-w-0 flex-1 px-3" disabled={cannotExport} onClick={exportPdf}>
             {exporting === 'pha-do-pdf' ? 'Đang tạo PDF…' : 'Xuất PDF'}
           </Button>
-          <Button variant="secondary" className="min-w-0 flex-1 px-3" disabled={exporting !== null || result.personCount === 0} onClick={exportPng}>
+          <Button variant="secondary" className="min-w-0 flex-1 px-3" disabled={cannotExport} onClick={exportPng}>
             {exporting === 'pha-do-png' ? 'Đang vẽ…' : 'Xuất PNG'}
           </Button>
         </div>

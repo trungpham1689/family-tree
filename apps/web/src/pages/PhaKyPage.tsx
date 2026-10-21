@@ -67,6 +67,10 @@ const PhaKyBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Per
   const avatars = usePersonAvatars(graph.persons, true);
 
 
+  // Dữ liệu cho PDF còn đang tải hoặc đã lỗi: xuất lúc này sẽ thiếu sự kiện/ảnh mà không báo gì.
+  const loadingData = treeEvents.isLoading || eventPhotos.isLoading || coverImages.isLoading || cover.isLoading || avatars.isLoading;
+  const dataError = treeEvents.error ?? eventPhotos.error;
+
   const exportPdf = () =>
     runExport('pha-ky-pdf', {
       generations,
@@ -80,13 +84,14 @@ const PhaKyBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Per
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-serif text-3xl font-bold text-son">Phả ký</h1>
         {generations.length > 0 && (
-          <Button disabled={exporting} onClick={exportPdf}>
-            {exporting ? 'Đang tạo…' : 'Xuất PDF'}
+          <Button disabled={exporting || loadingData || dataError !== null} onClick={exportPdf}>
+            {exporting ? 'Đang tạo…' : loadingData ? 'Đang tải ảnh…' : 'Xuất PDF'}
           </Button>
         )}
       </div>
       <p className="mt-1 text-ink-muted">Nguồn gốc, các chi, nhân vật tiêu biểu và văn bản tường thuật từng đời — suy từ dữ liệu Người đã ghi.</p>
       {exportError && <ErrorBanner>{exportError}</ErrorBanner>}
+      {dataError && <ErrorBanner>Không tải được sự kiện của gia phả, nên chưa xuất PDF được: {dataError.message}</ErrorBanner>}
       {generations.length > 0 && <FieldOptions fields={fields} onChange={changeFields} />}
 
       <div className="mt-6">
@@ -99,7 +104,7 @@ const PhaKyBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Per
         ))}
 
         {generations.map((group) => (
-          <section key={group.generation} className="mt-9">
+          <section key={group.generation} className="mt-9 [contain-intrinsic-size:auto_600px] [content-visibility:auto]">
             <div className="flex flex-wrap items-baseline justify-between gap-2 border-b-[3px] border-double border-son pb-2">
               <h2 className="font-serif text-3xl font-bold text-son">Đời {group.generation}</h2>
               <p className="text-sm text-ink-muted">
@@ -134,12 +139,12 @@ const PhaKyBody = ({ tree, graph }: { tree: TreeWithRole; graph: FamilyGraph<Per
                       {item.lines.length > 0 && (
                         <div className="mt-1 space-y-0.5 text-[15px] leading-relaxed text-ink">
                           {item.lines.map((line, index) => (
-                            <p key={index}>{line}</p>
+                            <p key={index} className="whitespace-pre-line">{line}</p>
                           ))}
                         </div>
                       )}
                     </div>
-                    {photo && <img src={photo} alt={item.name} className="mt-2 size-[72px] border border-line object-cover sm:mt-0" />}
+                    {photo && <img src={photo} alt={item.name} loading="lazy" decoding="async" className="mt-2 size-[72px] border border-line object-cover sm:mt-0" />}
                   </article>
                 );
               })}
