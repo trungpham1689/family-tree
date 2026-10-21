@@ -86,6 +86,26 @@ textarea:not([aria-invalid='true']) {
   border-color: var(--color-control);
 }
 
+/*
+ * iOS Safari vẽ ô ngày theo kích thước riêng: bỏ qua width/min-height (ô trống co nhỏ), còn chọn ngày rồi thì
+ * rộng theo chữ "21 thg 10, 2026" và tràn khỏi khung ở màn hình hẹp. Tắt kiểu gốc để ô theo class như ô chữ.
+ */
+input[type='date'] {
+  appearance: none;
+  -webkit-appearance: none;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  text-align: left;
+}
+
+input[type='date']::-webkit-date-and-time-value {
+  text-align: left;
+  min-height: 1.5em;
+}
+
 /* Người dùng tắt chuyển động trong hệ điều hành: bỏ hiệu ứng chuyển cảnh, xoay, nhấp nháy. */
 @media (prefers-reduced-motion: reduce) {
   *,
