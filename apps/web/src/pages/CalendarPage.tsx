@@ -7,6 +7,7 @@ import { MonthCalendar } from '../calendar/MonthCalendar';
 import { monthKey, occurrencesInMonth, parseIsoDate, parseMonth, shiftMonth, todayInVietnam, toIsoDate } from '../calendar/month-grid';
 import { dateKey, groupByDay, occurrencesBetween, type CalendarSource, type Occurrence, type OccurrenceKind } from '@gia-pha/reminders';
 import { OccurrenceList } from '../calendar/OccurrenceList';
+import { MONTH_PAST_VISIBLE } from '../calendar/OccurrenceSection';
 import { useMyCalendar } from '../data/tree-queries';
 import { ErrorBanner } from '../ui/fields';
 import { AppHeader } from '../ui/AppHeader';
@@ -90,7 +91,7 @@ export const CalendarPage = () => {
                   Tháng này chưa có giỗ, sinh nhật hay sự kiện nào.
                 </p>
               ) : (
-                <OccurrenceList occurrences={monthOccurrences} showDate today={today} showTree={manyTrees} />
+                <OccurrenceList occurrences={monthOccurrences} showDate today={today} showTree={manyTrees} pastVisible={MONTH_PAST_VISIBLE} />
               )}
             </section>
           )}
@@ -126,6 +127,9 @@ const Legend = () => (
     </span>
     <span className="flex items-center gap-1.5">
       <span className="size-2.5 rounded-full bg-kim" /> Ngày lễ
+    </span>
+    <span className="flex items-center gap-1.5">
+      <span className="size-2.5 rounded-full border-2 border-ink-muted" /> Chấm rỗng: đã qua
     </span>
   </p>
 );

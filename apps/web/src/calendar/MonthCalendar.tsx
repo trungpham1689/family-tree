@@ -2,7 +2,8 @@ import { yearCanChi, type SolarDate } from '@gia-pha/lunar';
 import { useMemo } from 'react';
 import { Button } from '../ui/Button';
 import { buildMonthGrid, sameDay, WEEKDAY_HEADERS, type DayCell } from './month-grid';
-import { MARK_COLORS, MARK_LABELS } from './mark-colors';
+import { eventStatus } from './event-status';
+import { MARK_LABELS, markDotClass } from './mark-colors';
 import type { OccurrenceKind } from '@gia-pha/reminders';
 
 type MonthCalendarProps = {
@@ -60,6 +61,8 @@ export const MonthCalendar = ({ year, month, today, selected, onSelect, onShiftM
               const isSelected = sameDay(cell.date, selected);
               const isToday = sameDay(cell.date, today);
               const isRedDay = cell.weekday === 8 || cell.holidays.some((holiday) => holiday.dayOff);
+              // Ngày đã qua của tháng đang xem: nền và số xám, chấm rỗng; ô tháng khác vẫn mờ như cũ.
+              const isPast = cell.inMonth && eventStatus(cell.date, today).state === 'past';
               const kinds = marks?.(cell.date) ?? [];
               return (
                 <button
@@ -72,12 +75,12 @@ export const MonthCalendar = ({ year, month, today, selected, onSelect, onShiftM
                   }${kinds.length ? `, có ${kinds.map((kind) => MARK_LABELS[kind]).join(', ')}` : ''}`}
                   onClick={() => onSelect(cell.date)}
                   className={`relative flex min-h-16 flex-col items-center justify-center gap-0.5 border-b border-r border-line p-1 transition-colors last:border-r-0 sm:min-h-20 ${
-                    isSelected ? 'bg-son/10 outline-2 -outline-offset-2 outline-son' : 'hover:bg-paper'
+                    isSelected ? 'bg-son/10 outline-2 -outline-offset-2 outline-son' : isPast ? 'bg-past hover:bg-past-strong' : isToday ? 'bg-today-soft' : 'hover:bg-paper'
                   }`}
                 >
                   <span
                     className={`grid size-9 place-items-center rounded-full text-lg font-semibold tabular-nums ${
-                      !cell.inMonth ? 'text-ink-muted font-normal' : isToday ? 'bg-son text-white' : isRedDay ? 'text-son' : ''
+                      !cell.inMonth ? 'text-ink-muted font-normal' : isToday ? 'bg-son text-white' : isPast ? 'font-medium text-ink-muted' : isRedDay ? 'text-son' : ''
                     }`}
                   >
                     {cell.date.day}
@@ -99,7 +102,7 @@ export const MonthCalendar = ({ year, month, today, selected, onSelect, onShiftM
                     <span className="absolute right-1.5 top-1.5 flex gap-0.5" aria-hidden="true">
                       {cell.holidays.length > 0 && <span className="size-1.5 rounded-full bg-kim" />}
                       {kinds.map((kind) => (
-                        <span key={kind} className={`size-2 rounded-full ${MARK_COLORS[kind]}`} />
+                        <span key={kind} className={markDotClass(kind, isPast, 'size-2')} />
                       ))}
                     </span>
                   )}

@@ -1,16 +1,14 @@
 import { fromJulianDay, julianDay } from '@gia-pha/lunar';
 import type { CalendarSource, Occurrence } from '@gia-pha/reminders';
 import { useMemo, useState, type ReactNode } from 'react';
-import { Link } from 'react-router';
-import { MARK_COLORS } from '../calendar/mark-colors';
-import { todayInVietnam, weekdayName } from '../calendar/month-grid';
+import { OccurrenceList } from '../calendar/OccurrenceList';
+import { todayInVietnam } from '../calendar/month-grid';
 import { Button } from '../ui/Button';
 import { ErrorBanner, Select, TextField } from '../ui/fields';
 import { KIND_FILTER_LABELS, MAX_SEARCH_RESULTS, searchEventOccurrences, toIsoDate, type KindFilter } from './event-search';
 
 export type EventSearchInitial = { from: string; to: string; query: string };
 
-const formatDate = (iso: string) => iso.split('-').reverse().join('/');
 const DEFAULT_DAYS = 30;
 
 /**
@@ -111,38 +109,9 @@ export const EventSearchPanel = ({
               <p className="text-sm text-ink-muted">
                 {result.truncated ? `Hiện ${MAX_SEARCH_RESULTS} dòng đầu tiên; hãy thu hẹp khoảng thời gian hoặc lọc theo loại, tên.` : `${result.occurrences.length} kết quả`}
               </p>
-              <ul className="mt-2 divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
-                {result.occurrences.map((occurrence, index) => {
-                  const iso = toIsoDate(occurrence.date);
-                  const daysAway = julianDay(occurrence.date) - julianDay(today);
-                  const actionsNode = actions?.(occurrence);
-                  return (
-                    <li key={`${occurrence.kind}-${occurrence.personId ?? occurrence.eventId}-${iso}-${index}`} className={`px-4 py-3 ${daysAway < 0 ? 'bg-paper/60' : ''}`}>
-                      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
-                        <div className="flex min-w-0 flex-1 gap-3">
-                          <span aria-hidden="true" className={`mt-2 size-2.5 shrink-0 rounded-full ${MARK_COLORS[occurrence.kind]}`} />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold text-son">
-                              {weekdayName(occurrence.date)}, {formatDate(iso)}
-                              {daysAway === 0 ? ' · Hôm nay' : daysAway < 0 ? ' · Đã qua' : ''}
-                            </p>
-                            {occurrence.personId ? (
-                              <Link to={`/gia-pha/${occurrence.treeId}/nguoi/${occurrence.personId}`} className="block py-1.5 font-semibold hover:text-son hover:underline">
-                                {occurrence.title}
-                              </Link>
-                            ) : (
-                              <p className="font-semibold">{occurrence.title}</p>
-                            )}
-                            {occurrence.detail && <p className="text-sm text-ink-muted">{occurrence.detail}</p>}
-                            {extra?.(occurrence)}
-                          </div>
-                        </div>
-                        {actionsNode}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+              <div className="mt-2">
+                <OccurrenceList occurrences={result.occurrences} today={today} showDate linkEvents={false} extra={extra} actions={actions} />
+              </div>
             </>
           )}
         </div>

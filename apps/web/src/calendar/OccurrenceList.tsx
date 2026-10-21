@@ -1,64 +1,99 @@
-import { julianDay, type SolarDate } from '@gia-pha/lunar';
-import { Link } from 'react-router';
-import { MARK_COLORS, MARK_LABELS } from './mark-colors';
-import { weekdayName } from './month-grid';
+import type { SolarDate } from '@gia-pha/lunar';
 import type { Occurrence } from '@gia-pha/reminders';
+import { useState, type ReactNode } from 'react';
+import { EventRow } from './EventRow';
+import { eventStatus } from './event-status';
+import { weekdayName } from './month-grid';
 
-const hrefOf = (occurrence: Occurrence) =>
-  occurrence.personId
-    ? `/gia-pha/${occurrence.treeId}/nguoi/${occurrence.personId}`
-    : `/gia-pha/${occurrence.treeId}/su-kien?xem=${occurrence.eventId ?? ''}`;
+const hrefOf = (occurrence: Occurrence, linkEvents: boolean) => {
+  if (occurrence.personId) return `/gia-pha/${occurrence.treeId}/nguoi/${occurrence.personId}`;
+  return linkEvents ? `/gia-pha/${occurrence.treeId}/su-kien?xem=${occurrence.eventId ?? ''}` : null;
+};
 
-/** Trong vòng bao nhiêu ngày tới thì coi là "gần đến ngày", cần nổi bật. */
-const NEAR_DAYS = 7;
+const keyOf = (occurrence: Occurrence, index: number) =>
+  `${occurrence.kind}-${occurrence.personId ?? occurrence.eventId}-${occurrence.date.year}-${occurrence.date.month}-${occurrence.date.day}-${index}`;
 
 type Props = {
+  /** Đã sắp theo ngày tăng dần. */
   occurrences: readonly Occurrence[];
-  /** Hiện ngày ở mỗi dòng (màn "Sắp tới"); trong ô một ngày thì không cần. */
+  /** Hôm nay, để phân đã qua / hôm nay / sắp tới. */
+  today: SolarDate;
+  /** Hiện ô ngày ở mỗi dòng (danh sách nhiều ngày); trong ô một ngày thì không cần. */
   showDate?: boolean;
   /** Hiện tên Gia phả khi tài khoản thuộc nhiều Gia phả. */
   showTree?: boolean;
-  /** Hôm nay, để làm mờ sự kiện đã qua và nổi bật sự kiện gần đến ngày. Bỏ trống thì không phân biệt. */
-  today?: SolarDate;
+  /** Tên sự kiện (không gắn Người) bấm được, dẫn về trang Sự kiện. Tắt ở chính trang đó. */
+  linkEvents?: boolean;
+  /** Chỉ hiện chừng này sự kiện đã qua gần nhất; phần cũ hơn gập sau một nút. Bỏ trống thì hiện hết. */
+  pastVisible?: number;
+  extra?: (occurrence: Occurrence) => ReactNode;
+  actions?: (occurrence: Occurrence) => ReactNode;
 };
 
-/** Danh sách giỗ, sinh nhật, Sự kiện; mỗi dòng dẫn về Người hoặc Sự kiện tương ứng. */
-export const OccurrenceList = ({ occurrences, showDate = false, showTree = false, today }: Props) => (
-  <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
-    {occurrences.map((occurrence) => {
-      const daysAway = today ? julianDay(occurrence.date) - julianDay(today) : null;
-      const isPast = daysAway !== null && daysAway < 0;
-      const isNear = daysAway !== null && daysAway >= 0 && daysAway <= NEAR_DAYS;
-      return (
-        <li key={`${occurrence.kind}-${occurrence.personId ?? occurrence.eventId}-${occurrence.date.year}-${occurrence.date.month}-${occurrence.date.day}`}>
-          <Link
-            to={hrefOf(occurrence)}
-            className={`flex items-start gap-3 px-4 py-3 hover:bg-paper ${isNear ? 'bg-kim-soft/40' : ''}`}
-          >
-            <span aria-hidden="true" className={`mt-2 size-2.5 shrink-0 rounded-full ${MARK_COLORS[occurrence.kind]}`} />
-            <span className="min-w-0 flex-1">
-              {showDate && (
-                <span className={`block text-sm font-semibold ${isPast ? 'text-ink-muted' : 'text-son'}`}>
-                  {weekdayName(occurrence.date)}, {occurrence.date.day}/{occurrence.date.month}/{occurrence.date.year}
-                </span>
-              )}
-              <span className={`block font-semibold ${isPast ? 'text-ink-muted' : ''}`}>
-                <span className="sr-only">{MARK_LABELS[occurrence.kind]}: </span>
-                {occurrence.title}
-              </span>
-              <span className="block text-sm text-ink-muted">
-                {[
-                  occurrence.detail,
-                  showTree ? occurrence.treeName : null,
-                  isPast ? 'Đã qua' : isNear ? (daysAway === 0 ? 'Hôm nay' : `Còn ${daysAway} ngày`) : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </span>
-            </span>
-          </Link>
-        </li>
+/**
+ * Danh sách giỗ, sinh nhật, Sự kiện. Nếu có cả đã qua lẫn từ hôm nay trở đi thì đã qua nằm trên,
+ * ngăn bằng vạch "Hôm nay".
+ */
+export const OccurrenceList = ({ occurrences, today, showDate = false, showTree = false, linkEvents = true, pastVisible, extra, actions }: Props) => {
+  const [showAllPast, setShowAllPast] = useState(false);
+  const pastCount = occurrences.filter((occurrence) => eventStatus(occurrence.date, today).state === 'past').length;
+  const hidden = pastVisible !== undefined && !showAllPast ? Math.max(0, pastCount - pastVisible) : 0;
+
+  const items: ReactNode[] = [];
+  let pastSeen = 0;
+  let dividerDone = false;
+  occurrences.forEach((occurrence, index) => {
+    const isPast = eventStatus(occurrence.date, today).state === 'past';
+    if (isPast) {
+      pastSeen += 1;
+      if (pastSeen <= hidden) return;
+    } else if (!dividerDone && pastCount > 0) {
+      dividerDone = true;
+      items.push(
+        <li key="hom-nay" className="flex items-center gap-3 bg-paper px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-son sm:px-5">
+          <span aria-hidden="true" className="h-0.5 flex-1 bg-son/35" />
+          <span>
+            Hôm nay · {weekdayName(today)} {today.day}/{today.month}
+          </span>
+          <span aria-hidden="true" className="h-0.5 flex-1 bg-son/35" />
+        </li>,
       );
-    })}
-  </ul>
-);
+    }
+    items.push(
+      <li key={keyOf(occurrence, index)}>
+        <EventRow
+          occurrence={occurrence}
+          today={today}
+          href={hrefOf(occurrence, linkEvents)}
+          showDate={showDate}
+          showTree={showTree}
+          extra={extra?.(occurrence)}
+          actions={actions?.(occurrence)}
+        />
+      </li>,
+    );
+  });
+
+  const toggleVisible = pastVisible !== undefined && pastCount > pastVisible;
+
+  return (
+    <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
+      {toggleVisible && (
+        <li>
+          <button
+            type="button"
+            aria-expanded={showAllPast}
+            onClick={() => setShowAllPast((value) => !value)}
+            className="flex min-h-12 w-full items-center gap-2 bg-paper px-4 py-2.5 text-left text-sm font-semibold text-past-ink hover:bg-past sm:px-5"
+          >
+            <svg aria-hidden="true" viewBox="0 0 16 16" className={`size-4 fill-none stroke-current ${showAllPast ? 'rotate-180' : ''}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 6l4 4 4-4" />
+            </svg>
+            {showAllPast ? 'Ẩn bớt sự kiện đã qua' : `Hiện thêm ${hidden} sự kiện đã qua`}
+          </button>
+        </li>
+      )}
+      {items}
+    </ul>
+  );
+};

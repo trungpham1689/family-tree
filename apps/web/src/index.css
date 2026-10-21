@@ -25,6 +25,13 @@
   --color-hong: #b8296b;
   --color-danger: #b42318;
   --color-danger-soft: #fdecea;
+  /* Dòng sự kiện: đã qua (xám ấm), hôm nay (đỏ nhạt), gần đến ngày (vàng nhạt). Chữ past-ink, near-ink đủ 4.5:1 trên nền tương ứng. */
+  --color-past: #f3eee6;
+  --color-past-strong: #e6dfd3;
+  --color-past-ink: #4a423c;
+  --color-today-soft: #fbeeed;
+  --color-near: #fcf3dc;
+  --color-near-ink: #3d2f0c;
 
   --font-sans: 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
   --font-serif: 'Noto Serif', ui-serif, Georgia, serif;
