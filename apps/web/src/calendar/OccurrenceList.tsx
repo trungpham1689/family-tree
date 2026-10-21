@@ -24,76 +24,80 @@ type Props = {
   showTree?: boolean;
   /** Tên sự kiện (không gắn Người) bấm được, dẫn về trang Sự kiện. Tắt ở chính trang đó. */
   linkEvents?: boolean;
-  /** Chỉ hiện chừng này sự kiện đã qua gần nhất; phần cũ hơn gập sau một nút. Bỏ trống thì hiện hết. */
-  pastVisible?: number;
+  /**
+   * Sắp tới (từ hôm nay) lên trên; sự kiện đã qua gập sau nút "Đã qua (N)", mở ra mới thấy (mới nhất trước).
+   * Dữ liệu đã có sẵn trong bộ nhớ nên mở/gập không gọi thêm API. Tắt thì đã qua và sắp tới nằm chung theo ngày, ngăn bằng vạch "Hôm nay".
+   */
+  collapsePast?: boolean;
   extra?: (occurrence: Occurrence) => ReactNode;
   actions?: (occurrence: Occurrence) => ReactNode;
 };
 
-/**
- * Danh sách giỗ, sinh nhật, Sự kiện. Nếu có cả đã qua lẫn từ hôm nay trở đi thì đã qua nằm trên,
- * ngăn bằng vạch "Hôm nay".
- */
-export const OccurrenceList = ({ occurrences, today, showDate = false, showTree = false, linkEvents = true, pastVisible, extra, actions }: Props) => {
-  const [showAllPast, setShowAllPast] = useState(false);
-  const pastCount = occurrences.filter((occurrence) => eventStatus(occurrence.date, today).state === 'past').length;
-  const hidden = pastVisible !== undefined && !showAllPast ? Math.max(0, pastCount - pastVisible) : 0;
+/** Danh sách giỗ, sinh nhật, Sự kiện. */
+export const OccurrenceList = ({ occurrences, today, showDate = false, showTree = false, linkEvents = true, collapsePast = false, extra, actions }: Props) => {
+  const [pastOpen, setPastOpen] = useState(false);
+  const isPast = (occurrence: Occurrence) => eventStatus(occurrence.date, today).state === 'past';
 
-  const items: ReactNode[] = [];
-  let pastSeen = 0;
-  let dividerDone = false;
-  occurrences.forEach((occurrence, index) => {
-    const isPast = eventStatus(occurrence.date, today).state === 'past';
-    if (isPast) {
-      pastSeen += 1;
-      if (pastSeen <= hidden) return;
-    } else if (!dividerDone && pastCount > 0) {
-      dividerDone = true;
-      items.push(
-        <li key="hom-nay" className="flex items-center gap-3 bg-paper px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-son sm:px-5">
-          <span aria-hidden="true" className="h-0.5 flex-1 bg-son/35" />
-          <span>
-            Hôm nay · {weekdayName(today)} {today.day}/{today.month}
-          </span>
-          <span aria-hidden="true" className="h-0.5 flex-1 bg-son/35" />
-        </li>,
-      );
-    }
-    items.push(
-      <li key={keyOf(occurrence, index)}>
-        <EventRow
-          occurrence={occurrence}
-          today={today}
-          href={hrefOf(occurrence, linkEvents)}
-          showDate={showDate}
-          showTree={showTree}
-          extra={extra?.(occurrence)}
-          actions={actions?.(occurrence)}
-        />
-      </li>,
+  const row = (occurrence: Occurrence, index: number) => (
+    <li key={keyOf(occurrence, index)}>
+      <EventRow
+        occurrence={occurrence}
+        today={today}
+        href={hrefOf(occurrence, linkEvents)}
+        showDate={showDate}
+        showTree={showTree}
+        extra={extra?.(occurrence)}
+        actions={actions?.(occurrence)}
+      />
+    </li>
+  );
+
+  const listClass = 'divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface';
+
+  if (!collapsePast) {
+    const firstUpcoming = occurrences.findIndex((occurrence) => !isPast(occurrence));
+    const dividerAt = firstUpcoming > 0 ? firstUpcoming : -1;
+    return (
+      <ul className={listClass}>
+        {occurrences.flatMap((occurrence, index) => {
+          if (index !== dividerAt) return [row(occurrence, index)];
+          return [
+            <li key="hom-nay" className="flex items-center gap-3 bg-paper px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-son">
+              <span aria-hidden="true" className="h-0.5 flex-1 bg-son/35" />
+              <span>
+                Hôm nay · {weekdayName(today)} {today.day}/{today.month}
+              </span>
+              <span aria-hidden="true" className="h-0.5 flex-1 bg-son/35" />
+            </li>,
+            row(occurrence, index),
+          ];
+        })}
+      </ul>
     );
-  });
+  }
 
-  const toggleVisible = pastVisible !== undefined && pastCount > pastVisible;
-
+  const upcoming = occurrences.filter((occurrence) => !isPast(occurrence));
+  const past = occurrences.filter(isPast).reverse();
   return (
-    <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
-      {toggleVisible && (
+    <ul className={listClass}>
+      {upcoming.map((occurrence, index) => row(occurrence, index))}
+      {upcoming.length === 0 && <li className="px-4 py-3.5 text-ink-muted">Không còn sự kiện nào sắp tới.</li>}
+      {past.length > 0 && (
         <li>
           <button
             type="button"
-            aria-expanded={showAllPast}
-            onClick={() => setShowAllPast((value) => !value)}
-            className="flex min-h-12 w-full items-center gap-2 bg-paper px-4 py-2.5 text-left text-sm font-semibold text-past-ink hover:bg-past sm:px-5"
+            aria-expanded={pastOpen}
+            onClick={() => setPastOpen((open) => !open)}
+            className="flex min-h-12 w-full items-center gap-2 bg-paper px-4 py-2.5 text-left text-sm font-semibold text-past-ink hover:bg-past"
           >
-            <svg aria-hidden="true" viewBox="0 0 16 16" className={`size-4 fill-none stroke-current ${showAllPast ? 'rotate-180' : ''}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg aria-hidden="true" viewBox="0 0 16 16" className={`size-4 fill-none stroke-current ${pastOpen ? 'rotate-180' : ''}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 6l4 4 4-4" />
             </svg>
-            {showAllPast ? 'Ẩn bớt sự kiện đã qua' : `Hiện thêm ${hidden} sự kiện đã qua`}
+            Đã qua ({past.length})
           </button>
         </li>
       )}
-      {items}
+      {pastOpen && past.map((occurrence, index) => row(occurrence, upcoming.length + index))}
     </ul>
   );
 };
