@@ -64,7 +64,9 @@ export const MyTreesPage = () => {
                     <h2 className="font-serif text-xl font-bold text-son">{tree.name}</h2>
                     {tree.description && <p className="mt-1 line-clamp-2 text-ink-muted">{tree.description}</p>}
                     <p className="mt-3 text-sm text-ink-muted">
-                      {ROLE_LABELS[tree.role]}{tree.personCount === undefined ? '' : ` · ${tree.personCount} người`} · tạo ngày {new Date(tree.created_at).toLocaleDateString('vi-VN')}
+                      {ROLE_LABELS[tree.role]}{tree.personCount === undefined ? '' : ` · ${tree.personCount} người`}
+                      <br />
+                      Tạo ngày {new Date(tree.created_at).toLocaleDateString('vi-VN')}
                     </p>
                   </Link>
                 </li>

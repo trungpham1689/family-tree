@@ -47,8 +47,7 @@ export const PublicLinkPanel = ({ tree }: { tree: TreeWithRole }) => {
         Link chia sẻ công khai
       </h2>
       <p className="mt-1 text-ink-muted">
-        Ai có link và nhập đúng mật khẩu mới xem được cây, không cần đăng nhập. Người còn sống chỉ hiện tên, Đời và năm
-        sinh; Mộ phần không bao giờ hiện trên link này.
+        Ai có link và nhập đúng mật khẩu mới xem được cây, không cần đăng nhập.
       </p>
 
       {url ? (

@@ -80,7 +80,7 @@ export const OccurrenceList = ({ occurrences, today, showDate = false, showTree 
   return (
     <ul className={listClass}>
       {upcoming.map((occurrence, index) => row(occurrence, index))}
-      {upcoming.length === 0 && <li className="px-4 py-3.5 text-ink-muted">Không còn sự kiện nào sắp tới.</li>}
+      {upcoming.length === 0 && <li className="px-4 py-3.5 text-ink-muted">Không có sự kiện nào sắp tới.</li>}
       {past.length > 0 && (
         <li>
           <button
