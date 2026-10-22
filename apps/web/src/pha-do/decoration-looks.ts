@@ -125,3 +125,19 @@ export const MEMBER_COLORS: Record<FrameStyle, MemberColors> = {
   'gam-hoa': { fill: '#fefcf5', spouse: '#fbdad3', name: '#3b1a0c', detail: '#67381d', note: '#841b1b' },
   none: { fill: '#ffffff', spouse: '#f5dede', name: '#1a1714', detail: '#48443f', note: '#7a2020' },
 };
+
+/** Phông chữ trong ô thành viên theo khung (khi chọn "Theo kiểu khung"): chữ có chân hoặc chữ đế dày, đọc rõ ở 14 px (10,5 pt). */
+export const MEMBER_FONTS: Record<FrameStyle, DecorFontId> = {
+  'son-kim': 'noto-serif',
+  moc: 'merriweather',
+  'thanh-nha': 'be-vietnam-pro',
+  'lam-ngoc': 'lora',
+  'hoang-gia': 'source-serif-4',
+  'trieu-nguyen': 'noto-serif',
+  'tram-huong': 'literata',
+  'cuon-thu': 'noto-serif',
+  'hoanh-phi': 'roboto-slab',
+  'dong-son': 'bitter',
+  'gam-hoa': 'source-serif-4',
+  none: 'noto-serif',
+};

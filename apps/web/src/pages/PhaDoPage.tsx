@@ -10,7 +10,8 @@ import {
 } from '../data/tree-queries';
 import type { Person, TreeWithRole } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
-import { FONT_FAMILY_CSS, readPhaDoConfig, type PhaDoConfig } from '../pha-do/config';
+import '../pha-do/fonts.css';
+import { decorationScaleOf, FONT_FAMILY_CSS, readPhaDoConfig, type PhaDoConfig } from '../pha-do/config';
 import { DESKTOP_LIMITS, IOS_LIMITS, isAppleMobile, planPng } from '../pha-do/png';
 import { usePhaDoDesign } from '../pha-do/use-design';
 import { renderPhaDo } from '../pha-do/render';
@@ -96,7 +97,7 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
         <div role="tabpanel" id="pha-do-panel" aria-labelledby={`pha-do-tab-${tab}`} className="min-h-0 flex-1 overflow-y-auto p-5">
           {tab === 'content' && <ContentSettings graph={graph} config={config} onChange={(patch) => change({ kind: 'content', patch })} />}
           {tab === 'decoration' && (
-            <DecorationSettings treeName={tree.name} decoration={config.decoration} autoPaper={config.autoPaper} onChange={(patch) => change({ kind: 'content', patch: { decoration: { ...config.decoration, ...patch } } })} />
+            <DecorationSettings treeName={tree.name} decoration={config.decoration} autoPaper={config.autoPaper} sizeScale={decorationScaleOf(config)} onChange={(patch) => change({ kind: 'content', patch: { decoration: { ...config.decoration, ...patch } } })} />
           )}
           {tab === 'paper' && (
             <PaperTab

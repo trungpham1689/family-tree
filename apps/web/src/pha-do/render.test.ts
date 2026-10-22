@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { blankPerson } from '../test-support/person';
 import { buildFamilyGraph } from '../family/family-graph';
 import { decorationScaleOf, defaultPhaDoConfig, pageSizeMm, readPhaDoConfig, type PhaDoConfig } from './config';
-import { FRAME_LABELS, layoutDecoration, memberColorsOf, type FrameStyle } from './decoration';
+import { FRAME_LABELS, layoutDecoration, memberColorsOf, memberFontOf, type FrameStyle } from './decoration';
 import { PT_PER_MM, type DrawItem } from './drawing';
 import { autoMemberFontPx, fitPaperToFont } from './auto-fit';
 import { legendWidthMm, MIN_READABLE_PX, renderPhaDo } from './render';
@@ -517,7 +517,7 @@ describe('cỡ chữ trang trí theo khổ tự động', () => {
     const fitted = fitPaperToFont(graph, config, 'họ Phạm');
     const page = pageSizeMm(fitted);
     const short = Math.min(page.width, page.height);
-    const title = renderPhaDo(graph, fitted, 'họ Phạm').drawing.items.find((item) => item.type === 'text' && item.font !== undefined);
+    const title = renderPhaDo(graph, fitted, 'họ Phạm').drawing.items.find((item) => item.type === 'text' && item.text === 'Gia phả họ Phạm');
     if (title?.type !== 'text') throw new Error('Không có tiêu đề');
     return { short, heightMm: title.sizePt / PT_PER_MM, ratio: title.sizePt / PT_PER_MM / short, fit: layoutDecoration(page, fitted.decoration, 'họ Phạm', decorationScaleOf(fitted)).fit };
   };
@@ -536,7 +536,7 @@ describe('cỡ chữ trang trí theo khổ tự động', () => {
   it('khổ cố định không tự giảm cỡ chữ trang trí', () => {
     const graph = bigFamily(20);
     const config: PhaDoConfig = { ...defaultPhaDoConfig(5), autoPaper: false, paper: 'A0', orientation: 'landscape', decoration: { ...defaultPhaDoConfig(5).decoration, frame: 'son-kim' } };
-    const title = renderPhaDo(graph, config, 'họ Phạm').drawing.items.find((item) => item.type === 'text' && item.font !== undefined);
+    const title = renderPhaDo(graph, config, 'họ Phạm').drawing.items.find((item) => item.type === 'text' && item.text === 'Gia phả họ Phạm');
     if (title?.type !== 'text') throw new Error('Không có tiêu đề');
     expect(title.sizePt / PT_PER_MM).toBeCloseTo((50 * 841) / 1000, 1);
   });
@@ -588,6 +588,27 @@ describe('màu ô thành viên', () => {
       expect(fills.has(member.fill), frame).toBe(true);
       expect(fills.has(member.spouse), frame).toBe(true);
     }
+  });
+
+  it('phông chữ trong ô theo khung khi chọn "Theo kiểu khung"; chọn phông khác thì mọi chữ dùng phông chung', () => {
+    expect(base.fontFamily).toBe('frame');
+    for (const frame of Object.keys(FRAME_LABELS) as FrameStyle[]) {
+      const config = { ...base, decoration: { ...base.decoration, frame } };
+      const texts = personTexts(config);
+      expect(texts.length, frame).toBeGreaterThan(0);
+      expect(texts.every((text) => text.font === memberFontOf(frame)), frame).toBe(true);
+    }
+    expect(new Set(Object.keys(FRAME_LABELS).map((frame) => memberFontOf(frame as FrameStyle))).size).toBeGreaterThan(5);
+    const fixed = personTexts({ ...base, fontFamily: 'be-vietnam-pro' });
+    expect(fixed.every((text) => text.font === undefined)).toBe(true);
+  });
+
+  it('đọc lại phông ô: giá trị cũ (noto-serif, system) và giá trị lạ thành "Theo kiểu khung"', () => {
+    expect(readPhaDoConfig({ fontFamily: 'noto-serif' }, 1).fontFamily).toBe('frame');
+    expect(readPhaDoConfig({ fontFamily: 'lạ' }, 1).fontFamily).toBe('frame');
+    expect(readPhaDoConfig({}, 1).fontFamily).toBe('frame');
+    expect(readPhaDoConfig({ fontFamily: 'be-vietnam-pro' }, 1).fontFamily).toBe('be-vietnam-pro');
+    expect(readPhaDoConfig({ fontFamily: 'system' }, 1).fontFamily).toBe('frame');
   });
 
   it('đặt màu nền và màu chữ: mọi ô, mọi dòng chữ trong ô dùng màu đó; viền giữ theo giới tính', () => {

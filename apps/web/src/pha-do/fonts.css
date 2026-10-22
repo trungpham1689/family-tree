@@ -1,0 +1,170 @@
+/* Phông của Phả đồ: xem trước trên trang nạp đúng các file TTF mà bản xuất PDF/PNG nhúng (public/fonts), nên chữ hai nơi cùng một phông.
+ * Mỗi họ chữ tên `PhaDo <tên>`, khớp `DECOR_FONTS[...].css`; `pha-do-fonts.test.ts` kiểm tra hai bên khớp nhau. */
+
+@font-face {
+  font-family: 'PhaDo Noto Serif';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/NotoSerif-400Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Noto Serif';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/NotoSerif-700Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Noto Serif Display';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/NotoSerifDisplay-700Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Playfair Display';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/PlayfairDisplay-700Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Montserrat';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Montserrat-700Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Roboto Slab';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/RobotoSlab-400Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Roboto Slab';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/RobotoSlab-700Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Dancing Script';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/DancingScript-700Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Great Vibes';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/GreatVibes-400Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Lora';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Lora-400Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Lora';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Lora-700Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Merriweather';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Merriweather-400Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Merriweather';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Merriweather-700Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Source Serif 4';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/SourceSerif4-400Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Source Serif 4';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/SourceSerif4-700Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Literata';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Literata-400Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Literata';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Literata-700Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Bitter';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Bitter-400Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Bitter';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Bitter-700Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Be Vietnam Pro';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/BeVietnamPro-400Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PhaDo Be Vietnam Pro';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/BeVietnamPro-700Bold.ttf') format('truetype');
+}

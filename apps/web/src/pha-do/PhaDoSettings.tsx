@@ -303,14 +303,20 @@ export const DecorationSettings = ({
   treeName,
   decoration,
   autoPaper,
+  sizeScale,
   onChange,
 }: {
   treeName: string;
   decoration: Decoration;
   /** Khổ giấy tự động: cỡ chữ trang trí tự giảm dần khi khổ lớn hơn A1 (xem `autoDecorationScale`). */
   autoPaper: boolean;
+  /** Hệ số cỡ chữ trang trí của khổ hiện tại (`decorationScaleOf`): các ô cỡ chữ hiện cỡ thật = cỡ đã lưu × hệ số, đổi khổ thì số đổi theo. */
+  sizeScale: number;
   onChange: (patch: Partial<Decoration>) => void;
-}) => (
+}) => {
+  const shown = (px: number) => Number((px * sizeScale).toFixed(1));
+  const stored = (px: number) => Math.min(FONT_PX_MAX, Math.max(FONT_PX_MIN, px / sizeScale));
+  return (
   <div className="min-w-0 space-y-6">
     <FramePicker frame={decoration.frame} onChange={(frame) => onChange({ frame })} />
     <LookPicker frame={decoration.frame} look={decoration.look} onChange={(look) => onChange({ look })} />
@@ -323,8 +329,8 @@ export const DecorationSettings = ({
         maxLength={120}
         text={decoration.title}
         onText={(title) => onChange({ title })}
-        size={decoration.titleSize}
-        onSize={(titleSize) => onChange({ titleSize })}
+        size={shown(decoration.titleSize)}
+        onSize={(titleSize) => onChange({ titleSize: stored(titleSize) })}
       />
       <TextWithSize
         label="Phụ đề"
@@ -332,14 +338,14 @@ export const DecorationSettings = ({
         maxLength={200}
         text={decoration.subtitle}
         onText={(subtitle) => onChange({ subtitle })}
-        size={decoration.subtitleSize}
-        onSize={(subtitleSize) => onChange({ subtitleSize })}
+        size={shown(decoration.subtitleSize)}
+        onSize={(subtitleSize) => onChange({ subtitleSize: stored(subtitleSize) })}
       />
       <fieldset className="min-w-0 space-y-3 rounded-xl border border-line p-3">
         <legend className="sr-only">Câu đối</legend>
         <div className="flex items-center justify-between gap-3">
           <p className="font-medium">Câu đối</p>
-          <SizeField compact ariaLabel="Cỡ chữ câu đối" value={decoration.coupletSize} onChange={(coupletSize) => onChange({ coupletSize })} />
+          <SizeField compact ariaLabel="Cỡ chữ câu đối" value={shown(decoration.coupletSize)} onChange={(coupletSize) => onChange({ coupletSize: stored(coupletSize) })} />
         </div>
         <TextField
           label="Vế bên trái"
@@ -360,13 +366,14 @@ export const DecorationSettings = ({
       <Note>
         Cỡ chữ (px) tính trên trang có cạnh ngắn 1000 px, tự co giãn theo khổ giấy nên đổi khổ giấy vẫn giữ đúng tỉ lệ.
         {autoPaper
-          ? ' Khổ giấy tự động: từ khổ A1 trở lên, cỡ chữ trang trí tự giảm dần theo khổ (chiều cao chữ thật vẫn tăng, nhưng chậm hơn khổ giấy) để tiêu đề không át cả cây.'
+          ? ' Khổ giấy tự động: từ khổ A1 trở lên, cỡ chữ trang trí tự giảm dần theo khổ (chiều cao chữ thật vẫn tăng, nhưng chậm hơn khổ giấy) để tiêu đề không át cả cây; các ô cỡ chữ hiện đúng cỡ đang dùng.'
           : ''}{' '}
         Chữ vẫn tự co lại nếu không đủ chỗ.
       </Note>
     </section>
   </div>
-);
+  );
+};
 
 const ScopeSettings = ({
   graph,
@@ -671,7 +678,7 @@ export const FontSettings = ({
         ? `Chữ tên đang co lại còn khoảng ${namePx.toFixed(1)} px vì không đủ chỗ trên khổ giấy này. Hãy in một Chi, hoặc giảm cỡ chữ.`
         : 'Đổi cỡ chữ thì khổ giấy tự co giãn cho vừa khít. Viền ô vẫn theo giới tính; nền ô Dâu/Rể mặc định hồng đào nhạt để khác hẳn nền trang; màu chữ và nền ô mặc định đổi theo kiểu khung.'}
     </Note>
-    <p className="mt-1 text-sm text-ink-muted">Bản xuất PDF/PNG dùng đúng phông đã chọn (riêng "Chữ hệ thống" xuất bằng Noto Serif).</p>
+    <p className="mt-1 text-sm text-ink-muted">"Theo kiểu khung" dùng phông riêng của từng khung (Noto Serif, Merriweather, Lora…). Bản xuất PDF/PNG dùng đúng phông đã chọn (riêng "Chữ hệ thống" xuất bằng Noto Serif).</p>
   </section>
 );
 

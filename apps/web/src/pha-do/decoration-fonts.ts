@@ -1,6 +1,6 @@
 /**
- * Phông chữ của phần trang trí (tiêu đề, phụ đề, câu đối). Mỗi phông có file TTF trong public/fonts (nhúng khi xuất PDF/PNG) và
- * được nạp để xem trước qua Google Fonts trong index.html. Phông chỉ có một độ đậm (chỉ đậm hoặc chỉ thường) thì mọi chữ dùng phông đó
+ * Phông chữ của phần trang trí (tiêu đề, phụ đề, câu đối) và của ô thành viên khi chọn "Theo kiểu khung" (xem `MEMBER_FONTS`). Mỗi phông có file TTF trong public/fonts (nhúng khi xuất PDF/PNG) và
+ * được nạp để xem trước từ chính các file đó qua `fonts.css` (họ chữ `PhaDo <tên>`), nên bản xem trước trên trang và bản xuất dùng cùng một file phông. Phông chỉ có một độ đậm (chỉ đậm hoặc chỉ thường) thì mọi chữ dùng phông đó
  * tự lấy độ đậm có sẵn (xem `resolveBold`).
  */
 export type DecorFontId =
@@ -12,7 +12,11 @@ export type DecorFontId =
   | 'roboto-slab'
   | 'dancing-script'
   | 'great-vibes'
-  | 'lora';
+  | 'lora'
+  | 'merriweather'
+  | 'source-serif-4'
+  | 'literata'
+  | 'bitter';
 
 type DecorFont = {
   label: string;
@@ -28,21 +32,25 @@ type DecorFont = {
 };
 
 export const DECOR_FONTS: Record<DecorFontId, DecorFont> = {
-  'noto-serif': { label: 'Noto Serif', css: "'Noto Serif', serif", regular: '/fonts/NotoSerif-400Regular.ttf', bold: '/fonts/NotoSerif-700Bold.ttf', titleScale: 1 },
+  'noto-serif': { label: 'Noto Serif', css: "'PhaDo Noto Serif', serif", regular: '/fonts/NotoSerif-400Regular.ttf', bold: '/fonts/NotoSerif-700Bold.ttf', titleScale: 1 },
   'be-vietnam-pro': {
     label: 'Be Vietnam Pro',
-    css: "'Be Vietnam Pro', sans-serif",
+    css: "'PhaDo Be Vietnam Pro', sans-serif",
     regular: '/fonts/BeVietnamPro-400Regular.ttf',
     bold: '/fonts/BeVietnamPro-700Bold.ttf',
     titleScale: 0.95,
   },
-  'noto-serif-display': { label: 'Noto Serif Display', css: "'Noto Serif Display', serif", bold: '/fonts/NotoSerifDisplay-700Bold.ttf', titleScale: 1 },
-  playfair: { label: 'Playfair Display', css: "'Playfair Display', serif", bold: '/fonts/PlayfairDisplay-700Bold.ttf', titleScale: 1 },
-  montserrat: { label: 'Montserrat', css: "'Montserrat', sans-serif", bold: '/fonts/Montserrat-700Bold.ttf', titleScale: 0.92 },
-  'roboto-slab': { label: 'Roboto Slab', css: "'Roboto Slab', serif", regular: '/fonts/RobotoSlab-400Regular.ttf', bold: '/fonts/RobotoSlab-700Bold.ttf', titleScale: 0.95 },
-  'dancing-script': { label: 'Dancing Script', css: "'Dancing Script', cursive", bold: '/fonts/DancingScript-700Bold.ttf', titleScale: 1.3 },
-  'great-vibes': { label: 'Great Vibes', css: "'Great Vibes', cursive", regular: '/fonts/GreatVibes-400Regular.ttf', titleScale: 1.5 },
-  lora: { label: 'Lora', css: "'Lora', serif", regular: '/fonts/Lora-400Regular.ttf', bold: '/fonts/Lora-700Bold.ttf', titleScale: 1 },
+  'noto-serif-display': { label: 'Noto Serif Display', css: "'PhaDo Noto Serif Display', serif", bold: '/fonts/NotoSerifDisplay-700Bold.ttf', titleScale: 1 },
+  playfair: { label: 'Playfair Display', css: "'PhaDo Playfair Display', serif", bold: '/fonts/PlayfairDisplay-700Bold.ttf', titleScale: 1 },
+  montserrat: { label: 'Montserrat', css: "'PhaDo Montserrat', sans-serif", bold: '/fonts/Montserrat-700Bold.ttf', titleScale: 0.92 },
+  'roboto-slab': { label: 'Roboto Slab', css: "'PhaDo Roboto Slab', serif", regular: '/fonts/RobotoSlab-400Regular.ttf', bold: '/fonts/RobotoSlab-700Bold.ttf', titleScale: 0.95 },
+  'dancing-script': { label: 'Dancing Script', css: "'PhaDo Dancing Script', cursive", bold: '/fonts/DancingScript-700Bold.ttf', titleScale: 1.3 },
+  'great-vibes': { label: 'Great Vibes', css: "'PhaDo Great Vibes', cursive", regular: '/fonts/GreatVibes-400Regular.ttf', titleScale: 1.5 },
+  lora: { label: 'Lora', css: "'PhaDo Lora', serif", regular: '/fonts/Lora-400Regular.ttf', bold: '/fonts/Lora-700Bold.ttf', titleScale: 1 },
+  merriweather: { label: 'Merriweather', css: "'PhaDo Merriweather', serif", regular: '/fonts/Merriweather-400Regular.ttf', bold: '/fonts/Merriweather-700Bold.ttf', titleScale: 0.92 },
+  'source-serif-4': { label: 'Source Serif 4', css: "'PhaDo Source Serif 4', serif", regular: '/fonts/SourceSerif4-400Regular.ttf', bold: '/fonts/SourceSerif4-700Bold.ttf', titleScale: 1 },
+  literata: { label: 'Literata', css: "'PhaDo Literata', serif", regular: '/fonts/Literata-400Regular.ttf', bold: '/fonts/Literata-700Bold.ttf', titleScale: 1 },
+  bitter: { label: 'Bitter', css: "'PhaDo Bitter', serif", regular: '/fonts/Bitter-400Regular.ttf', bold: '/fonts/Bitter-700Bold.ttf', titleScale: 1 },
 };
 
 /** Độ đậm thật dùng được cho phông: có cả hai thì theo ý muốn, chỉ có một thì dùng độ đậm đó. */

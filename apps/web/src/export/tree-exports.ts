@@ -6,7 +6,7 @@ import type { TimelineEntry } from '../family/timeline';
 import { downloadBlob, exportFileName } from '../lib/download';
 import { decorFaceFile, decorFacesUsed, type DecorFontId } from '../pha-do/decoration-fonts';
 import type { Drawing } from '../pha-do/drawing';
-import { FONT_FAMILY_EXPORT_FILES, type PhaDoFontFamily } from '../pha-do/config';
+import { FONT_FAMILY_EXPORT_FILES, NOTO_SERIF_FILES, type PhaDoFontFamily } from '../pha-do/config';
 import type { PngPlan } from '../pha-do/png';
 import type { NarrativeGeneration } from '../pha-ky/narrative';
 import type { PdfPhotos } from '../pha-ky/pdf';
@@ -24,7 +24,7 @@ const loadFonts = async (files: { regular: string; bold: string }): Promise<Font
   return { regular, bold };
 };
 
-const NOTO = FONT_FAMILY_EXPORT_FILES['noto-serif'];
+const NOTO = NOTO_SERIF_FILES;
 
 /** Phông chính (tên trong ô) cùng các mặt chữ trang trí mà bản vẽ dùng, chỉ nạp những file cần. */
 const loadDrawingFonts = async (drawing: Drawing, fontFamily: PhaDoFontFamily) => {

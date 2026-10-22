@@ -5,7 +5,8 @@ import { marriageNote } from '../family/labels';
 import { lifespanText } from '../people/person-display';
 import { fieldText } from '../people/profile-fields';
 import { decorationScaleOf, pageSizeMm, type ExtraLine, type PhaDoConfig } from './config';
-import { layoutDecoration, memberColorsOf, type FrameStyle } from './decoration';
+import { layoutDecoration, memberColorsOf, memberFontOf, type FrameStyle } from './decoration';
+import { resolveBold, type DecorFontId } from './decoration-fonts';
 import { fitSize, textWidthEm, truncateToFit } from './glyph-widths';
 import { MM_PER_PX, paperScale, PT_PER_MM, type Drawing, type DrawItem } from './drawing';
 
@@ -55,11 +56,11 @@ export type PhaDoResult = {
 };
 
 /** Chữ vừa chiều rộng ô: thu nhỏ khi vượt, cắt đuôi khi phải thu quá nhiều. Không bao giờ để chữ tràn ra ngoài ô. */
-const fitLine = (text: string, size: number, bold: boolean, maxWidth: number): { text: string; size: number } => {
-  const fitted = fitSize(text, size, bold, maxWidth);
+const fitLine = (text: string, size: number, bold: boolean, maxWidth: number, font?: DecorFontId): { text: string; size: number } => {
+  const fitted = fitSize(text, size, bold, maxWidth, font);
   if (fitted >= size * MIN_LINE_RATIO) return { text, size: fitted };
   const floor = size * MIN_LINE_RATIO;
-  return { text: truncateToFit(text, floor, bold, maxWidth), size: floor };
+  return { text: truncateToFit(text, floor, bold, maxWidth, font), size: floor };
 };
 
 const extraText = (line: ExtraLine, person: Person, generation: number | null): string | null => {
@@ -230,6 +231,9 @@ export const renderPhaDo = (
 
   const decoration = layoutDecoration(page, config.decoration, treeName, decorationScaleOf(config));
   const member = memberColorsOf(config.decoration.frame);
+  // "Theo kiểu khung": chữ trong ô mang phông riêng của khung (đo độ rộng theo chính phông đó); các lựa chọn khác dùng một phông chung nên không đặt phông riêng.
+  const memberFont = config.fontFamily === 'frame' ? memberFontOf(config.decoration.frame) : undefined;
+  const fontOf = (wantBold: boolean) => (memberFont ? { bold: resolveBold(memberFont, wantBold), font: memberFont } : { bold: wantBold });
   const area = decoration.content;
   const availableWidth = area.width;
   // Dành một dải mỏng dưới cùng vùng cây cho chú giải — trong vùng "content" nên chắc chắn không
@@ -322,18 +326,21 @@ export const renderPhaDo = (
       cursor += AVATAR_SIZE + AVATAR_GAP;
     }
     for (const line of nameLines) {
-      const { text, size } = fitLine(line, NAME_SIZE, !isSpouse, node.width - BOX_PADDING);
-      items.push({ type: 'text', x: centerX, y: my(cursor + NAME_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, bold: !isSpouse, color: config.memberTextColor ?? member.name });
+      const face = fontOf(!isSpouse);
+      const { text, size } = fitLine(line, NAME_SIZE, face.bold, node.width - BOX_PADDING, memberFont);
+      items.push({ type: 'text', x: centerX, y: my(cursor + NAME_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, ...face, color: config.memberTextColor ?? member.name });
       cursor += NAME_SIZE + lineGap;
     }
     for (const line of detailLines) {
-      const { text, size } = fitLine(line, SMALL_SIZE, false, node.width - BOX_PADDING);
-      items.push({ type: 'text', x: centerX, y: my(cursor + SMALL_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, bold: false, color: config.memberTextColor ?? member.detail });
+      const face = fontOf(false);
+      const { text, size } = fitLine(line, SMALL_SIZE, face.bold, node.width - BOX_PADDING, memberFont);
+      items.push({ type: 'text', x: centerX, y: my(cursor + SMALL_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, ...face, color: config.memberTextColor ?? member.detail });
       cursor += SMALL_SIZE + lineGap;
     }
     for (const line of noteLines) {
-      const { text, size } = fitLine(line, MARRIAGE_SIZE, false, node.width - BOX_PADDING);
-      items.push({ type: 'text', x: centerX, y: my(cursor + MARRIAGE_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, bold: false, color: config.memberTextColor ?? member.note });
+      const face = fontOf(false);
+      const { text, size } = fitLine(line, MARRIAGE_SIZE, face.bold, node.width - BOX_PADDING, memberFont);
+      items.push({ type: 'text', x: centerX, y: my(cursor + MARRIAGE_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, ...face, color: config.memberTextColor ?? member.note });
       cursor += MARRIAGE_LINE_HEIGHT;
     }
   }

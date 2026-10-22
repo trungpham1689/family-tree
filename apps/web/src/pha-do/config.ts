@@ -26,30 +26,31 @@ export const EXTRA_LINE_LABELS: Record<ExtraLine, string> = {
   que: fieldLabel('hometown'),
 };
 
-/** Vài phông đã nạp sẵn cho cả trang (Google Fonts trong index.html) hoặc phông hệ thống — không cần cài thêm. */
-export type PhaDoFontFamily = 'noto-serif' | 'be-vietnam-pro' | 'system';
+/**
+ * Phông tên trong ô: "Theo kiểu khung" (mặc định) dùng phông riêng của từng kiểu khung (xem `MEMBER_FONTS`); "Be Vietnam Pro" dùng một phông cho mọi khung.
+ * Cả hai đều có file TTF trong public/fonts: bản xem trước nạp đúng file đó (fonts.css), bản xuất PDF/PNG nhúng đúng file đó.
+ */
+export type PhaDoFontFamily = 'frame' | 'be-vietnam-pro';
 
 export const FONT_FAMILY_LABELS: Record<PhaDoFontFamily, string> = {
-  'noto-serif': 'Noto Serif (trang trọng)',
+  frame: 'Theo kiểu khung (mặc định)',
   'be-vietnam-pro': 'Be Vietnam Pro (hiện đại)',
-  system: 'Chữ hệ thống',
 };
 
-/** CSS font-family thật dùng khi xem trước trên trang. */
+/** CSS font-family khi xem trước trang (chữ không có phông riêng: chú giải, và mọi chữ khi không chọn "Theo kiểu khung"); họ chữ định nghĩa trong fonts.css. */
 export const FONT_FAMILY_CSS: Record<PhaDoFontFamily, string> = {
-  'noto-serif': "'Noto Serif', ui-serif, Georgia, serif",
-  'be-vietnam-pro': "'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif",
-  system: 'ui-serif, Georgia, serif',
+  frame: "'PhaDo Noto Serif', serif",
+  'be-vietnam-pro': "'PhaDo Be Vietnam Pro', sans-serif",
 };
+
+export const NOTO_SERIF_FILES = { regular: '/fonts/NotoSerif-400Regular.ttf', bold: '/fonts/NotoSerif-700Bold.ttf' };
 
 /**
- * File TTF nhúng khi xuất PDF/PNG, cùng phông đã chọn xem trước. "Chữ hệ thống" là phông của từng
- * máy nên không có file để nhúng — xuất tạm bằng Noto Serif (vẫn đủ dấu tiếng Việt).
+ * File TTF nhúng khi xuất PDF/PNG cho chữ không có phông riêng, cùng file với bản xem trước. Với "Theo kiểu khung", chữ có phông riêng nhúng thêm đúng file của phông đó.
  */
 export const FONT_FAMILY_EXPORT_FILES: Record<PhaDoFontFamily, { regular: string; bold: string }> = {
-  'noto-serif': { regular: '/fonts/NotoSerif-400Regular.ttf', bold: '/fonts/NotoSerif-700Bold.ttf' },
+  frame: NOTO_SERIF_FILES,
   'be-vietnam-pro': { regular: '/fonts/BeVietnamPro-400Regular.ttf', bold: '/fonts/BeVietnamPro-700Bold.ttf' },
-  system: { regular: '/fonts/NotoSerif-400Regular.ttf', bold: '/fonts/NotoSerif-700Bold.ttf' },
 };
 
 export type PhaDoConfig = {
@@ -66,7 +67,6 @@ export type PhaDoConfig = {
   showAvatars: boolean;
   /** Cỡ chữ tên trong ô (px CSS thật trên giấy); đổi cỡ chữ thì khổ giấy tự co giãn cho vừa (xem `fitPaperToFont`). */
   memberFontPx: number;
-  /** Chỉ áp dụng khi xem trước trên trang; bản xuất luôn là NotoSerif. */
   fontFamily: PhaDoFontFamily;
   /** Khổ giấy tự tính theo nội dung (mọi thay đổi đều co giãn khổ cho vừa khít); tắt khi người dùng chọn khổ giấy cụ thể. */
   autoPaper: boolean;
@@ -96,7 +96,7 @@ export const defaultPhaDoConfig = (outsideGenerations: number): PhaDoConfig => (
   showAvatars: false,
   decoration: DEFAULT_DECORATION,
   memberFontPx: 14,
-  fontFamily: 'noto-serif',
+  fontFamily: 'frame',
   autoPaper: false,
   memberTextColor: null,
   memberFillColor: null,
@@ -168,10 +168,8 @@ export const readPhaDoConfig = (stored: unknown, outsideGenerations: number): Ph
       : [],
     showAvatars: stored.showAvatars === true,
     memberFontPx: number(stored.memberFontPx, MEMBER_FONT_PX_MIN, FONT_PX_MAX, fallback.memberFontPx),
-    fontFamily:
-      stored.fontFamily === 'noto-serif' || stored.fontFamily === 'be-vietnam-pro' || stored.fontFamily === 'system'
-        ? stored.fontFamily
-        : fallback.fontFamily,
+    // Giá trị cũ 'noto-serif' (mặc định trước đây) và 'system' (phông máy, không có file để nhúng nên bản in khác bản xem) chuyển thành "Theo kiểu khung"; giá trị lạ hoặc thiếu cũng vậy.
+    fontFamily: stored.fontFamily === 'be-vietnam-pro' ? 'be-vietnam-pro' : 'frame',
     autoPaper: stored.autoPaper === true,
     memberTextColor: hexColor(stored.memberTextColor),
     memberFillColor: hexColor(stored.memberFillColor),

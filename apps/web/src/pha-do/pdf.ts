@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { resolveBold, type DecorFontId } from './decoration-fonts';
-import type { Drawing } from './drawing';
+import { BASELINE_OFFSET_EM, PT_PER_MM, type Drawing } from './drawing';
 
 /** Font nhúng vào PDF (TTF, dạng chuỗi nhị phân base64), có đủ dấu tiếng Việt. */
 export type PdfFonts = {
@@ -90,7 +90,7 @@ export const drawingToPdf = (drawing: Drawing, fonts: PdfFonts, title: string): 
         else doc.setFont(FONT, item.bold ? 'bold' : 'normal');
         doc.setFontSize(item.sizePt);
         doc.setTextColor(...hexToRgb(item.color));
-        doc.text(item.text, item.x, item.y, { align: item.align === 'start' ? 'left' : 'center', baseline: 'middle' });
+        doc.text(item.text, item.x, item.y + (item.sizePt / PT_PER_MM) * BASELINE_OFFSET_EM, { align: item.align === 'start' ? 'left' : 'center' });
         break;
       case 'image': {
         const cx = item.x + item.width / 2;

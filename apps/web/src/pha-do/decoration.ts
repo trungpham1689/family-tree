@@ -1,5 +1,5 @@
 import { DECOR_FONTS, resolveBold, type DecorFontId } from './decoration-fonts';
-import { LOOK_STYLES, MEMBER_COLORS, type DecorLook, type MemberColors } from './decoration-looks';
+import { LOOK_STYLES, MEMBER_COLORS, MEMBER_FONTS, type DecorLook, type MemberColors } from './decoration-looks';
 import { decorationPxToMm, PT_PER_MM, type DrawItem } from './drawing';
 import { fitSize, textWidthEm } from './glyph-widths';
 
@@ -89,6 +89,9 @@ export const paletteOf = (frame: FrameStyle, look: DecorLook): Palette => ({ ...
 
 /** Màu ô thành viên mặc định theo khung (kiểu "Sáng"); người dùng chọn màu riêng thì màu đó thay thế. */
 export const memberColorsOf = (frame: FrameStyle): MemberColors => MEMBER_COLORS[frame];
+
+/** Phông chữ ô thành viên theo khung (dùng khi cấu hình chọn "Theo kiểu khung"). */
+export const memberFontOf = (frame: FrameStyle): DecorFontId => MEMBER_FONTS[frame];
 
 /** Nền lớp gấm (viền ngoài ô trắng) của khung Gấm hoa; ô giữa dùng nền của phương án. */
 const GAM_HOA_MAT = '#f6e9c8';
@@ -497,13 +500,14 @@ const computeDecoration = (page: { width: number; height: number }, decoration: 
   };
 };
 
-const DECORATION_CACHE_LIMIT = 64;
+// Một lần tính khổ tự động hỏi ~40 tỉ lệ × tới 5 hệ số cỡ chữ (xem `fitPaperToFont`): giữ đủ chỗ để lần tính lại sau đó đều trúng bộ nhớ.
+const DECORATION_CACHE_LIMIT = 512;
 const decorationCache = new Map<string, DecorationLayout>();
 
 /**
  * `computeDecoration` có nhớ kết quả theo (khổ trang, trang trí, tên gia phả): hàm thuần nên cùng đầu vào cho cùng kết quả, và việc tự co giãn khổ giấy
  * hỏi lại cùng một trang tham chiếu rất nhiều lần (đổi người, đổi dòng thêm… không đụng tới trang trí). Kết quả được dùng chung: bên gọi chỉ đọc, không sửa
- * các mảng trả về. Giữ tối đa 64 kết quả gần nhất.
+ * các mảng trả về. Giữ tối đa 512 kết quả gần nhất.
  *
  * `sizeScale` nhân vào cỡ chữ tiêu đề, phụ đề, câu đối; khổ tự động truyền `autoDecorationScale(cạnh ngắn)`, khổ cố định để 1.
  */

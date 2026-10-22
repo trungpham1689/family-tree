@@ -54,6 +54,12 @@ export type Drawing = { width: number; height: number; items: DrawItem[] };
 
 export const PT_PER_MM = 72 / 25.4;
 
+/**
+ * Chữ vẽ với `y` là đường giữa dòng. Xem trước (SVG) và PDF cùng vẽ chữ ở đường cơ sở (alphabetic) cách `y` đúng chừng này em, thay vì nhờ mỗi nơi
+ * tự canh "giữa" theo số đo riêng của từng phông (SVG `central` và jsPDF `middle` tính khác nhau nên chữ lệch vài px, nhiều nhất ở chữ viết tay).
+ */
+export const BASELINE_OFFSET_EM = 0.35;
+
 type PageSize = { width: number; height: number };
 
 /** Chú giải và các chi tiết nhỏ thiết kế trên khổ A1 (cạnh ngắn 594 mm); khổ khác co giãn theo cạnh ngắn. */

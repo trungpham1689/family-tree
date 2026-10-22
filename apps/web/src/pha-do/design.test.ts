@@ -114,9 +114,9 @@ describe('changeDesign', () => {
 
   it('màu và phông chữ: không đụng bố cục, không tính lại', () => {
     const start = settleDesign(context, { ...decorated, autoPaper: true, memberFontPx: 30 });
-    const { config, pending } = changeDesign(context, start, { kind: 'content', patch: { memberFillColor: '#ffeecc', fontFamily: 'system' } });
+    const { config, pending } = changeDesign(context, start, { kind: 'content', patch: { memberFillColor: '#ffeecc', fontFamily: 'be-vietnam-pro' } });
     expect(pending).toBe('keep');
-    expect(config).toEqual({ ...start, memberFillColor: '#ffeecc', fontFamily: 'system' });
+    expect(config).toEqual({ ...start, memberFillColor: '#ffeecc', fontFamily: 'be-vietnam-pro' });
   });
 
   it('gõ chữ trang trí: hiện chữ ngay, hoãn; settle sau đó bằng đúng kết quả áp dụng ngay', () => {
@@ -145,7 +145,7 @@ describe('changeDesign', () => {
 
   it('refitTiming', () => {
     expect(refitTiming(base, { memberFillColor: '#ffffff' })).toBe('none');
-    expect(refitTiming(base, { memberTextColor: null, fontFamily: 'system' })).toBe('none');
+    expect(refitTiming(base, { memberTextColor: null, fontFamily: 'be-vietnam-pro' })).toBe('none');
     expect(refitTiming(base, { decoration: { ...base.decoration, title: 'x' } })).toBe('later');
     expect(refitTiming(base, { decoration: { ...base.decoration, frame: 'moc' } })).toBe('now');
     expect(refitTiming(base, { decoration: { ...base.decoration, titleSize: 80 } })).toBe('now');

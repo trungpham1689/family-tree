@@ -1,6 +1,6 @@
 import { DECOR_FONTS, resolveBold, type DecorFontId } from './decoration-fonts';
 import type { Drawing } from './drawing';
-import { PT_PER_MM } from './drawing';
+import { BASELINE_OFFSET_EM, PT_PER_MM } from './drawing';
 
 // Ký tự điều khiển (trừ tab, xuống dòng) không hợp lệ trong XML: một ký tự như vậy trong tên làm SVG không đọc được khi xuất PNG.
 // oxlint-disable-next-line no-control-regex -- khớp ký tự điều khiển là chủ đích
@@ -8,6 +8,12 @@ const XML_INVALID = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g;
 const escape = (text: string) => text.replace(XML_INVALID, '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 const escapeAttr = (text: string) => escape(text).replaceAll('"', '&quot;');
 const n = (value: number) => Number(value.toFixed(3));
+
+/**
+ * Xem trước, PNG (cùng vẽ bằng trình duyệt) và PDF (jsPDF) phải ra cùng nét chữ: jsPDF xếp chữ theo độ rộng từng ký tự, không có kerning hay chữ nối (ligature),
+ * nên trình duyệt cũng tắt hai thứ đó. Độ rộng ước lượng trong glyph-widths cũng tính theo cách này.
+ */
+export const TEXT_STYLE = "font-kerning:none;font-variant-ligatures:none;font-feature-settings:'kern' 0,'liga' 0,'clig' 0,'calt' 0;text-rendering:optimizeSpeed";
 
 /** Font nhúng thẳng vào SVG (base64 TTF), cần khi vẽ SVG lên canvas để xuất PNG. */
 export type EmbeddedFonts = {
@@ -38,7 +44,8 @@ export const drawingToSvg = (drawing: Drawing, fonts?: EmbeddedFonts, previewFon
         // Chữ trang trí có phông riêng: xem trước dùng phông CSS, xuất dùng phông đã nhúng (`PhaDo-<phông>`).
         const family = item.font ? ` font-family="${escapeAttr(fonts ? `'PhaDo-${item.font}'` : DECOR_FONTS[item.font].css)}"` : '';
         const bold = item.font ? resolveBold(item.font, item.bold) : item.bold;
-        return `<text x="${n(item.x)}" y="${n(item.y)}"${family} font-size="${n(item.sizePt / PT_PER_MM)}" font-weight="${bold ? 700 : 400}" fill="${escapeAttr(item.color)}" text-anchor="${item.align === 'start' ? 'start' : 'middle'}" dominant-baseline="central">${escape(item.text)}</text>`;
+        const em = item.sizePt / PT_PER_MM;
+        return `<text x="${n(item.x)}" y="${n(item.y + em * BASELINE_OFFSET_EM)}"${family} font-size="${n(em)}" font-weight="${bold ? 700 : 400}" fill="${escapeAttr(item.color)}" text-anchor="${item.align === 'start' ? 'start' : 'middle'}">${escape(item.text)}</text>`;
       case 'image': {
         // href là data URL (ảnh đã tải sẵn thành base64) nên không cần CORS khi vẽ SVG lên canvas để xuất PNG.
         const img = `<image x="${n(item.x)}" y="${n(item.y)}" width="${n(item.width)}" height="${n(item.height)}" href="${escapeAttr(item.href)}" preserveAspectRatio="xMidYMid slice"${item.round ? ` clip-path="url(#avatar-${index})"` : ''}/>`;
@@ -52,7 +59,7 @@ export const drawingToSvg = (drawing: Drawing, fonts?: EmbeddedFonts, previewFon
     }
   });
   return [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${drawing.width}mm" height="${drawing.height}mm" viewBox="0 0 ${drawing.width} ${drawing.height}" font-family="${fonts ? "'PhaDo'" : (previewFontFamily ?? "'Noto Serif', serif")}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${drawing.width}mm" height="${drawing.height}mm" viewBox="0 0 ${drawing.width} ${drawing.height}" font-family="${fonts ? "'PhaDo'" : (previewFontFamily ?? "'PhaDo Noto Serif', serif")}" style="${TEXT_STYLE}">`,
     fonts
       ? `<style>@font-face{font-family:'PhaDo';font-weight:400;src:url(data:font/ttf;base64,${fonts.regularBase64}) format('truetype')}@font-face{font-family:'PhaDo';font-weight:700;src:url(data:font/ttf;base64,${fonts.boldBase64}) format('truetype')}${fonts.decor ? decorFaces(fonts.decor) : ''}</style>`
       : '',

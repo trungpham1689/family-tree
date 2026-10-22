@@ -49,9 +49,9 @@ export const fitSize = (text: string, size: number, bold: boolean, maxWidth: num
 };
 
 /** Cắt bớt đuôi và thêm "…" cho tới khi dòng vừa `maxWidth` ở cỡ chữ `size`. */
-export const truncateToFit = (text: string, size: number, bold: boolean, maxWidth: number): string => {
-  if (textWidthEm(text, bold) * size <= maxWidth) return text;
+export const truncateToFit = (text: string, size: number, bold: boolean, maxWidth: number, font?: DecorFontId): string => {
+  if (textWidthEm(text, bold, font) * size <= maxWidth) return text;
   const chars = [...text];
-  while (chars.length > 1 && textWidthEm(`${chars.join('').trimEnd()}…`, bold) * size > maxWidth) chars.pop();
+  while (chars.length > 1 && textWidthEm(`${chars.join('').trimEnd()}…`, bold, font) * size > maxWidth) chars.pop();
   return `${chars.join('').trimEnd()}…`;
 };
