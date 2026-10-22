@@ -5,7 +5,13 @@ import { drawingToSvg } from './svg';
 
 /** Vẽ Phả đồ ra PNG theo kế hoạch dpi (chạy trong trình duyệt), trả về file đã ghi dpi. */
 export const renderPng = async (drawing: Drawing, fonts: PdfFonts, plan: PngPlan): Promise<Blob> => {
-  const svg = drawingToSvg(drawing, { regularBase64: btoa(fonts.regular), boldBase64: btoa(fonts.bold) });
+  const decor = Object.fromEntries(
+    Object.entries(fonts.decor ?? {}).map(([id, faces]) => [
+      id,
+      { ...(faces.regular ? { regularBase64: btoa(faces.regular) } : {}), ...(faces.bold ? { boldBase64: btoa(faces.bold) } : {}) },
+    ]),
+  );
+  const svg = drawingToSvg(drawing, { regularBase64: btoa(fonts.regular), boldBase64: btoa(fonts.bold), decor });
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
   try {
     const image = new Image();

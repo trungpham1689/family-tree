@@ -5,6 +5,7 @@ import { blankPerson } from '../test-support/person';
 import { autoMemberFontPx } from './auto-fit';
 import { defaultPhaDoConfig, pageSizeMm, type PhaDoConfig } from './config';
 import { FRAME_LABELS, layoutDecoration, type FrameStyle } from './decoration';
+import { decorationScaleOf } from './config';
 import { changeDesign, refitTiming, settleDesign, type DesignChange, type DesignContext } from './design';
 import { fitNamePxFor, renderPhaDo, treeLayout } from './render';
 
@@ -83,7 +84,7 @@ describe('settleDesign', () => {
     const fit = fitNamePxFor(graph, settled, context.treeName)!;
     expect(fit).toBeGreaterThanOrEqual(30 - 0.01);
     expect(fit).toBeLessThan(30 * 1.01);
-    expect(layoutDecoration(pageSizeMm(settled), settled.decoration, context.treeName).fit).toBeGreaterThanOrEqual(0.999);
+    expect(layoutDecoration(pageSizeMm(settled), settled.decoration, context.treeName, decorationScaleOf(settled)).fit).toBeGreaterThanOrEqual(0.999);
     expect(renderPhaDo(graph, settled, context.treeName).namePx).toBeCloseTo(30, 1);
   });
 

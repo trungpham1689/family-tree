@@ -18,9 +18,10 @@ import {
   type PhaDoConfig,
   type PhaDoFontFamily,
 } from './config';
-import { defaultTitle, FRAME_LABELS, type Decoration, type FrameStyle } from './decoration';
+import { DECOR_FONTS } from './decoration-fonts';
+import { defaultTitle, DECOR_LOOKS, FRAME_LABELS, LOOK_LABELS, paletteOf, type Decoration, type DecorLook, type FrameStyle } from './decoration';
 import { useFrameThumbnails } from './frame-thumbnails';
-import { DEFAULT_MEMBER_COLORS } from './render';
+import { defaultMemberColors } from './render';
 import { Chip } from '../ui/Chip';
 import { Select, TextField } from '../ui/fields';
 import { Segmented } from '../ui/Segmented';
@@ -119,6 +120,46 @@ const FramePicker = ({ frame, onChange }: { frame: FrameStyle; onChange: (frame:
     </section>
   );
 };
+
+/**
+ * Chọn phương án nền, màu chữ, phông chữ của khung đang chọn: mỗi nút là một mẫu giấy (đúng màu nền, màu tiêu đề, phông tiêu đề),
+ * nên nhìn là biết phương án nào hợp ý. Tên phương án nằm cạnh tiêu đề.
+ */
+const LookPicker = ({ frame, look, onChange }: { frame: FrameStyle; look: DecorLook; onChange: (look: DecorLook) => void }) => (
+  <section>
+    <SectionLabel aside={<span className="font-semibold text-son">{LOOK_LABELS[look]}</span>}>Nền, màu chữ, phông chữ</SectionLabel>
+    <div role="radiogroup" aria-label="Phương án nền, màu chữ, phông chữ" className="grid grid-cols-2 gap-2">
+      {DECOR_LOOKS.map((option) => {
+        const palette = paletteOf(frame, option);
+        const on = look === option;
+        return (
+          <label
+            key={option}
+            className={`relative block min-w-0 cursor-pointer rounded-xl has-focus-visible:outline-3 has-focus-visible:outline-focus ${
+              on ? 'ring-2 ring-son ring-offset-2' : 'hover:opacity-100'
+            }`}
+          >
+            <input type="radio" name="decor-look" className="sr-only" checked={on} onChange={() => onChange(option)} aria-label={`${option}: ${LOOK_LABELS[option]}`} />
+            <span className="block rounded-xl border border-line px-3 py-3 text-center" style={{ backgroundColor: palette.background }}>
+              <span
+                className="block truncate text-xl leading-tight"
+                style={{ color: palette.title, fontFamily: DECOR_FONTS[palette.titleFont].css, fontWeight: 700 }}
+              >
+                Gia phả
+              </span>
+              <span className="mt-1 block truncate text-sm" style={{ color: palette.text, fontFamily: DECOR_FONTS[palette.bodyFont].css }}>
+                Tổ tông muôn đời
+              </span>
+            </span>
+            <span className="mt-1 block text-center text-sm font-medium">
+              {option} · {LOOK_LABELS[option]}
+            </span>
+          </label>
+        );
+      })}
+    </div>
+  </section>
+);
 
 const NUMBER_CONTROL = 'min-h-12 w-full rounded-xl border border-line bg-surface px-4 tabular-nums disabled:bg-paper disabled:text-ink-muted';
 
@@ -261,14 +302,18 @@ const TextWithSize = ({
 export const DecorationSettings = ({
   treeName,
   decoration,
+  autoPaper,
   onChange,
 }: {
   treeName: string;
   decoration: Decoration;
+  /** Khổ giấy tự động: cỡ chữ trang trí tự giảm dần khi khổ lớn hơn A1 (xem `autoDecorationScale`). */
+  autoPaper: boolean;
   onChange: (patch: Partial<Decoration>) => void;
 }) => (
   <div className="min-w-0 space-y-6">
     <FramePicker frame={decoration.frame} onChange={(frame) => onChange({ frame })} />
+    <LookPicker frame={decoration.frame} look={decoration.look} onChange={(look) => onChange({ look })} />
 
     <section className="space-y-4">
       <SectionLabel>Chữ trang trí</SectionLabel>
@@ -312,7 +357,13 @@ export const DecorationSettings = ({
         />
         <p className="text-sm text-ink-muted">Viết dọc, mỗi chữ một dòng, hai bên Phả đồ.</p>
       </fieldset>
-      <Note>Cỡ chữ (px) tính trên trang có cạnh ngắn 1000 px, tự co giãn theo khổ giấy nên đổi khổ giấy vẫn giữ đúng tỉ lệ. Chữ vẫn tự co lại nếu không đủ chỗ.</Note>
+      <Note>
+        Cỡ chữ (px) tính trên trang có cạnh ngắn 1000 px, tự co giãn theo khổ giấy nên đổi khổ giấy vẫn giữ đúng tỉ lệ.
+        {autoPaper
+          ? ' Khổ giấy tự động: từ khổ A1 trở lên, cỡ chữ trang trí tự giảm dần theo khổ (chiều cao chữ thật vẫn tăng, nhưng chậm hơn khổ giấy) để tiêu đề không át cả cây.'
+          : ''}{' '}
+        Chữ vẫn tự co lại nếu không đủ chỗ.
+      </Note>
     </section>
   </div>
 );
@@ -605,20 +656,20 @@ export const FontSettings = ({
       <ColorField
         label="Màu chữ"
         value={config.memberTextColor}
-        fallback={DEFAULT_MEMBER_COLORS.text}
+        fallback={defaultMemberColors(config.decoration.frame).text}
         onChange={(memberTextColor) => onChange({ memberTextColor })}
       />
       <ColorField
         label="Màu nền"
         value={config.memberFillColor}
-        fallback={DEFAULT_MEMBER_COLORS.fill}
+        fallback={defaultMemberColors(config.decoration.frame).fill}
         onChange={(memberFillColor) => onChange({ memberFillColor })}
       />
     </div>
     <Note>
       {namePx !== null && namePx < config.memberFontPx - 0.05
         ? `Chữ tên đang co lại còn khoảng ${namePx.toFixed(1)} px vì không đủ chỗ trên khổ giấy này. Hãy in một Chi, hoặc giảm cỡ chữ.`
-        : 'Đổi cỡ chữ thì khổ giấy tự co giãn cho vừa khít. Viền ô vẫn theo giới tính; nền ô Dâu/Rể mặc định hơi ngả kem.'}
+        : 'Đổi cỡ chữ thì khổ giấy tự co giãn cho vừa khít. Viền ô vẫn theo giới tính; nền ô Dâu/Rể mặc định hồng đào nhạt để khác hẳn nền trang; màu chữ và nền ô mặc định đổi theo kiểu khung.'}
     </Note>
     <p className="mt-1 text-sm text-ink-muted">Bản xuất PDF/PNG dùng đúng phông đã chọn (riêng "Chữ hệ thống" xuất bằng Noto Serif).</p>
   </section>

@@ -1,3 +1,4 @@
+import { DECOR_FONTS, resolveBold, type DecorFontId } from './decoration-fonts';
 import type { Drawing } from './drawing';
 import { PT_PER_MM } from './drawing';
 
@@ -9,7 +10,21 @@ const escapeAttr = (text: string) => escape(text).replaceAll('"', '&quot;');
 const n = (value: number) => Number(value.toFixed(3));
 
 /** Font nhúng thẳng vào SVG (base64 TTF), cần khi vẽ SVG lên canvas để xuất PNG. */
-export type EmbeddedFonts = { regularBase64: string; boldBase64: string };
+export type EmbeddedFonts = {
+  regularBase64: string;
+  boldBase64: string;
+  /** Phông trang trí đã nạp (chỉ những mặt chữ bản vẽ dùng). */
+  decor?: Partial<Record<DecorFontId, { regularBase64?: string; boldBase64?: string }>>;
+};
+
+const decorFaces = (decor: NonNullable<EmbeddedFonts['decor']>): string =>
+  (Object.entries(decor) as [DecorFontId, { regularBase64?: string; boldBase64?: string }][])
+    .flatMap(([id, faces]) =>
+      ([[400, faces.regularBase64], [700, faces.boldBase64]] as const)
+        .filter((face): face is readonly [400 | 700, string] => face[1] !== undefined)
+        .map(([weight, base64]) => `@font-face{font-family:'PhaDo-${id}';font-weight:${weight};src:url(data:font/ttf;base64,${base64}) format('truetype')}`),
+    )
+    .join('');
 
 /** Bản vẽ → SVG đúng kích thước giấy (mm), dùng để xem trước và xuất PNG. */
 export const drawingToSvg = (drawing: Drawing, fonts?: EmbeddedFonts, previewFontFamily?: string): string => {
@@ -20,7 +35,10 @@ export const drawingToSvg = (drawing: Drawing, fonts?: EmbeddedFonts, previewFon
       case 'line':
         return `<polyline points="${item.points.map(([x, y]) => `${n(x)},${n(y)}`).join(' ')}" fill="none" stroke="${escapeAttr(item.stroke)}" stroke-width="${n(item.strokeWidth)}"${item.seamless ? ' stroke-linecap="square" stroke-linejoin="miter"' : ''}/>`;
       case 'text':
-        return `<text x="${n(item.x)}" y="${n(item.y)}" font-size="${n(item.sizePt / PT_PER_MM)}" font-weight="${item.bold ? 700 : 400}" fill="${escapeAttr(item.color)}" text-anchor="${item.align === 'start' ? 'start' : 'middle'}" dominant-baseline="central">${escape(item.text)}</text>`;
+        // Chữ trang trí có phông riêng: xem trước dùng phông CSS, xuất dùng phông đã nhúng (`PhaDo-<phông>`).
+        const family = item.font ? ` font-family="${escapeAttr(fonts ? `'PhaDo-${item.font}'` : DECOR_FONTS[item.font].css)}"` : '';
+        const bold = item.font ? resolveBold(item.font, item.bold) : item.bold;
+        return `<text x="${n(item.x)}" y="${n(item.y)}"${family} font-size="${n(item.sizePt / PT_PER_MM)}" font-weight="${bold ? 700 : 400}" fill="${escapeAttr(item.color)}" text-anchor="${item.align === 'start' ? 'start' : 'middle'}" dominant-baseline="central">${escape(item.text)}</text>`;
       case 'image': {
         // href là data URL (ảnh đã tải sẵn thành base64) nên không cần CORS khi vẽ SVG lên canvas để xuất PNG.
         const img = `<image x="${n(item.x)}" y="${n(item.y)}" width="${n(item.width)}" height="${n(item.height)}" href="${escapeAttr(item.href)}" preserveAspectRatio="xMidYMid slice"${item.round ? ` clip-path="url(#avatar-${index})"` : ''}/>`;
@@ -36,7 +54,7 @@ export const drawingToSvg = (drawing: Drawing, fonts?: EmbeddedFonts, previewFon
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${drawing.width}mm" height="${drawing.height}mm" viewBox="0 0 ${drawing.width} ${drawing.height}" font-family="${fonts ? "'PhaDo'" : (previewFontFamily ?? "'Noto Serif', serif")}">`,
     fonts
-      ? `<style>@font-face{font-family:'PhaDo';font-weight:400;src:url(data:font/ttf;base64,${fonts.regularBase64}) format('truetype')}@font-face{font-family:'PhaDo';font-weight:700;src:url(data:font/ttf;base64,${fonts.boldBase64}) format('truetype')}</style>`
+      ? `<style>@font-face{font-family:'PhaDo';font-weight:400;src:url(data:font/ttf;base64,${fonts.regularBase64}) format('truetype')}@font-face{font-family:'PhaDo';font-weight:700;src:url(data:font/ttf;base64,${fonts.boldBase64}) format('truetype')}${fonts.decor ? decorFaces(fonts.decor) : ''}</style>`
       : '',
     `<rect width="100%" height="100%" fill="#ffffff"/>`,
     ...parts,

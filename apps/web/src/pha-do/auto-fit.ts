@@ -1,7 +1,7 @@
 import type { Person } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
 import { CUSTOM_CM_MAX, CUSTOM_CM_MIN, FONT_PX_MAX, MEMBER_FONT_PX_MIN, type PhaDoConfig } from './config';
-import { layoutDecoration } from './decoration';
+import { autoDecorationScale, layoutDecoration } from './decoration';
 import { MM_PER_PX } from './drawing';
 import { fitNamePxFor, LAYOUT_NAME_SIZE, legendHeightMm, legendWidthMm, scopeRoot, treeLayout } from './render';
 
@@ -49,31 +49,46 @@ export const fitPaperToFont = (graph: FamilyGraph<Person>, config: PhaDoConfig, 
   const landscape = config.orientation === 'landscape';
 
   type Candidate = { cost: number; fit: number; aspect: number; shortMm: number };
-  const evaluate = (aspect: number): Candidate | null => {
-    const page = landscape ? { width: aspect * REF_SHORT_MM, height: REF_SHORT_MM } : { width: REF_SHORT_MM, height: aspect * REF_SHORT_MM };
-    const deco = layoutDecoration(page, config.decoration, treeName);
-    const width = deco.content.width;
-    const height = deco.content.height - legendHeightMm(page);
-    if (width <= legendWidthMm(page) || height <= 0) return null;
-    const shortMm = REF_SHORT_MM * Math.max(treeWidth / width, treeHeight / height);
-    const cost = aspect * shortMm * shortMm * (1 + 0.03 * Math.abs(Math.log(aspect / IDEAL_ASPECT))) * (aspect > WIDE_ASPECT ? WIDE_PENALTY : 1);
-    return { cost, fit: deco.fit, aspect, shortMm };
-  };
-  // Ưu tiên tỉ lệ không chữ trang trí nào bị co; nếu không tỉ lệ nào được thì chọn tỉ lệ co ít nhất.
-  const isBetter = (candidate: Candidate, current: Candidate | null) =>
-    !current || (candidate.fit >= 0.999 ? current.fit < 0.999 || candidate.cost < current.cost : current.fit < 0.999 && candidate.fit > current.fit);
+  // `decoScale`: hệ số cỡ chữ trang trí của khổ tự động, phụ thuộc cạnh ngắn của khổ (chưa biết lúc đang tìm khổ) nên tìm lặp: xem bên dưới.
+  const search = (decoScale: number): Candidate | null => {
+    const evaluate = (aspect: number): Candidate | null => {
+      const page = landscape ? { width: aspect * REF_SHORT_MM, height: REF_SHORT_MM } : { width: REF_SHORT_MM, height: aspect * REF_SHORT_MM };
+      const deco = layoutDecoration(page, config.decoration, treeName, decoScale);
+      const width = deco.content.width;
+      const height = deco.content.height - legendHeightMm(page);
+      if (width <= legendWidthMm(page) || height <= 0) return null;
+      const shortMm = REF_SHORT_MM * Math.max(treeWidth / width, treeHeight / height);
+      const cost = aspect * shortMm * shortMm * (1 + 0.03 * Math.abs(Math.log(aspect / IDEAL_ASPECT))) * (aspect > WIDE_ASPECT ? WIDE_PENALTY : 1);
+      return { cost, fit: deco.fit, aspect, shortMm };
+    };
+    // Ưu tiên tỉ lệ không chữ trang trí nào bị co; nếu không tỉ lệ nào được thì chọn tỉ lệ co ít nhất.
+    const isBetter = (candidate: Candidate, current: Candidate | null) =>
+      !current || (candidate.fit >= 0.999 ? current.fit < 0.999 || candidate.cost < current.cost : current.fit < 0.999 && candidate.fit > current.fit);
 
-  let best: Candidate | null = null;
-  for (const aspect of COARSE_ASPECTS) {
-    const candidate = evaluate(aspect);
-    if (candidate && isBetter(candidate, best)) best = candidate;
-  }
-  if (best) {
-    const center = best.aspect;
-    for (let aspect = Math.max(1, center - FINE_SPAN); aspect <= Math.min(4, center + FINE_SPAN) + 1e-9; aspect += FINE_STEP) {
+    let found: Candidate | null = null;
+    for (const aspect of COARSE_ASPECTS) {
       const candidate = evaluate(aspect);
-      if (candidate && isBetter(candidate, best)) best = candidate;
+      if (candidate && isBetter(candidate, found)) found = candidate;
     }
+    if (found) {
+      const center = found.aspect;
+      for (let aspect = Math.max(1, center - FINE_SPAN); aspect <= Math.min(4, center + FINE_SPAN) + 1e-9; aspect += FINE_STEP) {
+        const candidate = evaluate(aspect);
+        if (candidate && isBetter(candidate, found)) found = candidate;
+      }
+    }
+    return found;
+  };
+
+  // Cỡ chữ trang trí giảm theo cạnh ngắn của khổ (khổ càng to, chữ càng nhỏ so với trang), còn cạnh ngắn lại phụ thuộc cỡ chữ trang trí: lặp vài lần
+  // cho tới khi hệ số ổn định (hệ số chỉ phụ thuộc cạnh ngắn^-0,3 nên hội tụ rất nhanh).
+  let decoScale = 1;
+  let best = search(decoScale);
+  for (let attempt = 0; config.autoPaper && best && attempt < 4; attempt += 1) {
+    const next = autoDecorationScale(best.shortMm);
+    if (Math.abs(next - decoScale) < 0.005) break;
+    decoScale = next;
+    best = search(decoScale) ?? best;
   }
   if (!best) return config;
 

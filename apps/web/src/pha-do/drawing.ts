@@ -1,3 +1,5 @@
+import type { DecorFontId } from './decoration-fonts';
+
 /** Bản vẽ trung gian (đơn vị mm), dùng chung cho xem trước SVG và xuất PDF. */
 export type DrawRect = {
   type: 'rect';
@@ -31,6 +33,8 @@ export type DrawText = {
   color: string;
   /** Căn theo x: giữa (mặc định, tên/chi tiết trong ô) hoặc trái (chú giải). */
   align?: 'middle' | 'start';
+  /** Phông trang trí (tiêu đề, phụ đề, câu đối); không có thì dùng phông tên trong ô của cấu hình. */
+  font?: DecorFontId;
 };
 
 export type DrawImage = {

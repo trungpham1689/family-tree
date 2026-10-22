@@ -96,7 +96,7 @@ const PhaDoDesigner = ({ tree, graph, initial }: { tree: TreeWithRole; graph: Fa
         <div role="tabpanel" id="pha-do-panel" aria-labelledby={`pha-do-tab-${tab}`} className="min-h-0 flex-1 overflow-y-auto p-5">
           {tab === 'content' && <ContentSettings graph={graph} config={config} onChange={(patch) => change({ kind: 'content', patch })} />}
           {tab === 'decoration' && (
-            <DecorationSettings treeName={tree.name} decoration={config.decoration} onChange={(patch) => change({ kind: 'content', patch: { decoration: { ...config.decoration, ...patch } } })} />
+            <DecorationSettings treeName={tree.name} decoration={config.decoration} autoPaper={config.autoPaper} onChange={(patch) => change({ kind: 'content', patch: { decoration: { ...config.decoration, ...patch } } })} />
           )}
           {tab === 'paper' && (
             <PaperTab

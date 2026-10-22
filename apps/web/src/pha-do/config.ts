@@ -1,5 +1,5 @@
 import { fieldLabel } from '../people/profile-fields';
-import { DEFAULT_DECORATION, FRAME_LABELS, type Decoration, type FrameStyle } from './decoration';
+import { autoDecorationScale, DEFAULT_DECORATION, DECOR_LOOKS, FRAME_LABELS, type Decoration, type DecorLook, type FrameStyle } from './decoration';
 
 /** Cấu hình một bản in Phả đồ; lưu theo Gia phả để in lại sau. */
 
@@ -113,6 +113,13 @@ export const pageSizeMm = (config: Pick<PhaDoConfig, 'paper' | 'customWidthCm' |
   return config.orientation === 'portrait' ? { width: short, height: long } : { width: long, height: short };
 };
 
+/** Hệ số cỡ chữ trang trí: khổ tự động tính theo cạnh ngắn của trang, khổ cố định giữ nguyên cỡ người dùng đặt (xem `autoDecorationScale`). */
+export const decorationScaleOf = (config: Pick<PhaDoConfig, 'autoPaper' | 'paper' | 'customWidthCm' | 'customHeightCm' | 'orientation'>): number => {
+  if (!config.autoPaper) return 1;
+  const page = pageSizeMm(config);
+  return autoDecorationScale(Math.min(page.width, page.height));
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 /** Chỉ nhận #rrggbb; giá trị lạ (hoặc chưa đặt) thì dùng màu mặc định. */
 const hexColor = (value: unknown): string | null => (typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : null);
@@ -141,6 +148,7 @@ export const readPhaDoConfig = (stored: unknown, outsideGenerations: number): Ph
   return {
     decoration: {
       frame: typeof decoration.frame === 'string' && decoration.frame in FRAME_LABELS ? (decoration.frame as FrameStyle) : DEFAULT_DECORATION.frame,
+      look: DECOR_LOOKS.includes(decoration.look as DecorLook) ? (decoration.look as DecorLook) : DEFAULT_DECORATION.look,
       title: text(decoration.title, 120),
       subtitle: text(decoration.subtitle, 200),
       coupletLeft: text(decoration.coupletLeft, 200),

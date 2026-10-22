@@ -2,7 +2,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { jsPDF } from 'jspdf';
 import { describe, expect, it } from 'vitest';
+import { DECOR_FONTS, decorFaceFile, type DecorFontId } from './decoration-fonts';
 import { fitSize, GLYPH_TABLES, textWidthEm, truncateToFit } from './glyph-widths';
+import { FACE_WIDTHS, GLYPH_CHARS } from './glyph-tables';
 
 const fontDir = join(import.meta.dirname, '..', '..', 'public', 'fonts');
 const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -47,5 +49,43 @@ describe('độ rộng chữ ước lượng', () => {
     const cut = truncateToFit(text, 12, false, 100);
     expect(cut.endsWith('…')).toBe(true);
     expect(textWidthEm(cut, false) * 12).toBeLessThanOrEqual(100);
+  });
+});
+
+describe('độ rộng chữ ước lượng của phông trang trí', () => {
+  const faces = (Object.keys(DECOR_FONTS) as DecorFontId[]).flatMap((id) =>
+    ([false, true] as const).filter((bold) => DECOR_FONTS[id][bold ? 'bold' : 'regular']).map((bold) => ({ id, bold, name: `${id}:${bold ? 'b' : 'r'}` })),
+  );
+  for (const { id, bold, name } of faces) {
+    const file = decorFaceFile(id, bold).split('/').pop()!;
+    doc.addFileToVFS(file, readFileSync(join(fontDir, file)).toString('binary'));
+    doc.addFont(file, name, 'normal');
+  }
+
+  it('mỗi mặt chữ có bảng đủ ký tự', () => {
+    for (const { name } of faces) expect(FACE_WIDTHS[name]?.length, name).toBe([...GLYPH_CHARS].length);
+  });
+
+  it('mỗi ký tự trong bảng không nhỏ hơn độ rộng thật của chính phông đó (trừ ký tự phông không có)', () => {
+    for (const { name } of faces) {
+      const widths = FACE_WIDTHS[name]!;
+      [...GLYPH_CHARS].forEach((char, index) => {
+        // Ký tự phông không có: bảng lấy đúng giá trị của bảng chung (xem glyph-tables.ts), không đo được bằng phông này.
+        const shared = (name.endsWith(':b') ? GLYPH_TABLES.BOLD : GLYPH_TABLES.REGULAR)[char];
+        if (shared === widths[index]) return;
+        expect(widths[index]! / 1000, `${name} "${char}"`).toBeGreaterThanOrEqual(measure(name, char) - 0.001);
+      });
+    }
+  });
+
+  it('tiêu đề tiếng Việt: ước lượng ≥ thật và sát (không dư quá 15%)', () => {
+    for (const { id, bold, name } of faces) {
+      for (const text of ['Gia phả họ Nguyễn', 'Kính dâng tổ tiên – năm 2026', 'Trường tồn', 'Phúc ấm con cháu vạn thuở bền']) {
+        const estimate = textWidthEm(text, bold, id);
+        const real = measure(name, text);
+        expect(estimate, `${name} "${text}"`).toBeGreaterThanOrEqual(real - 0.001);
+        expect(estimate / real, `${name} "${text}"`).toBeLessThan(1.15);
+      }
+    }
   });
 });

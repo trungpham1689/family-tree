@@ -4,6 +4,7 @@ import type { Person, TreeWithRole } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
 import type { TimelineEntry } from '../family/timeline';
 import { downloadBlob, exportFileName } from '../lib/download';
+import { decorFaceFile, decorFacesUsed, type DecorFontId } from '../pha-do/decoration-fonts';
 import type { Drawing } from '../pha-do/drawing';
 import { FONT_FAMILY_EXPORT_FILES, type PhaDoFontFamily } from '../pha-do/config';
 import type { PngPlan } from '../pha-do/png';
@@ -24,6 +25,17 @@ const loadFonts = async (files: { regular: string; bold: string }): Promise<Font
 };
 
 const NOTO = FONT_FAMILY_EXPORT_FILES['noto-serif'];
+
+/** Phông chính (tên trong ô) cùng các mặt chữ trang trí mà bản vẽ dùng, chỉ nạp những file cần. */
+const loadDrawingFonts = async (drawing: Drawing, fontFamily: PhaDoFontFamily) => {
+  const [fonts, decorFaces] = await Promise.all([
+    loadFonts(FONT_FAMILY_EXPORT_FILES[fontFamily]),
+    Promise.all(decorFacesUsed(drawing.items).map(async (face) => ({ ...face, binary: await loadFontBinary(decorFaceFile(face.font, face.bold)) }))),
+  ]);
+  const decor: Partial<Record<DecorFontId, { regular?: string; bold?: string }>> = {};
+  for (const { font, bold, binary } of decorFaces) decor[font] = { ...decor[font], [bold ? 'bold' : 'regular']: binary };
+  return { ...fonts, decor };
+};
 
 export type ExportJobs = {
   'pha-do-pdf': { input: { drawing: Drawing; fontFamily: PhaDoFontFamily }; result: void };
@@ -49,14 +61,14 @@ export const EXPORT_JOBS: { [K in ExportKind]: Job<K> } = {
   'pha-do-pdf': {
     failure: 'Không tạo được file PDF. Hãy thử lại.',
     run: async (treeName, date, { drawing, fontFamily }) => {
-      const [{ drawingToPdf }, fonts] = await Promise.all([import('../pha-do/pdf'), loadFonts(FONT_FAMILY_EXPORT_FILES[fontFamily])]);
+      const [{ drawingToPdf }, fonts] = await Promise.all([import('../pha-do/pdf'), loadDrawingFonts(drawing, fontFamily)]);
       drawingToPdf(drawing, fonts, `Gia phả ${treeName}`).save(exportFileName('Pha-do', treeName, date, 'pdf'));
     },
   },
   'pha-do-png': {
     failure: 'Không tạo được ảnh PNG (trình duyệt có thể thiếu bộ nhớ). Hãy thử khổ nhỏ hơn hoặc dùng PDF.',
     run: async (treeName, date, { drawing, fontFamily, plan }) => {
-      const [{ renderPng }, fonts] = await Promise.all([import('../pha-do/png-export'), loadFonts(FONT_FAMILY_EXPORT_FILES[fontFamily])]);
+      const [{ renderPng }, fonts] = await Promise.all([import('../pha-do/png-export'), loadDrawingFonts(drawing, fontFamily)]);
       downloadBlob(await renderPng(drawing, fonts, plan), exportFileName('Pha-do', treeName, `${date}-${plan.dpi}dpi`, 'png'));
     },
   },

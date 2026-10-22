@@ -2,8 +2,8 @@ import { randomFamily } from '@gia-pha/tree-layout';
 import { describe, expect, it } from 'vitest';
 import { blankPerson } from '../test-support/person';
 import { buildFamilyGraph } from '../family/family-graph';
-import { defaultPhaDoConfig, pageSizeMm, readPhaDoConfig, type PhaDoConfig } from './config';
-import { FRAME_LABELS, layoutDecoration, type FrameStyle } from './decoration';
+import { decorationScaleOf, defaultPhaDoConfig, pageSizeMm, readPhaDoConfig, type PhaDoConfig } from './config';
+import { FRAME_LABELS, layoutDecoration, memberColorsOf, type FrameStyle } from './decoration';
 import { PT_PER_MM, type DrawItem } from './drawing';
 import { autoMemberFontPx, fitPaperToFont } from './auto-fit';
 import { legendWidthMm, MIN_READABLE_PX, renderPhaDo } from './render';
@@ -82,15 +82,16 @@ describe('seam C: Phả đồ', () => {
       throw new Error(`Không tìm thấy ô của "${name}".`);
     };
 
-    // to: nam, đã mất → vẫn nền trắng, viền màu nam, không có dấu đen nào trên ô.
+    // to: nam, đã mất → vẫn nền ô nam của khung, viền màu nam, không có dấu đen nào trên ô.
+    const member = memberColorsOf(base.decoration.frame);
     const toRect = rectBeforeName('Phạm Văn Tổ');
-    expect(toRect.fill).toBe('#ffffff');
+    expect(toRect.fill).toBe(member.fill);
     expect(toRect.stroke).toBe('#b8892b');
     expect(texts(base).some((text) => text.startsWith('† '))).toBe(true);
 
     // dau-a: nữ, còn sống (vợ) → nền ô vợ/chồng, viền màu nữ.
     const dauRect = rectBeforeName('Nguyễn Thị Dâu');
-    expect(dauRect.fill).toBe('#fbf8f3');
+    expect(dauRect.fill).toBe(member.spouse);
     expect(dauRect.stroke).toBe('#8a1c1c');
   });
 
@@ -408,7 +409,7 @@ describe('khổ giấy tự co giãn cho vừa khít', () => {
   });
   const nodeBoxes = (config: PhaDoConfig, graph = sample()) =>
     renderPhaDo(graph, config, 'họ Phạm').drawing.items.filter(
-      (item): item is Extract<DrawItem, { type: 'rect' }> => item.type === 'rect' && item.radius > 0 && (item.fill === '#ffffff' || item.fill === '#fbf8f3'),
+      (item): item is Extract<DrawItem, { type: 'rect' }> => item.type === 'rect' && item.radius > 0 && (item.fill === memberColorsOf(config.decoration.frame).fill || item.fill === memberColorsOf(config.decoration.frame).spouse),
     );
 
   it('cỡ chữ ô đạt đúng cỡ yêu cầu, khổ tự nhập, trong 10–500 cm', () => {
@@ -503,6 +504,44 @@ describe('khổ giấy tự co giãn cho vừa khít', () => {
   });
 });
 
+describe('cỡ chữ trang trí theo khổ tự động', () => {
+  const titleSizeRatio = (size: number, extra: Partial<PhaDoConfig> = {}) => {
+    const graph = bigFamily(size);
+    const config: PhaDoConfig = {
+      ...defaultPhaDoConfig(5),
+      autoPaper: true,
+      memberFontPx: 14,
+      decoration: { ...defaultPhaDoConfig(5).decoration, frame: 'son-kim', subtitle: 'Kính dâng tổ tiên', coupletLeft: 'Tổ đức lưu phương', coupletRight: 'Tông công tích đức' },
+      ...extra,
+    };
+    const fitted = fitPaperToFont(graph, config, 'họ Phạm');
+    const page = pageSizeMm(fitted);
+    const short = Math.min(page.width, page.height);
+    const title = renderPhaDo(graph, fitted, 'họ Phạm').drawing.items.find((item) => item.type === 'text' && item.font !== undefined);
+    if (title?.type !== 'text') throw new Error('Không có tiêu đề');
+    return { short, heightMm: title.sizePt / PT_PER_MM, ratio: title.sizePt / PT_PER_MM / short, fit: layoutDecoration(page, fitted.decoration, 'họ Phạm', decorationScaleOf(fitted)).fit };
+  };
+
+  it('khổ nhỏ (≤ A1) giữ nguyên tỉ lệ; khổ lớn thì tiêu đề nhỏ dần so với trang nhưng vẫn cao hơn (mm)', () => {
+    const small = titleSizeRatio(20);
+    const large = titleSizeRatio(900);
+    expect(small.short).toBeLessThan(594);
+    expect(large.short).toBeGreaterThan(900);
+    expect(large.ratio).toBeLessThan(small.ratio * 0.95);
+    expect(large.heightMm).toBeGreaterThan(small.heightMm);
+    expect(small.fit).toBeGreaterThanOrEqual(0.999);
+    expect(large.fit).toBeGreaterThanOrEqual(0.999);
+  });
+
+  it('khổ cố định không tự giảm cỡ chữ trang trí', () => {
+    const graph = bigFamily(20);
+    const config: PhaDoConfig = { ...defaultPhaDoConfig(5), autoPaper: false, paper: 'A0', orientation: 'landscape', decoration: { ...defaultPhaDoConfig(5).decoration, frame: 'son-kim' } };
+    const title = renderPhaDo(graph, config, 'họ Phạm').drawing.items.find((item) => item.type === 'text' && item.font !== undefined);
+    if (title?.type !== 'text') throw new Error('Không có tiêu đề');
+    expect(title.sizePt / PT_PER_MM).toBeCloseTo((50 * 841) / 1000, 1);
+  });
+});
+
 describe('cỡ chữ ô mặc định lúc mở lần đầu', () => {
   it('bằng cỡ chữ đang hiện trên khổ mặc định (làm tròn xuống): nhập lại đúng số đó thì khổ giấy giữ nguyên', () => {
     const initial = defaultPhaDoConfig(1);
@@ -531,12 +570,24 @@ describe('màu ô thành viên', () => {
       (item): item is Extract<DrawItem, { type: 'text' }> => item.type === 'text' && item.align !== 'start',
     );
 
-  it('mặc định như trước: chữ đen/xám, nền trắng, Dâu/Rể nền kem', () => {
+  it('mặc định theo khung (kiểu Sáng): nền ô nam gần trắng, Dâu/Rể hồng đào nhạt, chữ tên/chi tiết/nhãn theo khung', () => {
     expect(base.memberTextColor).toBeNull();
     expect(base.memberFillColor).toBeNull();
-    expect(new Set(nodeRects(base).map((rect) => rect.fill))).toEqual(new Set(['#ffffff', '#fbf8f3']));
+    const member = memberColorsOf(base.decoration.frame);
+    expect(new Set(nodeRects(base).map((rect) => rect.fill))).toEqual(new Set([member.fill, member.spouse]));
     const colors = new Set(personTexts(base).map((text) => text.color));
-    expect(colors).toEqual(new Set(['#1f1a17', '#5c534c']));
+    expect(colors).toEqual(new Set([member.name, member.detail]));
+  });
+
+  it('mỗi khung dùng bộ màu ô của riêng nó', () => {
+    for (const frame of Object.keys(FRAME_LABELS) as FrameStyle[]) {
+      const config = { ...base, decoration: { ...base.decoration, frame } };
+      const member = memberColorsOf(frame);
+      // Khung có hoạ tiết tròn (trục cuốn thư…) cũng là ô bo góc: chỉ cần có đủ hai màu ô.
+      const fills = new Set(nodeRects(config).map((rect) => rect.fill));
+      expect(fills.has(member.fill), frame).toBe(true);
+      expect(fills.has(member.spouse), frame).toBe(true);
+    }
   });
 
   it('đặt màu nền và màu chữ: mọi ô, mọi dòng chữ trong ô dùng màu đó; viền giữ theo giới tính', () => {

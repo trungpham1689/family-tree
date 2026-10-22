@@ -1,5 +1,9 @@
+import { DECOR_FONTS, resolveBold, type DecorFontId } from './decoration-fonts';
+import { LOOK_STYLES, MEMBER_COLORS, type DecorLook, type MemberColors } from './decoration-looks';
 import { decorationPxToMm, PT_PER_MM, type DrawItem } from './drawing';
 import { fitSize, textWidthEm } from './glyph-widths';
+
+export { DECOR_LOOKS, LOOK_LABELS, type DecorLook } from './decoration-looks';
 
 /**
  * Trang trí Phả đồ (ticket 17): khung truyền thống, tiêu đề, phụ đề, câu đối hai bên.
@@ -37,6 +41,8 @@ export const FRAME_LABELS: Record<FrameStyle, string> = {
 
 export type Decoration = {
   frame: FrameStyle;
+  /** Phương án nền, màu chữ, phông chữ của khung (xem `decoration-looks.ts`). */
+  look: DecorLook;
   /** Để trống thì dùng "Gia phả <tên gia phả>". */
   title: string;
   subtitle: string;
@@ -50,6 +56,7 @@ export type Decoration = {
 
 export const DEFAULT_DECORATION: Decoration = {
   frame: 'son-kim',
+  look: 'A',
   title: '',
   subtitle: '',
   coupletLeft: '',
@@ -59,22 +66,39 @@ export const DEFAULT_DECORATION: Decoration = {
   coupletSize: 30,
 };
 
-type Palette = { background: string; outer: string; inner: string; ornament: string; title: string; text: string };
+type FrameColors = { outer: string; inner: string; ornament: string };
+type Palette = FrameColors & { background: string; title: string; text: string; titleFont: DecorFontId; bodyFont: DecorFontId };
 
-const PALETTES: Record<FrameStyle, Palette> = {
-  'son-kim': { background: '#fbf4e4', outer: '#8a1c1c', inner: '#b8892b', ornament: '#b8892b', title: '#8a1c1c', text: '#5a2a12' },
-  moc: { background: '#f3eadb', outer: '#6b4a2b', inner: '#a27b4f', ornament: '#6b4a2b', title: '#4a3018', text: '#4a3018' },
-  'thanh-nha': { background: '#ffffff', outer: '#1f1a17', inner: '#1f1a17', ornament: '#1f1a17', title: '#1f1a17', text: '#1f1a17' },
-  'lam-ngoc': { background: '#eef6f3', outer: '#2b5c54', inner: '#3f8f7a', ornament: '#3f8f7a', title: '#1f4a42', text: '#1f4a42' },
-  'hoang-gia': { background: '#f7f0fa', outer: '#5b2a86', inner: '#b8892b', ornament: '#b8892b', title: '#4a1f6e', text: '#3a1a57' },
-  'trieu-nguyen': { background: '#f6ece4', outer: '#5c1414', inner: '#c99a3e', ornament: '#c99a3e', title: '#5c1414', text: '#4a2a12' },
-  'tram-huong': { background: '#f1e8da', outer: '#4a3018', inner: '#8a6a3f', ornament: '#8a6a3f', title: '#4a3018', text: '#4a3018' },
-  'cuon-thu': { background: '#f4e9d0', outer: '#5a3a1f', inner: '#8a6a3f', ornament: '#b8892b', title: '#5a3a1f', text: '#4a3018' },
-  'hoanh-phi': { background: '#fbf4e4', outer: '#8a1c1c', inner: '#c99a3e', ornament: '#c99a3e', title: '#8a1c1c', text: '#5a2a12' },
-  'dong-son': { background: '#f2ead9', outer: '#2f5d50', inner: '#8a6a3f', ornament: '#8a6a3f', title: '#1f4a3e', text: '#3b2a14' },
-  'gam-hoa': { background: '#fbf4e4', outer: '#8a1c1c', inner: '#c99a3e', ornament: '#c99a3e', title: '#8a1c1c', text: '#5a2a12' },
-  none: { background: '#ffffff', outer: '#ffffff', inner: '#ffffff', ornament: '#ffffff', title: '#8a1c1c', text: '#1f1a17' },
+/** Màu viền và hoạ tiết của khung; nền, màu chữ và phông chữ theo phương án (xem `decoration-looks.ts`). */
+const FRAME_COLORS: Record<FrameStyle, FrameColors> = {
+  'son-kim': { outer: '#8a1c1c', inner: '#b8892b', ornament: '#b8892b' },
+  moc: { outer: '#6b4a2b', inner: '#a27b4f', ornament: '#6b4a2b' },
+  'thanh-nha': { outer: '#1f1a17', inner: '#1f1a17', ornament: '#1f1a17' },
+  'lam-ngoc': { outer: '#2b5c54', inner: '#3f8f7a', ornament: '#3f8f7a' },
+  'hoang-gia': { outer: '#5b2a86', inner: '#b8892b', ornament: '#b8892b' },
+  'trieu-nguyen': { outer: '#5c1414', inner: '#c99a3e', ornament: '#c99a3e' },
+  'tram-huong': { outer: '#4a3018', inner: '#8a6a3f', ornament: '#8a6a3f' },
+  'cuon-thu': { outer: '#5a3a1f', inner: '#8a6a3f', ornament: '#b8892b' },
+  'hoanh-phi': { outer: '#8a1c1c', inner: '#c99a3e', ornament: '#c99a3e' },
+  'dong-son': { outer: '#2f5d50', inner: '#8a6a3f', ornament: '#8a6a3f' },
+  'gam-hoa': { outer: '#8a1c1c', inner: '#c99a3e', ornament: '#c99a3e' },
+  none: { outer: '#ffffff', inner: '#ffffff', ornament: '#ffffff' },
 };
+
+export const paletteOf = (frame: FrameStyle, look: DecorLook): Palette => ({ ...FRAME_COLORS[frame], ...LOOK_STYLES[frame][look] });
+
+/** Màu ô thành viên mặc định theo khung (kiểu "Sáng"); người dùng chọn màu riêng thì màu đó thay thế. */
+export const memberColorsOf = (frame: FrameStyle): MemberColors => MEMBER_COLORS[frame];
+
+/** Nền lớp gấm (viền ngoài ô trắng) của khung Gấm hoa; ô giữa dùng nền của phương án. */
+const GAM_HOA_MAT = '#f6e9c8';
+
+/**
+ * Cỡ chữ trang trí khi khổ giấy tự động: giữ nguyên tới khổ A1 (cạnh ngắn 594 mm), lớn hơn thì giảm dần theo cạnh ngắn^-0,3 — chiều cao chữ thật
+ * chỉ tăng theo cạnh ngắn^0,7 (khổ gấp đôi, chữ to hơn khoảng 1,6 lần), vì khoảng cách xem tăng chậm hơn khổ và tiêu đề không nên át cả cây.
+ * Cỡ chữ ô vẫn cố định 14 px nên phần trang trí không phình theo tỉ lệ thẳng.
+ */
+export const autoDecorationScale = (shortSideMm: number): number => Math.min(1, Math.pow(shortSideMm / 594, -0.3));
 
 /** Khung có dải hồi văn chữ công chạy quanh 4 cạnh (ngoài hoạ tiết góc) — kiểu trang trọng, cổ điển hơn. */
 const RUNNING_BORDER_STYLES = new Set<FrameStyle>(['son-kim', 'moc', 'lam-ngoc', 'hoang-gia', 'trieu-nguyen', 'tram-huong']);
@@ -208,11 +232,11 @@ const latticeBand = (page: Page, outer: number, inner: number, period: number, c
  * Đông Sơn: viền xanh gỉ đồng, dải chấm, dải răng cưa, bốn mặt trời trống đồng ở góc.
  * Gấm hoa: viền đỏ son, nền gấm ô thoi vàng nhạt làm khung lót quanh ô trắng sạch cho cây và chữ.
  */
-const signatureFrame = (page: Page, style: FrameStyle, unit: number): { items: DrawItem[]; inset: number } => {
-  const palette = PALETTES[style];
+const signatureFrame = (page: Page, style: FrameStyle, unit: number, palette: Palette): { items: DrawItem[]; inset: number } => {
   const { width: w, height: h } = page;
   const u = unit;
-  const items: DrawItem[] = [rectItem(0, 0, w, h, palette.background, 0, { fill: palette.background })];
+  const pageFill = style === 'gam-hoa' ? GAM_HOA_MAT : palette.background;
+  const items: DrawItem[] = [rectItem(0, 0, w, h, pageFill, 0, { fill: pageFill })];
 
   if (style === 'cuon-thu') {
     const roller = palette.outer;
@@ -297,7 +321,7 @@ const signatureFrame = (page: Page, style: FrameStyle, unit: number): { items: D
   items.push(
     rectItem(2.9 * u, 2.9 * u, w - 5.8 * u, h - 5.8 * u, palette.outer, 0.8 * u),
     rectItem(4.7 * u, 4.7 * u, w - 9.4 * u, h - 9.4 * u, palette.inner, 0.2 * u),
-    rectItem(panel, panel, w - 2 * panel, h - 2 * panel, palette.inner, 0.33 * u, { fill: '#fffdf7' }),
+    rectItem(panel, panel, w - 2 * panel, h - 2 * panel, palette.inner, 0.33 * u, { fill: palette.background }),
     rectItem(10.5 * u, 10.5 * u, w - 21 * u, h - 21 * u, palette.outer, 0.13 * u),
   );
   const corner = 6.6 * u;
@@ -307,8 +331,7 @@ const signatureFrame = (page: Page, style: FrameStyle, unit: number): { items: D
   return { items, inset: 11.5 * u };
 };
 
-const frameItems = (page: { width: number; height: number }, style: FrameStyle, unit: number): { items: DrawItem[]; inset: number } => {
-  const palette = PALETTES[style];
+const frameItems = (page: { width: number; height: number }, style: FrameStyle, unit: number, palette: Palette): { items: DrawItem[]; inset: number } => {
   const background: DrawItem = {
     type: 'rect',
     x: 0,
@@ -321,7 +344,7 @@ const frameItems = (page: { width: number; height: number }, style: FrameStyle, 
     strokeWidth: 0,
   };
   if (style === 'none') return { items: [background], inset: unit * 2 };
-  if (SIGNATURE_STYLES.has(style)) return signatureFrame(page, style, unit);
+  if (SIGNATURE_STYLES.has(style)) return signatureFrame(page, style, unit, palette);
 
   const rect = (inset: number, stroke: string, width: number): DrawItem => ({
     type: 'rect',
@@ -391,11 +414,11 @@ const words = (text: string) => text.trim().split(/\s+/).filter(Boolean);
 export const defaultTitle = (treeName: string) => (treeName ? `Gia phả ${treeName}`.replace(/^Gia phả gia phả /i, 'Gia phả ') : '');
 
 /** Bố trí trang trí trên trang; mọi kích thước co giãn theo khổ giấy. Không có trạng thái: cùng đầu vào cho cùng kết quả (xem `layoutDecoration`, có nhớ). */
-const computeDecoration = (page: { width: number; height: number }, decoration: Decoration, treeName: string): DecorationLayout => {
+const computeDecoration = (page: { width: number; height: number }, decoration: Decoration, treeName: string, sizeScale: number): DecorationLayout => {
   // Đơn vị trang trí: ~1/100 cạnh ngắn (A3 ≈ 3 mm, A0 ≈ 8,4 mm).
   const unit = Math.min(page.width, page.height) / 100;
-  const palette = PALETTES[decoration.frame];
-  const { items: below, inset } = frameItems(page, decoration.frame, unit);
+  const palette = paletteOf(decoration.frame, decoration.look);
+  const { items: below, inset } = frameItems(page, decoration.frame, unit, palette);
   const above: DrawItem[] = [];
 
   let top = inset;
@@ -403,19 +426,21 @@ const computeDecoration = (page: { width: number; height: number }, decoration: 
   let fit = 1;
   const title = decoration.title.trim() || defaultTitle(treeName);
   if (title) {
-    const wantedMm = decorationPxToMm(page, decoration.titleSize);
-    const sizeMm = fitSize(title, wantedMm, true, page.width - 2 * inset);
+    const bold = resolveBold(palette.titleFont, true);
+    const wantedMm = decorationPxToMm(page, decoration.titleSize * sizeScale) * DECOR_FONTS[palette.titleFont].titleScale;
+    const sizeMm = fitSize(title, wantedMm, bold, page.width - 2 * inset, palette.titleFont);
     fit = Math.min(fit, sizeMm / wantedMm);
-    above.push({ type: 'text', x: page.width / 2, y: top + sizeMm * 0.6, text: title, sizePt: sizeMm * PT_PER_MM, bold: true, color: palette.title });
+    above.push({ type: 'text', x: page.width / 2, y: top + sizeMm * 0.6, text: title, sizePt: sizeMm * PT_PER_MM, bold, color: palette.title, font: palette.titleFont });
     textBottom = top + sizeMm * 1.05;
     top += sizeMm * 1.3;
   }
   const subtitle = decoration.subtitle.trim();
   if (subtitle) {
-    const wantedMm = decorationPxToMm(page, decoration.subtitleSize);
-    const sizeMm = fitSize(subtitle, wantedMm, false, page.width - 2 * inset);
+    const bold = resolveBold(palette.bodyFont, false);
+    const wantedMm = decorationPxToMm(page, decoration.subtitleSize * sizeScale);
+    const sizeMm = fitSize(subtitle, wantedMm, bold, page.width - 2 * inset, palette.bodyFont);
     fit = Math.min(fit, sizeMm / wantedMm);
-    above.push({ type: 'text', x: page.width / 2, y: top + sizeMm * 0.6, text: subtitle, sizePt: sizeMm * PT_PER_MM, bold: false, color: palette.text });
+    above.push({ type: 'text', x: page.width / 2, y: top + sizeMm * 0.6, text: subtitle, sizePt: sizeMm * PT_PER_MM, bold, color: palette.text, font: palette.bodyFont });
     textBottom = top + sizeMm * 1.05;
     top += sizeMm * 1.4;
   }
@@ -441,10 +466,11 @@ const computeDecoration = (page: { width: number; height: number }, decoration: 
     const availableHeight = page.height - top - inset;
     const longest = Math.max(...columns.map((column) => column.length), 1);
     // Cột rộng theo chữ thật (độ rộng đo theo phông, không ước theo số ký tự): chữ không bao giờ tràn sang vùng cây.
-    const widestEm = Math.max(...columns.flat().map((word) => textWidthEm(word, true)));
+    const coupletBold = resolveBold(palette.bodyFont, true);
+    const widestEm = Math.max(...columns.flat().map((word) => textWidthEm(word, coupletBold, palette.bodyFont)));
     const padding = unit * 1.2;
     const maxColumn = page.width * 0.18;
-    const wantedMm = decorationPxToMm(page, decoration.coupletSize);
+    const wantedMm = decorationPxToMm(page, decoration.coupletSize * sizeScale);
     let sizeMm = Math.min(wantedMm, availableHeight / (longest * 1.45));
     if (widestEm * sizeMm + padding > maxColumn) sizeMm = (maxColumn - padding) / widestEm;
     fit = Math.min(fit, Math.max(sizeMm, 0) / wantedMm);
@@ -453,7 +479,7 @@ const computeDecoration = (page: { width: number; height: number }, decoration: 
       const blockHeight = column.length * sizeMm * 1.45;
       let y = top + (availableHeight - blockHeight) / 2 + sizeMm * 0.7;
       for (const word of column) {
-        above.push({ type: 'text', x: centerX, y, text: word, sizePt: sizeMm * PT_PER_MM, bold: true, color: palette.title });
+        above.push({ type: 'text', x: centerX, y, text: word, sizePt: sizeMm * PT_PER_MM, bold: coupletBold, color: palette.title, font: palette.bodyFont });
         y += sizeMm * 1.45;
       }
     };
@@ -478,9 +504,11 @@ const decorationCache = new Map<string, DecorationLayout>();
  * `computeDecoration` có nhớ kết quả theo (khổ trang, trang trí, tên gia phả): hàm thuần nên cùng đầu vào cho cùng kết quả, và việc tự co giãn khổ giấy
  * hỏi lại cùng một trang tham chiếu rất nhiều lần (đổi người, đổi dòng thêm… không đụng tới trang trí). Kết quả được dùng chung: bên gọi chỉ đọc, không sửa
  * các mảng trả về. Giữ tối đa 64 kết quả gần nhất.
+ *
+ * `sizeScale` nhân vào cỡ chữ tiêu đề, phụ đề, câu đối; khổ tự động truyền `autoDecorationScale(cạnh ngắn)`, khổ cố định để 1.
  */
-export const layoutDecoration = (page: { width: number; height: number }, decoration: Decoration, treeName: string): DecorationLayout => {
-  const key = `${page.width}x${page.height}|${treeName}|${JSON.stringify(decoration)}`;
+export const layoutDecoration = (page: { width: number; height: number }, decoration: Decoration, treeName: string, sizeScale = 1): DecorationLayout => {
+  const key = `${page.width}x${page.height}|${treeName}|${sizeScale.toFixed(4)}|${JSON.stringify(decoration)}`;
   const cached = decorationCache.get(key);
   if (cached) {
     // Dùng gần đây nhất thì chuyển xuống cuối để bị loại sau cùng.
@@ -488,7 +516,7 @@ export const layoutDecoration = (page: { width: number; height: number }, decora
     decorationCache.set(key, cached);
     return cached;
   }
-  const layout = computeDecoration(page, decoration, treeName);
+  const layout = computeDecoration(page, decoration, treeName, sizeScale);
   decorationCache.set(key, layout);
   if (decorationCache.size > DECORATION_CACHE_LIMIT) decorationCache.delete(decorationCache.keys().next().value!);
   return layout;

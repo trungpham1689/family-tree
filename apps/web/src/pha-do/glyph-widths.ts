@@ -1,3 +1,6 @@
+import { resolveBold, type DecorFontId } from './decoration-fonts';
+import { FACE_WIDTHS, GLYPH_CHARS } from './glyph-tables';
+
 /**
  * Độ rộng từng ký tự (1/1000 em) của phông Phả đồ, lấy giá trị LỚN HƠN giữa Noto Serif và Be Vietnam Pro, làm tròn lên: ước lượng
  * chữ luôn rộng hơn hoặc bằng chữ thật ở cả hai phông, nên chữ vừa theo ước lượng thì chắc chắn không tràn. `glyph-widths.node.test.ts`
@@ -9,19 +12,39 @@ const BOLD: Record<string, number> = {" ":260,"!":382,"\"":509,"#":845,"$":649,"
 const UNKNOWN_EM = 1.15;
 const COMBINING_MARK = /\p{M}/u;
 
-/** Độ rộng ước lượng (đơn vị em, trên cỡ chữ 1) của một dòng chữ; luôn không nhỏ hơn độ rộng thật. */
-export const textWidthEm = (text: string, bold: boolean): number => {
+const faceMaps = new Map<string, ReadonlyMap<string, number>>();
+/** Bảng độ rộng của một mặt chữ trang trí (dựng một lần từ `glyph-tables.ts`). */
+const faceMap = (key: string): ReadonlyMap<string, number> | undefined => {
+  const cached = faceMaps.get(key);
+  if (cached) return cached;
+  const widths = FACE_WIDTHS[key];
+  if (!widths) return undefined;
+  const map = new Map<string, number>();
+  [...GLYPH_CHARS].forEach((char, index) => map.set(char, widths[index]!));
+  faceMaps.set(key, map);
+  return map;
+};
+
+/**
+ * Độ rộng ước lượng (đơn vị em, trên cỡ chữ 1) của một dòng chữ; luôn không nhỏ hơn độ rộng thật.
+ * Không nêu `font`: bảng chung của phông tên trong ô (lớn hơn giữa Noto Serif và Be Vietnam Pro). Có `font`: bảng riêng của mặt chữ trang trí.
+ */
+export const textWidthEm = (text: string, bold: boolean, font?: DecorFontId): number => {
+  const faceTable = font ? faceMap(`${font}:${resolveBold(font, bold) ? 'b' : 'r'}`) : undefined;
   const table = bold ? BOLD : REGULAR;
   let total = 0;
-  for (const char of text) total += COMBINING_MARK.test(char) ? 0 : (table[char] ?? UNKNOWN_EM * 1000) / 1000;
+  for (const char of text) {
+    if (COMBINING_MARK.test(char)) continue;
+    total += faceTable ? (faceTable.get(char) ?? UNKNOWN_EM * 1000) / 1000 : (table[char] ?? UNKNOWN_EM * 1000) / 1000;
+  }
   return total;
 };
 
 export const GLYPH_TABLES = { REGULAR, BOLD };
 
 /** Cỡ chữ lớn nhất không vượt `size` mà dòng `text` còn vừa `maxWidth` (cùng đơn vị với `size`). */
-export const fitSize = (text: string, size: number, bold: boolean, maxWidth: number): number => {
-  const em = textWidthEm(text, bold);
+export const fitSize = (text: string, size: number, bold: boolean, maxWidth: number, font?: DecorFontId): number => {
+  const em = textWidthEm(text, bold, font);
   return em * size <= maxWidth ? size : maxWidth / em;
 };
 

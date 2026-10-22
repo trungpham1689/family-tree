@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { buildFamilyGraph } from '../family/family-graph';
 import { blankPerson } from '../test-support/person';
 import { defaultPhaDoConfig, type PhaDoConfig } from './config';
-import { DEFAULT_DECORATION, FRAME_LABELS, type Decoration, type FrameStyle } from './decoration';
+import { DEFAULT_DECORATION, DECOR_LOOKS, FRAME_LABELS, type Decoration, type FrameStyle } from './decoration';
+import { DECOR_FONTS, decorFaceFile, resolveBold, type DecorFontId } from './decoration-fonts';
 import { PT_PER_MM, type DrawItem, type DrawRect, type DrawText } from './drawing';
 import { renderPhaDo } from './render';
 
@@ -19,10 +20,19 @@ doc.addFileToVFS('r.ttf', readFileSync(join(fontDir, 'NotoSerif-400Regular.ttf')
 doc.addFileToVFS('b.ttf', readFileSync(join(fontDir, 'NotoSerif-700Bold.ttf')).toString('binary'));
 doc.addFont('r.ttf', 'N', 'normal');
 doc.addFont('b.ttf', 'N', 'bold');
+// Phông trang trí: đo bằng chính file phông bản xuất, mỗi phông một tên `D-<phông>`.
+for (const id of Object.keys(DECOR_FONTS) as DecorFontId[]) {
+  for (const bold of [false, true]) {
+    if (!DECOR_FONTS[id][bold ? 'bold' : 'regular']) continue;
+    const file = decorFaceFile(id, bold);
+    doc.addFileToVFS(file.split('/').pop()!, readFileSync(join(fontDir, file.split('/').pop()!)).toString('binary'));
+    doc.addFont(file.split('/').pop()!, `D-${id}`, bold ? 'bold' : 'normal');
+  }
+}
 
 type Box = { left: number; right: number; top: number; bottom: number };
 const textBox = (item: DrawText): Box => {
-  doc.setFont('N', item.bold ? 'bold' : 'normal');
+  doc.setFont(item.font ? `D-${item.font}` : 'N', (item.font ? resolveBold(item.font, item.bold) : item.bold) ? 'bold' : 'normal');
   doc.setFontSize(item.sizePt);
   const width = doc.getTextWidth(item.text);
   const em = item.sizePt / PT_PER_MM;
@@ -61,7 +71,9 @@ const graph = buildFamilyGraph({
 
 const standard = { ...DEFAULT_DECORATION, title: '', subtitle: '', coupletLeft: 'Uống nước nhớ nguồn', coupletRight: 'Ăn quả nhớ kẻ trồng cây' };
 const decorations: Decoration[] = [
-  ...(Object.keys(FRAME_LABELS) as FrameStyle[]).map((frame) => ({ ...standard, frame })),
+  // Mọi khung × mọi phương án (phông chữ khác nhau, rộng hẹp khác nhau): chữ vẫn không chồng, không tràn.
+  ...(Object.keys(FRAME_LABELS) as FrameStyle[]).flatMap((frame) => DECOR_LOOKS.map((look) => ({ ...standard, frame, look }))),
+  ...DECOR_LOOKS.map((look) => ({ ...DEFAULT_DECORATION, look, frame: 'hoang-gia' as const, title: 'Gia phả dòng họ Nguyễn Hoàng Thiên Phương Thảo Nguyên ở Nghệ An', subtitle: 'Kính dâng tổ tiên – năm 2026, nhân dịp trùng tu nhà thờ họ', coupletLeft: 'Công đức tổ tông muôn đời sáng', coupletRight: 'Phúc ấm con cháu vạn thuở bền' })),
   { ...DEFAULT_DECORATION, frame: 'hoang-gia', title: 'Gia phả dòng họ Nguyễn Hoàng Thiên Phương Thảo Nguyên ở Nghệ An', subtitle: 'Kính dâng tổ tiên – năm 2026, nhân dịp trùng tu nhà thờ họ', coupletLeft: 'Công đức tổ tông muôn đời sáng', coupletRight: 'Phúc ấm con cháu vạn thuở bền' },
   { ...DEFAULT_DECORATION, frame: 'thanh-nha', title: 'Họ Phạm', subtitle: '', coupletLeft: 'Nguyễn Nghiêng Nghiệp', coupletRight: 'Khuyến Khuyên Quyền Trường' },
   { ...DEFAULT_DECORATION, frame: 'none', title: 'Họ Phạm', subtitle: 'x', coupletLeft: 'Trường tồn', coupletRight: 'Thịnh vượng' },
@@ -80,7 +92,7 @@ describe('chữ trên Phả đồ không chồng lên nhau', () => {
   for (const decoration of decorations) {
     for (const paper of papers) {
       for (const extraLines of [[], ['que' as const, 'gio' as const]]) {
-        const label = `${decoration.frame} · ${paper.paper} ${paper.orientation} · ${extraLines.length} dòng phụ`;
+        const label = `${decoration.frame}${decoration.look} · ${paper.paper} ${paper.orientation} · ${extraLines.length} dòng phụ`;
         it(label, () => {
           const config: PhaDoConfig = { ...defaultPhaDoConfig(1), ...paper, decoration, extraLines };
           const { drawing } = renderPhaDo(graph, config, 'Họ Phạm');

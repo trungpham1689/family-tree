@@ -1,8 +1,14 @@
 import { jsPDF } from 'jspdf';
+import { resolveBold, type DecorFontId } from './decoration-fonts';
 import type { Drawing } from './drawing';
 
 /** Font nhúng vào PDF (TTF, dạng chuỗi nhị phân base64), có đủ dấu tiếng Việt. */
-export type PdfFonts = { regular: string; bold: string };
+export type PdfFonts = {
+  regular: string;
+  bold: string;
+  /** Phông trang trí đã nạp (chỉ những mặt chữ bản vẽ dùng); thiếu thì chữ trang trí dùng phông chính. */
+  decor?: Partial<Record<DecorFontId, { regular?: string; bold?: string }>>;
+};
 
 const FONT = 'NotoSerif';
 
@@ -23,6 +29,17 @@ export const drawingToPdf = (drawing: Drawing, fonts: PdfFonts, title: string): 
   doc.addFileToVFS('NotoSerif-Bold.ttf', fonts.bold);
   doc.addFont('NotoSerif-Regular.ttf', FONT, 'normal');
   doc.addFont('NotoSerif-Bold.ttf', FONT, 'bold');
+  const decorFamily = (id: DecorFontId) => `PhaDo-${id}`;
+  for (const [id, faces] of Object.entries(fonts.decor ?? {}) as [DecorFontId, { regular?: string; bold?: string }][]) {
+    if (faces.regular) {
+      doc.addFileToVFS(`${id}-Regular.ttf`, faces.regular);
+      doc.addFont(`${id}-Regular.ttf`, decorFamily(id), 'normal');
+    }
+    if (faces.bold) {
+      doc.addFileToVFS(`${id}-Bold.ttf`, faces.bold);
+      doc.addFont(`${id}-Bold.ttf`, decorFamily(id), 'bold');
+    }
+  }
   doc.setProperties({ title, creator: 'Gia Phả' });
 
   for (const item of drawing.items) {
@@ -69,7 +86,8 @@ export const drawingToPdf = (drawing: Drawing, fonts: PdfFonts, title: string): 
         break;
       }
       case 'text':
-        doc.setFont(FONT, item.bold ? 'bold' : 'normal');
+        if (item.font && fonts.decor?.[item.font]) doc.setFont(decorFamily(item.font), resolveBold(item.font, item.bold) ? 'bold' : 'normal');
+        else doc.setFont(FONT, item.bold ? 'bold' : 'normal');
         doc.setFontSize(item.sizePt);
         doc.setTextColor(...hexToRgb(item.color));
         doc.text(item.text, item.x, item.y, { align: item.align === 'start' ? 'left' : 'center', baseline: 'middle' });

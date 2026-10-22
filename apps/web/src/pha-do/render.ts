@@ -4,8 +4,8 @@ import type { FamilyGraph } from '../family/family-graph';
 import { marriageNote } from '../family/labels';
 import { lifespanText } from '../people/person-display';
 import { fieldText } from '../people/profile-fields';
-import { pageSizeMm, type ExtraLine, type PhaDoConfig } from './config';
-import { layoutDecoration } from './decoration';
+import { decorationScaleOf, pageSizeMm, type ExtraLine, type PhaDoConfig } from './config';
+import { layoutDecoration, memberColorsOf, type FrameStyle } from './decoration';
 import { fitSize, textWidthEm, truncateToFit } from './glyph-widths';
 import { MM_PER_PX, paperScale, PT_PER_MM, type Drawing, type DrawItem } from './drawing';
 
@@ -27,17 +27,17 @@ const AVATAR_GAP = 6;
 /** Dải chú giải (giới tính, đã mất) dưới cùng vùng cây, tính bằng mm trên khổ A1; khổ khác co giãn theo `paperScale`. */
 const LEGEND_HEIGHT = 8;
 
-/** Màu mặc định của chữ (tên) và nền ô thành viên; ô Dâu/Rể nền hơi ngả kem. */
-export const DEFAULT_MEMBER_COLORS = { text: '#1f1a17', fill: '#ffffff' };
+/** Màu mặc định của chữ (tên) và nền ô thành viên theo kiểu khung (kiểu "Sáng", xem `MEMBER_COLORS`); ô Dâu/Rể nền hồng đào nhạt. */
+export const defaultMemberColors = (frame: FrameStyle) => {
+  const colors = memberColorsOf(frame);
+  return { text: colors.name, fill: colors.fill };
+};
 
 const COLORS = {
-  ink: DEFAULT_MEMBER_COLORS.text,
   muted: '#5c534c',
   son: '#8a1c1c',
   kim: '#b8892b',
   line: '#5c534c',
-  box: DEFAULT_MEMBER_COLORS.fill,
-  spouseBox: '#fbf8f3',
   // Viền theo giới tính — nhận ra ngay không cần đọc chữ.
   genderUnknown: '#a39a8f',
 };
@@ -209,7 +209,7 @@ export const fitNamePxFor = (graph: FamilyGraph<Person>, config: PhaDoConfig, tr
   const layout = treeLayout(graph, config, scope.rootId, scope.maxDepth);
   if (layout.nodes.length === 0) return null;
   const page = pageSizeMm(config);
-  const fitScale = fitScaleOf(layout, layoutDecoration(page, config.decoration, treeName).content, page);
+  const fitScale = fitScaleOf(layout, layoutDecoration(page, config.decoration, treeName, decorationScaleOf(config)).content, page);
   return (NAME_SIZE * fitScale) / MM_PER_PX;
 };
 
@@ -228,7 +228,8 @@ export const renderPhaDo = (
   const extras = config.extraLines.slice(0, 2);
   const layout = treeLayout(graph, config, rootId, maxDepth);
 
-  const decoration = layoutDecoration(page, config.decoration, treeName);
+  const decoration = layoutDecoration(page, config.decoration, treeName, decorationScaleOf(config));
+  const member = memberColorsOf(config.decoration.frame);
   const area = decoration.content;
   const availableWidth = area.width;
   // Dành một dải mỏng dưới cùng vùng cây cho chú giải — trong vùng "content" nên chắc chắn không
@@ -269,7 +270,7 @@ export const renderPhaDo = (
       width: node.width * scale,
       height: node.height * scale,
       radius: 8 * scale,
-      fill: config.memberFillColor ?? (isSpouse ? COLORS.spouseBox : COLORS.box),
+      fill: config.memberFillColor ?? (isSpouse ? member.spouse : member.fill),
       stroke: genderColor,
       strokeWidth: 2 * scale,
       // Dâu/Rể: kết hôn vào họ, không nối máu mủ — viền đứt để phân biệt với Đinh.
@@ -322,17 +323,17 @@ export const renderPhaDo = (
     }
     for (const line of nameLines) {
       const { text, size } = fitLine(line, NAME_SIZE, !isSpouse, node.width - BOX_PADDING);
-      items.push({ type: 'text', x: centerX, y: my(cursor + NAME_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, bold: !isSpouse, color: config.memberTextColor ?? COLORS.ink });
+      items.push({ type: 'text', x: centerX, y: my(cursor + NAME_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, bold: !isSpouse, color: config.memberTextColor ?? member.name });
       cursor += NAME_SIZE + lineGap;
     }
     for (const line of detailLines) {
       const { text, size } = fitLine(line, SMALL_SIZE, false, node.width - BOX_PADDING);
-      items.push({ type: 'text', x: centerX, y: my(cursor + SMALL_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, bold: false, color: config.memberTextColor ?? COLORS.muted });
+      items.push({ type: 'text', x: centerX, y: my(cursor + SMALL_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, bold: false, color: config.memberTextColor ?? member.detail });
       cursor += SMALL_SIZE + lineGap;
     }
     for (const line of noteLines) {
       const { text, size } = fitLine(line, MARRIAGE_SIZE, false, node.width - BOX_PADDING);
-      items.push({ type: 'text', x: centerX, y: my(cursor + MARRIAGE_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, bold: false, color: config.memberTextColor ?? COLORS.son });
+      items.push({ type: 'text', x: centerX, y: my(cursor + MARRIAGE_SIZE / 2), text, sizePt: size * scale * PT_PER_MM, bold: false, color: config.memberTextColor ?? member.note });
       cursor += MARRIAGE_LINE_HEIGHT;
     }
   }

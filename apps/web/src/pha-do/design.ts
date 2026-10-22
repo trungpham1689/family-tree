@@ -42,8 +42,8 @@ export const refitTiming = (config: PhaDoConfig, patch: Partial<PhaDoConfig>): '
   if (keys.every((key) => key === 'memberTextColor' || key === 'memberFillColor' || key === 'fontFamily')) return 'none';
   const next = patch.decoration;
   if (keys.length === 1 && next) {
-    // Chỉ khác ở các chữ (không khác khung, cỡ chữ): so các trường còn lại.
-    const sameLayout = (['frame', 'titleSize', 'subtitleSize', 'coupletSize'] as const).every((key) => next[key] === config.decoration[key]);
+    // Chỉ khác ở các chữ (không khác khung, phương án phông chữ, cỡ chữ): so các trường còn lại.
+    const sameLayout = (['frame', 'look', 'titleSize', 'subtitleSize', 'coupletSize'] as const).every((key) => next[key] === config.decoration[key]);
     if (sameLayout) return 'later';
   }
   return 'now';
