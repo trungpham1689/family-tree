@@ -676,7 +676,7 @@ export const FontSettings = ({
     <Note>
       {namePx !== null && namePx < config.memberFontPx - 0.05
         ? `Chữ tên đang co lại còn khoảng ${namePx.toFixed(1)} px vì không đủ chỗ trên khổ giấy này. Hãy in một Chi, hoặc giảm cỡ chữ.`
-        : 'Đổi cỡ chữ thì khổ giấy tự co giãn cho vừa khít. Viền ô vẫn theo giới tính; nền ô Dâu/Rể mặc định hồng đào nhạt để khác hẳn nền trang; màu chữ và nền ô mặc định đổi theo kiểu khung.'}
+        : 'Đổi cỡ chữ thì khổ giấy tự co giãn cho vừa khít. Viền ô vẫn theo giới tính; nền ô Dâu/Rể mặc định đậm hơn một nấc; màu chữ và nền ô mặc định đổi theo kiểu khung.'}
     </Note>
     <p className="mt-1 text-sm text-ink-muted">"Theo kiểu khung" dùng phông riêng của từng khung (Noto Serif, Merriweather, Lora…). Bản xuất PDF/PNG dùng đúng phông đã chọn (riêng "Chữ hệ thống" xuất bằng Noto Serif).</p>
   </section>

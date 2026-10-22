@@ -28,7 +28,7 @@ const AVATAR_GAP = 6;
 /** Dải chú giải (giới tính, đã mất) dưới cùng vùng cây, tính bằng mm trên khổ A1; khổ khác co giãn theo `paperScale`. */
 const LEGEND_HEIGHT = 8;
 
-/** Màu mặc định của chữ (tên) và nền ô thành viên theo kiểu khung (kiểu "Sáng", xem `MEMBER_COLORS`); ô Dâu/Rể nền hồng đào nhạt. */
+/** Màu mặc định của chữ (tên) và nền ô thành viên theo kiểu khung (kiểu "Cổ điển", xem `MEMBER_COLORS`); ô Dâu/Rể nền đậm hơn một nấc cùng tông. */
 export const defaultMemberColors = (frame: FrameStyle) => {
   const colors = memberColorsOf(frame);
   return { text: colors.name, fill: colors.fill };

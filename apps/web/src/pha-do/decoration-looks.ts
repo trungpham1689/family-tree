@@ -47,7 +47,7 @@ export const LOOK_STYLES: Record<FrameStyle, Record<DecorLook, LookStyle>> = {
     D: look('#f1e4c8', '#5b3a1c', '#4a3622', 'dancing-script', 'lora'),
   },
   'thanh-nha': {
-    A: look('#f7f5f0', '#1f1a17', '#4a4540', 'playfair', 'be-vietnam-pro'),
+    A: look('#fbfaf7', '#1f1a17', '#4a4540', 'playfair', 'be-vietnam-pro'),
     B: look('#f2f0ec', '#1a1714', '#4a4540', 'montserrat', 'be-vietnam-pro'),
     C: look('#efebe3', '#1a1714', '#3a3530', 'noto-serif-display', 'noto-serif'),
     D: look('#f3eee2', '#2b2118', '#4a4034', 'dancing-script', 'lora'),
@@ -108,22 +108,26 @@ export const LOOK_STYLES: Record<FrameStyle, Record<DecorLook, LookStyle>> = {
   },
 };
 
-/** Màu ô thành viên theo khung ("Sáng"): nền ô nam gần trắng, ô Dâu/Rể hồng đào nhạt khác hẳn nền trang; chữ cùng tông khung. */
+/**
+ * Màu ô thành viên theo khung, kiểu "Cổ điển" (đúng bản thiết kế docs/Ô thành viên theo kiểu khung.pdf): nền ô nam sáng ngả theo giấy của khung,
+ * nền ô Dâu/Rể đậm hơn một nấc cùng tông; tên gần như đen ngả tông khung, chi tiết nhạt hơn một bậc, nhãn hôn phối theo màu khung.
+ */
 export type MemberColors = { fill: string; spouse: string; name: string; detail: string; note: string };
 
 export const MEMBER_COLORS: Record<FrameStyle, MemberColors> = {
-  'son-kim': { fill: '#fffefb', spouse: '#fadcd6', name: '#3b1a0c', detail: '#6b3a1e', note: '#841b1b' },
-  moc: { fill: '#fefcf9', spouse: '#f0cfc2', name: '#3a2511', detail: '#503a24', note: '#6c2917' },
-  'thanh-nha': { fill: '#ffffff', spouse: '#f5dede', name: '#1a1714', detail: '#48443f', note: '#7a2020' },
-  'lam-ngoc': { fill: '#fdfefe', spouse: '#f9dcd7', name: '#123a34', detail: '#264c45', note: '#6b2c2c' },
-  'hoang-gia': { fill: '#fefeff', spouse: '#fbdcd8', name: '#2e1247', detail: '#573875', note: '#7a1f4a' },
-  'trieu-nguyen': { fill: '#fffefc', spouse: '#f7cfc7', name: '#3e0f0f', detail: '#5e3319', note: '#5c1414' },
-  'tram-huong': { fill: '#fefcf8', spouse: '#eccabb', name: '#33210f', detail: '#4a3826', note: '#5b3111' },
-  'cuon-thu': { fill: '#fefbf4', spouse: '#f3d0bf', name: '#3e2812', detail: '#503a22', note: '#632f15' },
-  'hoanh-phi': { fill: '#fffefb', spouse: '#fad8d0', name: '#3d1a0c', detail: '#67381d', note: '#841b1b' },
-  'dong-son': { fill: '#fdfcf8', spouse: '#ecd0c2', name: '#17382f', detail: '#2a413c', note: '#583813' },
-  'gam-hoa': { fill: '#fefcf5', spouse: '#fbdad3', name: '#3b1a0c', detail: '#67381d', note: '#841b1b' },
-  none: { fill: '#ffffff', spouse: '#f5dede', name: '#1a1714', detail: '#48443f', note: '#7a2020' },
+  'son-kim': { fill: '#fffaf0', spouse: '#f7ecd0', name: '#3b1a0c', detail: '#6b3a1e', note: '#8a1c1c' },
+  moc: { fill: '#fbf6ec', spouse: '#f1e6d2', name: '#3a2511', detail: '#5e442a', note: '#7a2e1a' },
+  'thanh-nha': { fill: '#ffffff', spouse: '#f4f2ee', name: '#1a1714', detail: '#55504a', note: '#7a2020' },
+  'lam-ngoc': { fill: '#f7fcfa', spouse: '#d9ebe5', name: '#123a34', detail: '#2f5d55', note: '#6b2c2c' },
+  'hoang-gia': { fill: '#fdfaff', spouse: '#e9ddf1', name: '#2e1247', detail: '#5b3a7a', note: '#7a1f4a' },
+  'trieu-nguyen': { fill: '#fffaf4', spouse: '#f1dfcc', name: '#3e0f0f', detail: '#6a3a1c', note: '#5c1414' },
+  'tram-huong': { fill: '#faf4e9', spouse: '#e7d9c2', name: '#33210f', detail: '#5e4730', note: '#6b3a14' },
+  'cuon-thu': { fill: '#faf1da', spouse: '#ebdab3', name: '#3e2812', detail: '#664a2c', note: '#7a3a1a' },
+  'hoanh-phi': { fill: '#fffaf0', spouse: '#f2e1bd', name: '#3d1a0c', detail: '#6b3a1e', note: '#8a1c1c' },
+  'dong-son': { fill: '#f9f5e6', spouse: '#e3dfc6', name: '#17382f', detail: '#3f5a50', note: '#5c3a14' },
+  'gam-hoa': { fill: '#fffaf0', spouse: '#f6e8c8', name: '#3b1a0c', detail: '#6b3a1e', note: '#8a1c1c' },
+  // Không khung: màu mặc định của Phả đồ từ trước.
+  none: { fill: '#ffffff', spouse: '#fbf8f3', name: '#1f1a17', detail: '#5c534c', note: '#8a1c1c' },
 };
 
 /** Phông chữ trong ô thành viên theo khung (khi chọn "Theo kiểu khung"): chữ có chân hoặc chữ đế dày, đọc rõ ở 14 px (10,5 pt). */

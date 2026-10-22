@@ -570,7 +570,7 @@ describe('màu ô thành viên', () => {
       (item): item is Extract<DrawItem, { type: 'text' }> => item.type === 'text' && item.align !== 'start',
     );
 
-  it('mặc định theo khung (kiểu Sáng): nền ô nam gần trắng, Dâu/Rể hồng đào nhạt, chữ tên/chi tiết/nhãn theo khung', () => {
+  it('mặc định theo khung (kiểu Cổ điển): nền ô nam sáng, Dâu/Rể đậm hơn một nấc, chữ tên/chi tiết/nhãn theo khung', () => {
     expect(base.memberTextColor).toBeNull();
     expect(base.memberFillColor).toBeNull();
     const member = memberColorsOf(base.decoration.frame);

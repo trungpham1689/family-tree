@@ -87,7 +87,7 @@ const FRAME_COLORS: Record<FrameStyle, FrameColors> = {
 
 export const paletteOf = (frame: FrameStyle, look: DecorLook): Palette => ({ ...FRAME_COLORS[frame], ...LOOK_STYLES[frame][look] });
 
-/** Màu ô thành viên mặc định theo khung (kiểu "Sáng"); người dùng chọn màu riêng thì màu đó thay thế. */
+/** Màu ô thành viên mặc định theo khung (kiểu "Cổ điển"); người dùng chọn màu riêng thì màu đó thay thế. */
 export const memberColorsOf = (frame: FrameStyle): MemberColors => MEMBER_COLORS[frame];
 
 /** Phông chữ ô thành viên theo khung (dùng khi cấu hình chọn "Theo kiểu khung"). */
