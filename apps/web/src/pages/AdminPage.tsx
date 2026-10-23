@@ -208,7 +208,8 @@ export const AdminPage = () => {
           </p>
         )}
 
-        <ul className="mt-4 space-y-3">
+        {/* Đổi trang/tìm kiếm: vẫn hiện danh sách cũ trong lúc tải, làm mờ để không tưởng đó là kết quả mới. */}
+        <ul aria-busy={accounts.isPlaceholderData} className={`mt-4 space-y-3 transition-opacity ${accounts.isPlaceholderData ? 'opacity-50' : ''}`}>
           {visible.map((account) => (
             <AccountRow
               key={account.accountId}
