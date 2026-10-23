@@ -1,5 +1,7 @@
-import { useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { publicLinkUrl } from '../data/public-tree';
+import { downloadBlob, exportFileName } from '../lib/download';
+import { QR_QUIET_ZONE, qrMatrix, qrPngBlob, qrSvgPath } from '../share/qr';
 import { useDisablePublicLink, useRotatePublicLink, useSetPublicLinkPassword } from '../data/tree-queries';
 import type { TreeWithRole } from '../data/trees';
 import { Button } from '../ui/Button';
@@ -7,12 +9,53 @@ import { ErrorBanner, TextField } from '../ui/fields';
 
 const MIN_PASSWORD = 4;
 
+/** Mã QR của link (không chứa mật khẩu), để in dán ở nhà thờ họ hoặc gửi ảnh cho họ hàng. */
+const QrCard = ({ url, treeName }: { url: string; treeName: string }) => {
+  const matrix = useMemo(() => qrMatrix(url), [url]);
+  const side = matrix.length + QR_QUIET_ZONE * 2;
+  const [error, setError] = useState<string | null>(null);
+
+  const download = async () => {
+    setError(null);
+    try {
+      const today = new Date().toLocaleDateString('sv-SE');
+      downloadBlob(await qrPngBlob(url, `Gia phả ${treeName}`), exportFileName('Ma-QR', treeName, today, 'png'));
+    } catch (failure) {
+      setError((failure as Error).message);
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-4 rounded-xl border border-line bg-paper p-4">
+      <svg
+        role="img"
+        aria-label="Mã QR của link chia sẻ công khai"
+        viewBox={`${-QR_QUIET_ZONE} ${-QR_QUIET_ZONE} ${side} ${side}`}
+        shapeRendering="crispEdges"
+        className="size-44 shrink-0 rounded-lg bg-white"
+      >
+        <path d={qrSvgPath(matrix)} fill="#000" />
+      </svg>
+      <div className="min-w-0 flex-1 basis-48 space-y-2">
+        <p className="text-sm text-ink-muted">
+          Quét bằng camera điện thoại để mở link. Mã QR không chứa mật khẩu: người xem vẫn phải nhập mật khẩu. Tạo lại link thì mã cũ hết dùng.
+        </p>
+        <Button variant="secondary" onClick={download}>
+          Tải ảnh để in
+        </Button>
+        {error && <ErrorBanner>{error}</ErrorBanner>}
+      </div>
+    </div>
+  );
+};
+
 /** Chủ sở hữu bật (kèm mật khẩu), sao chép, đổi mật khẩu, tạo lại hoặc tắt Link chia sẻ công khai. */
 export const PublicLinkPanel = ({ tree }: { tree: TreeWithRole }) => {
   const rotate = useRotatePublicLink(tree.id);
   const disable = useDisablePublicLink(tree.id);
   const setPassword = useSetPublicLinkPassword(tree.id);
   const [copied, setCopied] = useState(false);
+  const [showQr, setShowQr] = useState(false);
   const [mode, setMode] = useState<'none' | 'enable' | 'change-password' | 'rotate' | 'disable'>('none');
   const [passwordInput, setPasswordInput] = useState('');
   const url = tree.public_token ? publicLinkUrl(tree.public_token) : null;
@@ -126,8 +169,13 @@ export const PublicLinkPanel = ({ tree }: { tree: TreeWithRole }) => {
             </div>
           )}
 
+          {showQr && <QrCard url={url} treeName={tree.name} />}
+
           {mode === 'none' && (
             <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" aria-expanded={showQr} onClick={() => setShowQr((shown) => !shown)}>
+                {showQr ? 'Ẩn mã QR' : 'Mã QR'}
+              </Button>
               <Button variant="secondary" onClick={() => setMode('change-password')}>
                 Đổi mật khẩu
               </Button>

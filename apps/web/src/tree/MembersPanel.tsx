@@ -11,6 +11,7 @@ import {
   useSendInviteEmail,
   useRemoveTreeRole,
   useTreeInvitations,
+  useTransferTreeOwnership,
   useTreeMembers,
   useUpdateTreeRole,
 } from '../data/tree-queries';
@@ -215,10 +216,33 @@ type MemberRowProps = {
 const MemberRow = ({ treeId, member, canManage }: MemberRowProps) => {
   const updateRole = useUpdateTreeRole(treeId);
   const remove = useRemoveTreeRole(treeId);
+  const transfer = useTransferTreeOwnership(treeId);
   const [removing, setRemoving] = useState(false);
-  const error = updateRole.error ?? remove.error;
-  // Đổi vai trò và gỡ quyền cùng tác động một thành viên: đang gọi cái nào thì khoá cả hai.
-  const busy = updateRole.isPending || remove.isPending;
+  const [transferring, setTransferring] = useState(false);
+  const error = updateRole.error ?? remove.error ?? transfer.error;
+  // Đổi vai trò, gỡ quyền, chuyển quyền cùng tác động một thành viên: đang gọi cái nào thì khoá hết.
+  const busy = updateRole.isPending || remove.isPending || transfer.isPending;
+
+  if (canManage && transferring) {
+    return (
+      <li className="space-y-2 py-3">
+        <p className="text-sm font-medium [overflow-wrap:anywhere] sm:text-base">{member.email}</p>
+        <p className="rounded-xl bg-kim-soft px-4 py-3 text-sm">
+          Trao quyền Chủ sở hữu cho {member.email}? Người này sẽ toàn quyền với gia phả (mời, gỡ quyền, xoá gia phả). Bạn sẽ thành Biên tập viên và
+          không tự lấy lại quyền được.
+        </p>
+        {error && <ErrorBanner>{error.message}</ErrorBanner>}
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button variant="secondary" disabled={busy} onClick={() => setTransferring(false)}>
+            Huỷ
+          </Button>
+          <Button variant="danger" disabled={busy} onClick={() => transfer.mutate(member.account_id)}>
+            {transfer.isPending ? 'Đang chuyển…' : 'Trao quyền'}
+          </Button>
+        </div>
+      </li>
+    );
+  }
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 py-3">
@@ -246,7 +270,7 @@ const MemberRow = ({ treeId, member, canManage }: MemberRowProps) => {
             </Button>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select
               value={member.role}
               disabled={busy}
@@ -257,6 +281,11 @@ const MemberRow = ({ treeId, member, canManage }: MemberRowProps) => {
               <option value="editor">{ROLE_LABELS.editor}</option>
               <option value="viewer">{ROLE_LABELS.viewer}</option>
             </Select>
+            {member.role === 'editor' && (
+              <Button variant="ghost" disabled={busy} onClick={() => setTransferring(true)}>
+                Trao quyền Chủ sở hữu
+              </Button>
+            )}
             <Button variant="ghost" className="text-danger!" disabled={busy} onClick={() => setRemoving(true)}>
               Gỡ
             </Button>

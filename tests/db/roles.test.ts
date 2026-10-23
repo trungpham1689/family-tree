@@ -106,6 +106,55 @@ describe('seam B: mời vai trò Biên tập viên / Người xem', () => {
     );
   });
 
+  it('Chủ sở hữu chuyển quyền cho Biên tập viên: người nhận làm Chủ sở hữu, mình lùi về Biên tập viên', async () => {
+    const heir = await db.createUser(`ke-nhiem-${crypto.randomUUID()}@example.com`);
+    await me.rpc('invite_to_tree', { target_tree: treeId, invite_email: heir.email, new_role: 'editor' });
+
+    await me.rpc('transfer_tree_ownership', { target_tree: treeId, target_account: heir.id });
+
+    const list = await members();
+    expect(list.find((row) => row.account_id === heir.id)).toMatchObject({ role: 'owner' });
+    expect(list.find((row) => row.account_id === owner.id)).toMatchObject({ role: 'editor' });
+    const [tree] = await db.as(heir).query<{ owner_id: string }>('select owner_id from family_trees where id = $1', [treeId]);
+    expect(tree!.owner_id).toBe(heir.id);
+    // Chủ sở hữu cũ hết quyền Chủ sở hữu; người mới làm được việc của Chủ sở hữu.
+    await expect(me.rpc('remove_tree_role', { target_tree: treeId, target_account: heir.id })).rejects.toThrow(/NOT_ALLOWED/);
+    await db.as(heir).rpc('update_tree_role', { target_tree: treeId, target_account: owner.id, new_role: 'viewer' });
+  });
+
+  it('chỉ chuyển được cho Biên tập viên, và chỉ Chủ sở hữu mới chuyển', async () => {
+    const viewer = await db.createUser(`xem-${crypto.randomUUID()}@example.com`);
+    const editor = await db.createUser(`bt-${crypto.randomUUID()}@example.com`);
+    const stranger = await db.createUser(`la-${crypto.randomUUID()}@example.com`);
+    await me.rpc('invite_to_tree', { target_tree: treeId, invite_email: viewer.email, new_role: 'viewer' });
+    await me.rpc('invite_to_tree', { target_tree: treeId, invite_email: editor.email, new_role: 'editor' });
+
+    await expect(me.rpc('transfer_tree_ownership', { target_tree: treeId, target_account: viewer.id })).rejects.toThrow(/NEW_OWNER_NOT_EDITOR/);
+    await expect(me.rpc('transfer_tree_ownership', { target_tree: treeId, target_account: stranger.id })).rejects.toThrow(/NEW_OWNER_NOT_EDITOR/);
+    await expect(me.rpc('transfer_tree_ownership', { target_tree: treeId, target_account: owner.id })).rejects.toThrow(/NEW_OWNER_NOT_EDITOR/);
+    await expect(
+      db.as(editor).rpc('transfer_tree_ownership', { target_tree: treeId, target_account: editor.id }),
+    ).rejects.toThrow(/NOT_ALLOWED/);
+    expect((await members()).find((row) => row.account_id === owner.id)).toMatchObject({ role: 'owner' });
+  });
+
+  it('không chuyển cho tài khoản chưa duyệt hoặc bị chặn', async () => {
+    const pending = await db.createUser(`cho-${crypto.randomUUID()}@example.com`);
+    await me.rpc('invite_to_tree', { target_tree: treeId, invite_email: pending.email, new_role: 'editor' });
+    await db.admin.query('update account_approvals set approved = false where account_id = $1', [pending.id]);
+
+    await expect(me.rpc('transfer_tree_ownership', { target_tree: treeId, target_account: pending.id })).rejects.toThrow(/NEW_OWNER_NOT_APPROVED/);
+    expect((await members()).find((row) => row.account_id === owner.id)).toMatchObject({ role: 'owner' });
+  });
+
+  it('không chuyển cho người đã sở hữu đủ số gia phả', async () => {
+    const busy = await db.createUser(`nhieu-${crypto.randomUUID()}@example.com`);
+    for (const name of ['Một', 'Hai', 'Ba']) await db.as(busy).query('insert into family_trees (name) values ($1)', [name]);
+    await me.rpc('invite_to_tree', { target_tree: treeId, invite_email: busy.email, new_role: 'editor' });
+
+    await expect(me.rpc('transfer_tree_ownership', { target_tree: treeId, target_account: busy.id })).rejects.toThrow(/NEW_OWNER_TREE_LIMIT/);
+  });
+
   it('người không có vai trò không xem được danh sách', async () => {
     const stranger = await db.createUser(`la-${crypto.randomUUID()}@example.com`);
     await expect(members(db.as(stranger))).rejects.toThrow(/NOT_ALLOWED/);

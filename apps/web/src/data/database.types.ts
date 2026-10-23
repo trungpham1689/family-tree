@@ -546,6 +546,7 @@ export type Database = {
       cancel_tree_invitation: { Args: { target_tree: string; invite_email: string }; Returns: undefined };
       update_tree_role: { Args: { target_tree: string; target_account: string; new_role: string }; Returns: undefined };
       remove_tree_role: { Args: { target_tree: string; target_account: string }; Returns: undefined };
+      transfer_tree_ownership: { Args: { target_tree: string; target_account: string }; Returns: undefined };
       list_tree_members: {
         Args: { target_tree: string };
         Returns: { account_id: string; role: string; email: string; created_at: string }[];

@@ -52,7 +52,13 @@ export const updateTreeRole = async (input: { treeId: string; accountId: string;
   failOn(error);
 };
 
-export const removeTreeRole = async (input: { treeId: string; accountId: string }): Promise<void> => {
+/** Trao quyền Chủ sở hữu cho một Biên tập viên; người gọi lùi về Biên tập viên. */
+export const transferTreeOwnership = async (input: { treeId: string; accountId: string }): Promise<void> => {
+  const { error } = await supabase.rpc('transfer_tree_ownership', { target_tree: input.treeId, target_account: input.accountId });
+  failOn(error);
+};
+
+export const removeTreeRole =async (input: { treeId: string; accountId: string }): Promise<void> => {
   const { error } = await supabase.rpc('remove_tree_role', { target_tree: input.treeId, target_account: input.accountId });
   failOn(error);
 };
