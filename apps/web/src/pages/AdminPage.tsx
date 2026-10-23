@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import {
   ADMIN_PAGE_SIZE,
   useAdminAccounts,
   useAdminCounts,
+  useAdminOwnedTrees,
+  useAdminTransferTree,
   useAdminUpdateProfile,
   useDeleteAccount,
   useSendPasswordReset,
@@ -76,6 +78,7 @@ export const AdminPage = () => {
   const sendReset = useSendPasswordReset();
   const updateProfile = useAdminUpdateProfile();
   const [editing, setEditing] = useState<AdminAccount | null>(null);
+  const [treesOf, setTreesOf] = useState<AdminAccount | null>(null);
   const [typed, setTyped] = useState('');
   const [filter, setFilter] = useState<Filter | null>(null);
   const [search, setSearch] = useState('');
@@ -226,6 +229,10 @@ export const AdminPage = () => {
                 resetAll();
                 setEditing(account);
               }}
+              onShowTrees={() => {
+                resetAll();
+                setTreesOf(account);
+              }}
             />
           ))}
         </ul>
@@ -257,6 +264,10 @@ export const AdminPage = () => {
               />
             </div>
           )}
+        </Dialog>
+
+        <Dialog open={treesOf !== null} title="Gia phả đang sở hữu" onClose={() => setTreesOf(null)}>
+          {treesOf && <OwnedTreesPanel account={treesOf} />}
         </Dialog>
 
         <Dialog
@@ -304,6 +315,7 @@ const AccountRow = ({
   onSendReset,
   onAsk,
   onEdit,
+  onShowTrees,
 }: {
   account: AdminAccount;
   isMe: boolean;
@@ -313,6 +325,7 @@ const AccountRow = ({
   onSendReset: () => void;
   onAsk: (action: Confirm['action']) => void;
   onEdit: () => void;
+  onShowTrees: () => void;
 }) => (
   <li className="rounded-2xl border border-line bg-surface p-4">
     <p className="break-words text-lg font-semibold">
@@ -382,6 +395,11 @@ const AccountRow = ({
             Chặn
           </Button>
         ))}
+      {account.treeCount > 0 && (
+        <Button variant="secondary" disabled={busy} onClick={onShowTrees}>
+          Gia phả ({account.treeCount})
+        </Button>
+      )}
       {!account.isSuperadmin && (
         <Button variant="ghost" className="text-danger!" disabled={busy || account.treeCount > 0} onClick={() => onAsk('delete')}>
           Xoá
@@ -389,10 +407,99 @@ const AccountRow = ({
       )}
     </div>
     {!account.isSuperadmin && account.treeCount > 0 && (
-      <p className="mt-2 text-sm text-ink-muted">Đang sở hữu gia phả nên không xoá được; chỉ chặn được.</p>
+      <p className="mt-2 text-sm text-ink-muted">Đang sở hữu gia phả nên không xoá được: đổi Chủ sở hữu các gia phả trước, hoặc chỉ chặn.</p>
     )}
   </li>
 );
+
+/** Gia phả một tài khoản đang sở hữu; siêu quản trị trao từng gia phả cho tài khoản khác (ví dụ khi Chủ sở hữu đã mất hoặc mất tài khoản). */
+const OwnedTreesPanel = ({ account }: { account: AdminAccount }) => {
+  const trees = useAdminOwnedTrees(account.accountId);
+  const transfer = useAdminTransferTree();
+  const [movingId, setMovingId] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const startMoving = (treeId: string) => {
+    transfer.reset();
+    setNotice(null);
+    setEmail('');
+    setMovingId(treeId);
+  };
+
+  const submit = (event: FormEvent, treeName: string) => {
+    event.preventDefault();
+    if (!movingId) return;
+    const address = email.trim().toLowerCase();
+    transfer.mutate(
+      { treeId: movingId, email: address },
+      {
+        onSuccess: () => {
+          setMovingId(null);
+          setNotice(`Đã chuyển "${treeName}" cho ${address}. ${account.email} giờ là Biên tập viên của gia phả này.`);
+        },
+      },
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="break-all text-ink-muted">{account.email}</p>
+      {notice && (
+        <p role="status" className="rounded-xl bg-la/10 px-4 py-3 text-la">
+          {notice}
+        </p>
+      )}
+      {trees.isPending && <p className="text-ink-muted">Đang tải…</p>}
+      {trees.isError && <ErrorBanner>{trees.error.message}</ErrorBanner>}
+      {trees.isSuccess && trees.data.length === 0 && <p className="text-ink-muted">Tài khoản này không còn sở hữu gia phả nào.</p>}
+      {trees.isSuccess && trees.data.length > 0 && (
+        <ul className="divide-y divide-line">
+          {trees.data.map((tree) => (
+            <li key={tree.treeId} className="py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p>
+                  <span className="font-semibold">{tree.name}</span>
+                  <span className="ml-2 text-sm text-ink-muted">{tree.personCount} người</span>
+                </p>
+                {movingId !== tree.treeId && (
+                  <Button variant="secondary" disabled={transfer.isPending} onClick={() => startMoving(tree.treeId)}>
+                    Đổi Chủ sở hữu
+                  </Button>
+                )}
+              </div>
+              {movingId === tree.treeId && (
+                <form className="mt-3 space-y-3 rounded-xl border border-line bg-paper p-4" onSubmit={(event) => submit(event, tree.name)}>
+                  <TextField
+                    label="Email tài khoản nhận gia phả"
+                    type="email"
+                    required
+                    autoFocus
+                    autoComplete="off"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                  />
+                  <p className="text-sm text-ink-muted">
+                    Tài khoản đó phải đã được duyệt. Họ thành Chủ sở hữu (toàn quyền, kể cả xoá gia phả); {account.email} lùi về Biên tập viên.
+                  </p>
+                  {transfer.isError && <ErrorBanner>{transfer.error.message}</ErrorBanner>}
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button type="button" variant="secondary" disabled={transfer.isPending} onClick={() => setMovingId(null)}>
+                      Huỷ
+                    </Button>
+                    <Button type="submit" variant="danger" disabled={transfer.isPending || !email.trim()}>
+                      {transfer.isPending ? 'Đang chuyển…' : 'Đổi Chủ sở hữu'}
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
 
 const BADGE_TONES = {
   gold: 'bg-kim-soft text-ink',

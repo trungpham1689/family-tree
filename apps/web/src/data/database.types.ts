@@ -511,6 +511,11 @@ export type Database = {
       admin_update_profile: { Args: { target_account: string; new_name: string; new_birth: string; new_phone: string }; Returns: undefined };
       admin_set_banned: { Args: { target_account: string; new_banned: boolean }; Returns: undefined };
       admin_delete_account: { Args: { target_account: string }; Returns: undefined };
+      admin_list_owned_trees: {
+        Args: { target_account: string };
+        Returns: { tree_id: string; name: string; person_count: number; created_at: string }[];
+      };
+      admin_transfer_tree_ownership: { Args: { target_tree: string; new_owner_email: string }; Returns: undefined };
       admin_set_superadmin: { Args: { target_account: string; make_superadmin: boolean }; Returns: undefined };
       rotate_calendar_feed: { Args: Record<string, never>; Returns: string };
       my_calendar_feed: { Args: Record<string, never>; Returns: string | null };

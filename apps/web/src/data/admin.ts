@@ -136,6 +136,27 @@ export const useDeleteAccount = () =>
     failOn(error);
   }, effects.admin);
 
+export type OwnedTree = { treeId: string; name: string; personCount: number };
+
+/** Gia phả một tài khoản đang sở hữu (chỉ siêu quản trị); nằm dưới khoá tài khoản nên đổi Chủ sở hữu xong tự tải lại. */
+export const useAdminOwnedTrees = (accountId: string | null) =>
+  useQuery({
+    queryKey: [...queryKeys.adminAccounts, 'owned', accountId] as const,
+    enabled: accountId !== null,
+    queryFn: async (): Promise<OwnedTree[]> => {
+      const { data, error } = await supabase.rpc('admin_list_owned_trees', { target_account: accountId ?? '' });
+      failOn(error);
+      return data.map((row) => ({ treeId: row.tree_id, name: row.name, personCount: row.person_count }));
+    },
+  });
+
+/** Siêu quản trị trao một gia phả cho tài khoản có email này; Chủ sở hữu cũ thành Biên tập viên. */
+export const useAdminTransferTree = () =>
+  useMutationWithEffects(async ({ treeId, email }: { treeId: string; email: string }) => {
+    const { error } = await supabase.rpc('admin_transfer_tree_ownership', { target_tree: treeId, new_owner_email: email });
+    failOn(error);
+  }, () => [...effects.admin(), ...effects.treeMeta()]);
+
 /** Gửi email đặt lại mật khẩu cho tài khoản khác: dùng đúng email "Quên mật khẩu" của Supabase Auth, người đó tự đặt mật khẩu mới. */
 export const useSendPasswordReset = () =>
   useMutation({

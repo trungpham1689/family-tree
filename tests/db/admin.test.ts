@@ -154,6 +154,48 @@ describe('seam B: Quản trị tài khoản (siêu quản trị)', () => {
     await expect(db.as(plain).rpc('admin_delete_account', { target_account: victim.id })).rejects.toThrow(/NOT_ALLOWED/);
     await expect(db.as(plain).rpc('admin_set_banned', { target_account: victim.id, new_banned: true })).rejects.toThrow(/NOT_ALLOWED/);
   });
+  it('đổi Chủ sở hữu: siêu quản trị xem gia phả của một tài khoản và trao cho email khác; Chủ sở hữu cũ lùi về Biên tập viên', async () => {
+    const owner = await newUser(true);
+    const [tree] = await db.as(owner).query<{ id: string }>("insert into family_trees (name) values ('Họ Đổi Chủ') returning id");
+    await db.as(owner).query('insert into persons (tree_id, full_name) values ($1, $2)', [tree!.id, 'Phạm Văn Tổ']);
+    expect(await db.as(root).rpcRows('admin_list_owned_trees', { target_account: owner.id })).toEqual([
+      expect.objectContaining({ tree_id: tree!.id, name: 'Họ Đổi Chủ', person_count: 1 }),
+    ]);
+
+    // Người nhận chưa có vai trò gì trong gia phả; email gõ hoa/thường, có khoảng trắng vẫn tìm ra.
+    const heir = await newUser(true);
+    await db.as(root).rpc('admin_transfer_tree_ownership', { target_tree: tree!.id, new_owner_email: `  ${heir.email.toUpperCase()} ` });
+
+    const roles = await db.admin.query<{ account_id: string; role: string }>('select account_id, role from tree_roles where tree_id = $1', [tree!.id]);
+    expect(roles.rows).toEqual(expect.arrayContaining([{ account_id: heir.id, role: 'owner' }, { account_id: owner.id, role: 'editor' }]));
+    const [moved] = await db.as(heir).query<{ owner_id: string }>('select owner_id from family_trees where id = $1', [tree!.id]);
+    expect(moved!.owner_id).toBe(heir.id);
+    expect(await db.as(root).rpcRows('admin_list_owned_trees', { target_account: owner.id })).toEqual([]);
+    // Hết sở hữu gia phả thì xoá được tài khoản cũ.
+    await db.as(root).rpc('admin_delete_account', { target_account: owner.id });
+  });
+
+  it('đổi Chủ sở hữu: chặn người thường, email không có, người chưa duyệt, người đã là Chủ sở hữu, người đủ số gia phả', async () => {
+    const owner = await newUser(true);
+    const [tree] = await db.as(owner).query<{ id: string }>("insert into family_trees (name) values ('Họ Chặn') returning id");
+    const transfer = (caller: TestUser, email: string) => db.as(caller).rpc('admin_transfer_tree_ownership', { target_tree: tree!.id, new_owner_email: email });
+
+    const plain = await newUser(true);
+    await expect(transfer(plain, plain.email)).rejects.toThrow(/NOT_ALLOWED/);
+    await expect(transfer(owner, plain.email)).rejects.toThrow(/NOT_ALLOWED/);
+    await expect(db.as(plain).rpcRows('admin_list_owned_trees', { target_account: owner.id })).rejects.toThrow(/NOT_ALLOWED/);
+    await expect(transfer(root, 'khong-co@example.com')).rejects.toThrow(/ACCOUNT_NOT_FOUND/);
+    await expect(transfer(root, (await newUser(false)).email)).rejects.toThrow(/NEW_OWNER_NOT_APPROVED/);
+    await expect(transfer(root, owner.email)).rejects.toThrow(/ALREADY_OWNER/);
+    const busy = await newUser(true);
+    for (const name of ['Một', 'Hai', 'Ba']) await db.as(busy).query('insert into family_trees (name) values ($1)', [name]);
+    await expect(transfer(root, busy.email)).rejects.toThrow(/NEW_OWNER_TREE_LIMIT/);
+    await expect(db.as(root).rpc('admin_transfer_tree_ownership', { target_tree: crypto.randomUUID(), new_owner_email: plain.email })).rejects.toThrow(/TREE_NOT_FOUND/);
+
+    const [still] = await db.admin.query<{ owner_id: string }>('select owner_id from family_trees where id = $1', [tree!.id]).then((result) => result.rows);
+    expect(still!.owner_id).toBe(owner.id);
+  });
+
   it('đăng ký bắt buộc họ và tên, ngày sinh, số điện thoại hợp lệ; thiếu hoặc sai thì database từ chối', async () => {
     const attempt = (email: string, profile: Record<string, string> | null) => db.createUser(email, { profile });
     const ok = { full_name: 'Phạm Văn A', birth_date: '1985-03-20', phone: '+84 901 234 567' };

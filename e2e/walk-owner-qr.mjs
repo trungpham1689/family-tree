@@ -1,10 +1,11 @@
-// Trao quyền Chủ sở hữu, mục "Năm tháng có thể sai" ở Cần cập nhật, và mã QR của link công khai.
+// Trao quyền Chủ sở hữu (Chủ sở hữu tự trao, và siêu quản trị đổi trên trang Quản trị), mục "Năm tháng có thể sai" ở Cần cập nhật, mã QR của link công khai.
 import { readFileSync } from 'node:fs';
 import { APP, makeStep, openBrowser, reportProblems, SHOTS } from './walk-lib.mjs';
 
 const API = process.env.E2E_API_URL ?? 'http://127.0.0.1:54321';
 const KEY = 'local-anon-key';
 const PASSWORD = 'matkhau123';
+const ROOT_EMAIL = 'trungpham168@gmail.com';
 
 const { browser, page, problems } = await openBrowser();
 const step = makeStep(() => page);
@@ -158,6 +159,38 @@ await step('Chủ sở hữu mới: thấy vai trò Chủ sở hữu, quản lý
   await heirPage.getByRole('heading', { name: 'Link chia sẻ công khai' }).waitFor();
   await heirPage.locator('li', { has: heirPage.getByText(ownerEmail, { exact: true }) }).getByRole('button', { name: 'Trao quyền Chủ sở hữu' }).waitFor();
   await other.close();
+});
+
+await step('siêu quản trị đổi Chủ sở hữu trên trang Quản trị: trao lại gia phả cho Chủ sở hữu cũ', async () => {
+  // Gốc có thể đã đăng ký ở walk-4 (cùng backend): trùng thì bỏ qua.
+  await signUpApi(ROOT_EMAIL).catch((error) => {
+    if (!error.message.includes('already registered')) throw error;
+  });
+  const admin = await browser.newContext({ locale: 'vi-VN' });
+  await admin.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.fulfill({ status: 200, contentType: 'text/css', body: '' }));
+  const adminPage = await admin.newPage();
+  await signIn(adminPage, ROOT_EMAIL);
+  await adminPage.goto(`${APP}/quan-tri`);
+  await adminPage.getByRole('tab', { name: /Tất cả/ }).click();
+  await adminPage.getByLabel('Tìm theo họ tên, email hoặc số điện thoại').fill(editorEmail);
+  const row = adminPage.locator('li', { has: adminPage.getByText(editorEmail, { exact: true }) });
+  await row.getByRole('button', { name: 'Gia phả (1)' }).click();
+
+  const dialog = adminPage.getByRole('dialog');
+  await dialog.getByText('Họ Trao Quyền').waitFor();
+  await dialog.getByRole('button', { name: 'Đổi Chủ sở hữu' }).click();
+  await dialog.getByLabel('Email tài khoản nhận gia phả').fill(ownerEmail.toUpperCase());
+  await dialog.getByRole('button', { name: 'Đổi Chủ sở hữu' }).click();
+  await dialog.getByRole('status').filter({ hasText: `Đã chuyển "Họ Trao Quyền" cho ${ownerEmail}` }).waitFor();
+  await dialog.getByText('Tài khoản này không còn sở hữu gia phả nào.').waitFor();
+  await adminPage.screenshot({ path: `${SHOTS}/quan-tri-doi-chu.png`, fullPage: true });
+  await dialog.getByRole('button', { name: /Đóng/ }).first().click();
+  await row.getByRole('button', { name: /^Gia phả \(/ }).waitFor({ state: 'detached' });
+  await admin.close();
+
+  await page.goto(`${APP}/gia-pha/${treeId}`);
+  await page.getByText('Vai trò của bạn: Chủ sở hữu').waitFor();
+  await page.locator('li', { has: page.getByText(editorEmail, { exact: true }) }).getByRole('button', { name: 'Trao quyền Chủ sở hữu' }).waitFor();
 });
 
 await browser.close();

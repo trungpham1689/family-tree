@@ -582,6 +582,36 @@ begin
 end;
 $function$;
 
+-- private.move_tree_owner(target_tree uuid, target_account uuid)  [anon: không, authenticated: không, service_role: không]
+CREATE OR REPLACE FUNCTION private.move_tree_owner(target_tree uuid, target_account uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  max_trees integer := private.app_setting('max_trees_per_account');
+begin
+  if exists (select 1 from public.tree_roles where tree_id = target_tree and account_id = target_account and role = 'owner') then
+    raise exception 'ALREADY_OWNER' using errcode = 'check_violation';
+  end if;
+  -- Tài khoản chưa duyệt hoặc bị chặn (chặn cũng bỏ duyệt) không vào được app: trao cho họ là gia phả mất Chủ sở hữu.
+  if not coalesce((select approved from public.account_approvals where account_id = target_account), false) then
+    raise exception 'NEW_OWNER_NOT_APPROVED' using errcode = 'check_violation';
+  end if;
+  if (select count(*) from public.family_trees where owner_id = target_account) >= max_trees then
+    raise exception 'NEW_OWNER_TREE_LIMIT'
+      using detail = format('Mỗi tài khoản sở hữu tối đa %s gia phả.', max_trees), errcode = 'check_violation';
+  end if;
+
+  -- Hạ Chủ sở hữu cũ trước: mỗi gia phả chỉ có một dòng 'owner' (tree_roles_one_owner).
+  update public.tree_roles set role = 'editor' where tree_id = target_tree and role = 'owner';
+  insert into public.tree_roles (tree_id, account_id, role) values (target_tree, target_account, 'owner')
+    on conflict (tree_id, account_id) do update set role = 'owner';
+  update public.family_trees set owner_id = target_account where id = target_tree;
+end;
+$function$;
+
 -- private.new_account_approval()  [anon: không, authenticated: không, service_role: không]
 CREATE OR REPLACE FUNCTION private.new_account_approval()
  RETURNS trigger
@@ -904,6 +934,25 @@ begin
 end;
 $function$;
 
+-- public.admin_list_owned_trees(target_account uuid)  [anon: không, authenticated: có, service_role: có]
+CREATE OR REPLACE FUNCTION public.admin_list_owned_trees(target_account uuid)
+ RETURNS TABLE(tree_id uuid, name text, person_count integer, created_at timestamp with time zone)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+begin
+  if not private.is_superadmin() then
+    raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
+  end if;
+  return query
+    select t.id, t.name, (select count(*)::integer from public.persons p where p.tree_id = t.id), t.created_at
+    from public.family_trees t
+    where t.owner_id = target_account
+    order by t.created_at;
+end;
+$function$;
+
 -- public.admin_set_approval(target_account uuid, new_approved boolean)  [anon: không, authenticated: có, service_role: có]
 CREATE OR REPLACE FUNCTION public.admin_set_approval(target_account uuid, new_approved boolean)
  RETURNS void
@@ -981,6 +1030,31 @@ begin
   update public.account_approvals
     set is_superadmin = make_superadmin, approved = approved or make_superadmin
     where account_id = target_account;
+end;
+$function$;
+
+-- public.admin_transfer_tree_ownership(target_tree uuid, new_owner_email text)  [anon: không, authenticated: có, service_role: có]
+CREATE OR REPLACE FUNCTION public.admin_transfer_tree_ownership(target_tree uuid, new_owner_email text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  new_owner uuid;
+begin
+  if not private.is_superadmin() then
+    raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
+  end if;
+  perform 1 from public.family_trees where id = target_tree for update;
+  if not found then
+    raise exception 'TREE_NOT_FOUND' using errcode = 'no_data_found';
+  end if;
+  new_owner := private.account_id_by_email(trim(new_owner_email));
+  if new_owner is null then
+    raise exception 'ACCOUNT_NOT_FOUND' using errcode = 'no_data_found';
+  end if;
+  perform private.move_tree_owner(target_tree, new_owner);
 end;
 $function$;
 
@@ -1749,8 +1823,6 @@ CREATE OR REPLACE FUNCTION public.transfer_tree_ownership(target_tree uuid, targ
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-declare
-  max_trees integer := private.app_setting('max_trees_per_account');
 begin
   -- Khoá dòng gia phả để hai lần chuyển cùng lúc không chen nhau.
   perform 1 from public.family_trees where id = target_tree for update;
@@ -1758,22 +1830,11 @@ begin
   if not public.is_tree_owner(target_tree) then
     raise exception 'NOT_ALLOWED' using errcode = 'insufficient_privilege';
   end if;
+  -- Chủ sở hữu chỉ trao cho Biên tập viên (người đã được tin để sửa cây).
   if not exists (select 1 from public.tree_roles where tree_id = target_tree and account_id = target_account and role = 'editor') then
     raise exception 'NEW_OWNER_NOT_EDITOR' using errcode = 'check_violation';
   end if;
-  -- Tài khoản chưa duyệt hoặc bị chặn (chặn cũng bỏ duyệt) không vào được app: trao cho họ là gia phả mất Chủ sở hữu.
-  if not coalesce((select approved from public.account_approvals where account_id = target_account), false) then
-    raise exception 'NEW_OWNER_NOT_APPROVED' using errcode = 'check_violation';
-  end if;
-  if (select count(*) from public.family_trees where owner_id = target_account) >= max_trees then
-    raise exception 'NEW_OWNER_TREE_LIMIT'
-      using detail = format('Mỗi tài khoản sở hữu tối đa %s gia phả.', max_trees), errcode = 'check_violation';
-  end if;
-
-  -- Hạ Chủ sở hữu cũ trước: mỗi gia phả chỉ có một dòng 'owner' (tree_roles_one_owner).
-  update public.tree_roles set role = 'editor' where tree_id = target_tree and role = 'owner';
-  update public.tree_roles set role = 'owner' where tree_id = target_tree and account_id = target_account;
-  update public.family_trees set owner_id = target_account where id = target_tree;
+  perform private.move_tree_owner(target_tree, target_account);
 end;
 $function$;
 

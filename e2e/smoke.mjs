@@ -1,6 +1,6 @@
 /**
  * Test khói end-to-end: bật backend giả lập + bản build e2e của app, rồi chạy lần lượt
- * walk-1 (luồng cơ bản), walk-2 (mọi tính năng), walk-3 (PWA, thống kê, gộp trùng, lịch đăng ký), walk-5 (kéo thả đổi thứ tự con), walk-6 (nhập khổ giấy, cỡ chữ Phả đồ), walk-multi-husband (con gái nhiều đời chồng trên Cây, không ô nào chồng nhau) , walk-invite (mời email chưa có tài khoản), walk-co-parent (cha/mẹ còn lại của con), walk-event-order (sự kiện sắp tới lên trên, đã qua gập sẵn ở mọi danh sách), walk-owner-qr (trao quyền Chủ sở hữu, năm tháng có thể sai, mã QR) và walk-mobile (khổ 375px, không tràn ngang).
+ * walk-1 (luồng cơ bản), walk-2 (mọi tính năng), walk-3 (PWA, thống kê, gộp trùng, lịch đăng ký), walk-5 (kéo thả đổi thứ tự con), walk-6 (nhập khổ giấy, cỡ chữ Phả đồ), walk-multi-husband (con gái nhiều đời chồng trên Cây, không ô nào chồng nhau) , walk-invite (mời email chưa có tài khoản), walk-co-parent (cha/mẹ còn lại của con), walk-event-order (sự kiện sắp tới lên trên, đã qua gập sẵn ở mọi danh sách), walk-owner-qr (trao quyền và siêu quản trị đổi Chủ sở hữu, năm tháng có thể sai, mã QR) và walk-mobile (khổ 375px, không tràn ngang).
  * Cần: .tools/postgrest, apps/web/dist-e2e (e2e/rebuild.sh), Chromium cho Playwright.
  * Chạy: node e2e/smoke.mjs
  */
