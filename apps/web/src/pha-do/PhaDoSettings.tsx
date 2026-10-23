@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useMemo, useState, type ReactNode } from 'react';
 import type { Person } from '../data/trees';
 import type { FamilyGraph } from '../family/family-graph';
 import { OUTSIDE_OPTIONS, outsideLabel } from '../family/outside-generations';
@@ -385,7 +385,14 @@ const ScopeSettings = ({
   onChange: (patch: Partial<PhaDoConfig>) => void;
 }) => {
   const progenitor = graph.persons.find((person) => person.is_progenitor);
-  const branchRoots = progenitor ? graph.childrenOf(progenitor.id).map(({ person }) => person) : [];
+  // Chi chọn được: các con của Thuỷ tổ và mọi Người "Lập chi mới" ở Đời sâu hơn, xếp theo thứ bậc trong danh sách Đời.
+  const branchRoots = useMemo(() => {
+    const rank = new Map(graph.generations().flatMap((group) => group.persons).map((person, index) => [person.id, index]));
+    const children = progenitor ? graph.childrenOf(progenitor.id).map(({ person }) => person) : [];
+    const founders = graph.persons.filter((person) => person.founds_branch && rank.has(person.id));
+    const unique = new Map([...children, ...founders].map((person) => [person.id, person]));
+    return [...unique.values()].sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity));
+  }, [graph, progenitor]);
   const scope = config.scope;
 
   return (
@@ -416,7 +423,7 @@ const ScopeSettings = ({
         >
           {branchRoots.map((person) => (
             <option key={person.id} value={person.id}>
-              Chi {person.full_name}
+              Chi {person.full_name} (Đời {graph.placement(person.id).generation})
             </option>
           ))}
         </Select>

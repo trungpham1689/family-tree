@@ -16,7 +16,7 @@ describe('trường hồ sơ chữ tự do: một nơi khai báo', () => {
 
   it('form: mỗi trường có giá trị rỗng sẵn; ô nhập chia đúng khối', () => {
     for (const field of TEXT_FIELDS) expect(EMPTY_PERSON_FORM[field.key], field.key).toBe('');
-    expect(fieldsOf('names', { inForm: true }).map((f) => f.key)).toEqual(['commonName', 'courtesyName']);
+    expect(fieldsOf('names', { inForm: true }).map((f) => f.key)).toEqual(['commonName', 'tabooName', 'courtesyName']);
     expect(fieldsOf('names').map((f) => f.key)).toEqual(['commonName', 'tabooName', 'courtesyName', 'hanName']);
     expect(fieldsOf('death').map((f) => f.key)).toEqual(['burialPlace', 'burialMapUrl', 'worshipPlace']);
   });

@@ -174,8 +174,9 @@ export const originSummary = (graph: FamilyGraph<Person>): OriginSummary => {
 export type BranchSummary = { branchId: string; founderName: string; memberCount: number };
 
 /**
- * Mỗi chi do một con của Thuỷ tổ (Đời 2) lập ra — branchId đã tính sẵn trong Phả đồ
- * (RPC tree_positions): người đó chính là tổ của chi.
+ * Mỗi chi do một Người được đánh dấu "Lập chi mới" (founds_branch, ở bất kỳ Đời nào) lập ra; branchId tính sẵn
+ * trong RPC tree_positions và chính là id của tổ chi. Chi xếp theo thứ bậc của tổ chi: Đời trên trước,
+ * cùng Đời thì theo thứ tự trong danh sách Đời (con trưởng trước, con vợ cả trước con vợ hai).
  */
 export const branchSummaries = (graph: FamilyGraph<Person>): BranchSummary[] => {
   const counts = new Map<string, number>();
@@ -183,12 +184,13 @@ export const branchSummaries = (graph: FamilyGraph<Person>): BranchSummary[] => 
     const branchId = graph.placement(person.id).branchId;
     if (branchId) counts.set(branchId, (counts.get(branchId) ?? 0) + 1);
   }
+  const rank = new Map(graph.generations().flatMap((group) => group.persons).map((person, index) => [person.id, index]));
   return [...counts.entries()]
     .flatMap(([branchId, memberCount]) => {
       const founder = graph.person(branchId);
       return founder ? [{ branchId, founderName: founder.full_name, memberCount }] : [];
     })
-    .sort((a, b) => b.memberCount - a.memberCount);
+    .sort((a, b) => (rank.get(a.branchId) ?? Infinity) - (rank.get(b.branchId) ?? Infinity));
 };
 
 /** Lời kết tự sinh: ghi rõ đây là bản suy từ dữ liệu điện tử, ngày xem, nhắn gửi con cháu bổ sung. */

@@ -64,20 +64,28 @@ export const checkBabyName = (
     const { generation: personGeneration, kind } = graph.placement(person.id);
     if (personGeneration === null || personGeneration > generation) continue;
     if (!includeSpouses && kind === 'dau_re') continue;
+    // Tên trong họ tên, và tên huý (chữ cuối) nếu có và khác: tên huý chính là tên con cháu phải kiêng.
     const given = givenNameOf(person.full_name);
-    if (!given) continue;
+    const taboo = givenNameOf(person.taboo_name ?? '');
+    const names = [
+      ...(given ? [{ name: given, label: 'tên' }] : []),
+      ...(taboo && !(given && same(taboo, given)) ? [{ name: taboo, label: 'tên huý' }] : []),
+    ];
+    if (names.length === 0) continue;
 
     const reasons: NameConflictReason[] = [];
-    if (personGeneration === generation) {
-      if (person.is_deceased && same(given, baby.given)) {
-        reasons.push({ kind: 'same-generation-deceased', text: `Cùng Đời ${generation}, đã mất, trùng tên "${given}" với tên của Bé.` });
-      }
-    } else {
-      if (same(given, baby.given)) {
-        reasons.push({ kind: 'ancestor-given', text: `Đời ${personGeneration} (đời trên), tên "${given}" trùng với tên của Bé.` });
-      }
-      if (baby.middle && same(given, baby.middle)) {
-        reasons.push({ kind: 'ancestor-middle', text: `Đời ${personGeneration} (đời trên), tên "${given}" trùng với tên lót "${baby.middle}" của Bé.` });
+    for (const { name, label } of names) {
+      if (personGeneration === generation) {
+        if (person.is_deceased && same(name, baby.given)) {
+          reasons.push({ kind: 'same-generation-deceased', text: `Cùng Đời ${generation}, đã mất, trùng ${label} "${name}" với tên của Bé.` });
+        }
+      } else {
+        if (same(name, baby.given)) {
+          reasons.push({ kind: 'ancestor-given', text: `Đời ${personGeneration} (đời trên), ${label} "${name}" trùng với tên của Bé.` });
+        }
+        if (baby.middle && same(name, baby.middle)) {
+          reasons.push({ kind: 'ancestor-middle', text: `Đời ${personGeneration} (đời trên), ${label} "${name}" trùng với tên lót "${baby.middle}" của Bé.` });
+        }
       }
     }
     if (reasons.length === 0) continue;

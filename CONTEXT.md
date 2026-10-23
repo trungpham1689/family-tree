@@ -30,7 +30,7 @@ Người ở gốc gia phả (Đời 1).
 Thế hệ tính từ Thuỷ tổ: Thuỷ tổ là Đời 1, con của Đời N là Đời N+1. Dâu/Rể cùng đời với vợ/chồng.
 
 **Chi**
-Một nhánh của gia phả, tính từ một người con của một tổ tiên chung (chi trưởng, chi thứ…).
+Một nhánh của gia phả, tính từ một người con của một tổ tiên chung (chi trưởng, chi thứ…). Tổ chi là Người được đánh dấu "Lập chi mới", ở bất kỳ Đời nào. Chi đánh số (Chi 1, Chi 2…) theo thứ bậc của tổ chi: Đời trên trước, cùng Đời thì theo thứ tự trong danh sách Đời (con trưởng trước).
 
 **Cháu ngoại**
 Con cháu của con gái trong họ. Luôn được lưu đầy đủ; việc hiện hay ẩn là lựa chọn hiển thị.

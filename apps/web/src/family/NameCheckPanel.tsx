@@ -47,14 +47,14 @@ export const NameCheckPanel = ({ treeId, graph }: { treeId: string; graph: Famil
           <li className="flex gap-3">
             <span aria-hidden="true" className="mt-2.5 size-2 shrink-0 rounded-full bg-kim" />
             <span>
-              <strong className="font-semibold text-son">Tên</strong> của Bé không nên trùng tên với thành viên đã mất cùng Đời.
+              <strong className="font-semibold text-son">Tên</strong> của Bé không nên trùng tên (hoặc tên huý) của thành viên đã mất cùng Đời.
             </span>
           </li>
           <li className="flex gap-3">
             <span aria-hidden="true" className="mt-2.5 size-2 shrink-0 rounded-full bg-kim" />
             <span>
               <strong className="font-semibold text-son">Tên</strong> hoặc <strong className="font-semibold text-son">tên lót</strong> của Bé không nên trùng
-              tên của thành viên ở các Đời trên.
+              tên (hoặc tên huý) của thành viên ở các Đời trên.
             </span>
           </li>
         </ul>

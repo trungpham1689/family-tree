@@ -25,7 +25,7 @@ type TextFieldDef = {
   excelAliases?: readonly string[];
   /** Nhóm: tên khác / đời sống (phần "Thêm thông tin" của form), hay nhóm "Đã mất". */
   group: 'names' | 'life' | 'death';
-  /** Form có ô nhập cho trường này không (mặc định có); tên huý và tên chữ Hán chỉ nhập qua Excel. */
+  /** Form có ô nhập cho trường này không (mặc định có); tên chữ Hán chỉ nhập qua Excel. */
   inForm?: false;
   multiline?: boolean;
   /** Chỉ lưu khi Người đã mất (tắt "Đã mất" thì xoá). */
@@ -38,7 +38,7 @@ const defineFields = <const Fields extends readonly TextFieldDef[]>(fields: Fiel
 
 export const TEXT_FIELDS = defineFields([
   { key: 'commonName', column: 'common_name', label: 'Tên thường gọi', group: 'names' },
-  { key: 'tabooName', column: 'taboo_name', label: 'Tên huý', group: 'names', inForm: false, profile: 'hidden' },
+  { key: 'tabooName', column: 'taboo_name', label: 'Tên huý', hint: 'Tên kiêng, con cháu tránh đặt trùng.', group: 'names' },
   { key: 'courtesyName', column: 'courtesy_name', label: 'Tên tự / hiệu', labels: { form: 'Tên tự / tên hiệu', excel: 'Tên tự/hiệu' }, group: 'names' },
   { key: 'hanName', column: 'han_name', label: 'Tên chữ Hán', group: 'names', inForm: false, profile: 'hidden' },
   { key: 'birthPlace', column: 'birth_place', label: 'Nơi sinh', group: 'life' },

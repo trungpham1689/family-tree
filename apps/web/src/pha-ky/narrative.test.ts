@@ -253,6 +253,37 @@ describe('branchSummaries', () => {
     );
     expect(result).toHaveLength(2);
   });
+
+  it('xếp chi theo thứ bậc của tổ chi (Đời trên trước, con trưởng trước), không theo số người', () => {
+    const graph = buildFamilyGraph({
+      persons: [
+        blankPerson({ id: 'to', full_name: 'Tổ', gender: 'nam' }),
+        blankPerson({ id: 'ca', full_name: 'Con Cả', gender: 'nam', birth_order: 1 }),
+        blankPerson({ id: 'hai', full_name: 'Con Hai', gender: 'nam', birth_order: 2 }),
+        blankPerson({ id: 'chau1', full_name: 'Cháu Một', gender: 'nam', birth_order: 1 }),
+        blankPerson({ id: 'chau2', full_name: 'Cháu Hai', gender: 'nam', birth_order: 2 }),
+        blankPerson({ id: 'chau3', full_name: 'Cháu Ba', gender: 'nam', birth_order: 3 }),
+      ],
+      parentLinks: [
+        { child_id: 'ca', parent_id: 'to', kind: 'ruot' },
+        { child_id: 'hai', parent_id: 'to', kind: 'ruot' },
+        { child_id: 'chau1', parent_id: 'hai', kind: 'ruot' },
+        { child_id: 'chau2', parent_id: 'hai', kind: 'ruot' },
+        { child_id: 'chau3', parent_id: 'ca', kind: 'ruot' },
+      ],
+      unions: [],
+      positions: [
+        { person_id: 'to', generation: 1, branch_id: null, kind: 'thuy_to' },
+        { person_id: 'ca', generation: 2, branch_id: 'ca', kind: 'dinh' },
+        { person_id: 'hai', generation: 2, branch_id: 'hai', kind: 'dinh' },
+        // Cháu Ba (con Con Cả) lập chi riêng ở Đời 3; chi của Con Hai đông người hơn chi Con Cả.
+        { person_id: 'chau3', generation: 3, branch_id: 'chau3', kind: 'dinh' },
+        { person_id: 'chau1', generation: 3, branch_id: 'hai', kind: 'dinh' },
+        { person_id: 'chau2', generation: 3, branch_id: 'hai', kind: 'dinh' },
+      ],
+    });
+    expect(branchSummaries(graph).map((b) => b.branchId)).toEqual(['ca', 'hai', 'chau3']);
+  });
 });
 
 describe('closingNote', () => {

@@ -119,6 +119,31 @@ describe('checkBabyName', () => {
     expect(to.deceased).toBe(true);
   });
 
+  it('tên huý của người đời trên cũng phải kiêng; trùng tên trong họ tên thì không báo hai lần', () => {
+    const graph = buildFamilyGraph({
+      persons: [
+        blankPerson({ id: 'to', full_name: 'Phạm Văn Tổ', taboo_name: 'Phạm Công Lượng', gender: 'nam', is_progenitor: true, is_deceased: true }),
+        blankPerson({ id: 'con', full_name: 'Phạm Văn Cả', taboo_name: 'Cả', gender: 'nam' }),
+      ],
+      parentLinks: [],
+      unions: [],
+      positions: [
+        { person_id: 'to', generation: 1, branch_id: null, kind: 'thuy_to' },
+        { person_id: 'con', generation: 2, branch_id: null, kind: 'dinh' },
+      ],
+    });
+    const check = (name: string) => {
+      const result = checkBabyName(graph, name, 3);
+      if (!result.ok) throw new Error(result.error);
+      return result.conflicts;
+    };
+    const luong = check('Phạm Hữu Lượng');
+    expect(luong.map((c) => c.personId)).toEqual(['to']);
+    expect(luong[0]!.reasons[0]!.text).toContain('tên huý "Lượng"');
+    expect(check('Phạm Lượng Anh')[0]!.reasons[0]).toMatchObject({ kind: 'ancestor-middle' });
+    expect(check('Phạm Hữu Cả')[0]!.reasons).toHaveLength(1);
+  });
+
   it('đầu vào sai: báo lỗi thay vì trả kết quả', () => {
     expect(checkBabyName(sample(), 'Trung', 3)).toMatchObject({ ok: false });
     expect(checkBabyName(sample(), 'Phạm Đức Trung', 0)).toMatchObject({ ok: false });
