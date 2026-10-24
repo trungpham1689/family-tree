@@ -16,7 +16,9 @@ export const useExport = <Kind extends string = 'export'>() => {
       setError(null);
       try {
         await work();
-      } catch {
+      } catch (error) {
+        // Người dùng chỉ thấy câu báo tiếng Việt; lỗi gốc ghi ra console để còn tra được nguyên nhân.
+        console.error(`Xuất "${kind}" lỗi:`, error);
         setError(failureMessage);
       } finally {
         setRunning(null);

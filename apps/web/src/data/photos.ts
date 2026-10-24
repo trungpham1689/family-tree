@@ -1,4 +1,5 @@
 import type { Row } from './database.types';
+import { IMAGE_HEADER_BYTES, isRasterImage } from '../lib/image-format';
 import { supabase } from '../lib/supabase';
 import { DataError, failOn } from './trees';
 
@@ -286,8 +287,17 @@ export const removeTreePhoto = async (input: { treeId: string; path: string }): 
   await removeStored(input.path).catch(() => undefined);
 };
 
-/** Tải file ảnh gốc về dưới dạng Blob, từ kho nào cũng vậy. */
-export const fetchPhotoBlob = (path: string): Promise<Blob> => storeFor(path).fetchBlob(path);
+/**
+ * Tải file ảnh gốc về dưới dạng Blob, từ kho nào cũng vậy. Dữ liệu không phải ảnh (vd. `pnpm dev` không có /api/photos nên Vite
+ * trả index.html kèm mã 200) bị coi là ảnh lỗi: nếu lọt vào Phả đồ/Phả ký/Dòng thời gian, jsPDF ném lỗi và cả file PDF hỏng.
+ */
+export const fetchPhotoBlob = async (path: string): Promise<Blob> => {
+  const blob = await storeFor(path).fetchBlob(path);
+  if (!isRasterImage(new Uint8Array(await blob.slice(0, IMAGE_HEADER_BYTES).arrayBuffer()))) {
+    throw new Error('Kho ảnh trả về dữ liệu không phải ảnh.');
+  }
+  return blob;
+};
 
 /** Tải ảnh về và đổi thành data URL (hiện trực tiếp, và nhúng được vào Phả đồ/PDF không cần CORS). */
 export const fetchAvatarDataUrl = async (path: string): Promise<string> => blobToDataUrl(await fetchPhotoBlob(path));
