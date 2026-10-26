@@ -1,5 +1,7 @@
 import { DECOR_FONTS, resolveBold, type DecorFontId } from './decoration-fonts';
+import { boardMetrics, boardTextColor, coupletBoard } from './decoration-couplets';
 import { LOOK_STYLES, MEMBER_COLORS, MEMBER_FONTS, type DecorLook, type MemberColors } from './decoration-looks';
+import { circleItem, diamondItem, GAM_HOA_MAT, rectItem, strokeItem, type Page } from './decoration-shapes';
 import { decorationPxToMm, PT_PER_MM, type DrawItem } from './drawing';
 import { fitSize, textWidthEm } from './glyph-widths';
 
@@ -93,9 +95,6 @@ export const memberColorsOf = (frame: FrameStyle): MemberColors => MEMBER_COLORS
 /** Phông chữ ô thành viên theo khung (dùng khi cấu hình chọn "Theo kiểu khung"). */
 export const memberFontOf = (frame: FrameStyle): DecorFontId => MEMBER_FONTS[frame];
 
-/** Nền lớp gấm (viền ngoài ô trắng) của khung Gấm hoa; ô giữa dùng nền của phương án. */
-const GAM_HOA_MAT = '#f6e9c8';
-
 /**
  * Cỡ chữ trang trí khi khổ giấy tự động: giữ nguyên tới khổ A1 (cạnh ngắn 594 mm), lớn hơn thì giảm dần theo cạnh ngắn^-0,3 — chiều cao chữ thật
  * chỉ tăng theo cạnh ngắn^0,7 (khổ gấp đôi, chữ to hơn khoảng 1,6 lần), vì khoảng cách xem tăng chậm hơn khổ và tiêu đề không nên át cả cây.
@@ -152,6 +151,11 @@ export type DecorationLayout = {
   above: DrawItem[];
   /** Vùng dành cho cây. */
   content: Region;
+  /**
+   * Hai liễn câu đối nằm trong `above` từ phần tử `from` tới hết; vẽ sẵn ngang mép trên vùng cây, cao `height`.
+   * Bên vẽ cây có thể dịch cả cụm xuống cho ngang mép trên cây (xem `shiftItems`); `null` khi không có câu đối.
+   */
+  couplets: { from: number; height: number } | null;
   /** Tỉ lệ nhỏ nhất giữa cỡ chữ thực tế và cỡ người dùng đặt của tiêu đề, phụ đề, câu đối (1 = không chữ nào phải co lại). */
   fit: number;
 };
@@ -173,27 +177,6 @@ const cornerKey = (cx: number, cy: number, size: number, sx: 1 | -1, sy: 1 | -1,
 
 /** Các khung "hoạ tiết riêng" (không theo mẫu hai khung + hồi văn góc): cuốn thư, hoành phi, Đông Sơn, gấm hoa. */
 const SIGNATURE_STYLES = new Set<FrameStyle>(['cuon-thu', 'hoanh-phi', 'dong-son', 'gam-hoa']);
-
-type Page = { width: number; height: number };
-
-const rectItem = (x: number, y: number, width: number, height: number, stroke: string, strokeWidth: number, extra: Partial<Extract<DrawItem, { type: 'rect' }>> = {}): DrawItem => ({
-  type: 'rect',
-  x,
-  y,
-  width,
-  height,
-  radius: 0,
-  fill: 'none',
-  stroke,
-  strokeWidth,
-  ...extra,
-});
-/** Hình tròn = ô vuông bo hết cỡ (bản vẽ không có hình tròn riêng). */
-const circleItem = (cx: number, cy: number, r: number, fill: string, stroke: string, strokeWidth: number): DrawItem =>
-  rectItem(cx - r, cy - r, 2 * r, 2 * r, stroke, strokeWidth, { radius: r, fill });
-const strokeItem = (points: [number, number][], stroke: string, strokeWidth: number, seamless = true): DrawItem => ({ type: 'line', points, stroke, strokeWidth, seamless });
-const diamondItem = (cx: number, cy: number, r: number, stroke: string, strokeWidth: number): DrawItem =>
-  strokeItem([[cx, cy - r], [cx + r, cy], [cx, cy + r], [cx - r, cy], [cx, cy - r]], stroke, strokeWidth);
 
 /** Đường gấp khúc răng cưa dọc một đoạn thẳng (`from`→`to`), nhô vào phía `normal` một khoảng `depth`. */
 const zigzag = (from: [number, number], to: [number, number], normal: [number, number], depth: number, idealPeriod: number): [number, number][] => {
@@ -413,6 +396,12 @@ const frameItems = (page: { width: number; height: number }, style: FrameStyle, 
 
 const words = (text: string) => text.trim().split(/\s+/).filter(Boolean);
 
+/** Bề ngang vùng cây tối thiểu (tỉ lệ cạnh ngắn): chú giải rộng khoảng 43,4% cạnh ngắn (`legendWidthMm`), chừa thêm một chút. */
+const MIN_TREE_WIDTH = 0.45;
+
+/** Khoảng cách giữa hai dòng chữ câu đối, bội của cỡ chữ. */
+const COUPLET_LINE = 1.45;
+
 /** "Gia phả <tên>", không lặp "Gia phả" nếu tên đã có sẵn. */
 export const defaultTitle = (treeName: string) => (treeName ? `Gia phả ${treeName}`.replace(/^Gia phả gia phả /i, 'Gia phả ') : '');
 
@@ -464,38 +453,53 @@ const computeDecoration = (page: { width: number; height: number }, decoration: 
 
   let left = inset;
   let right = inset;
+  let couplets: DecorationLayout['couplets'] = null;
   const columns = [words(decoration.coupletLeft), words(decoration.coupletRight)];
   if (columns.some((column) => column.length > 0)) {
     const availableHeight = page.height - top - inset;
     const longest = Math.max(...columns.map((column) => column.length), 1);
-    // Cột rộng theo chữ thật (độ rộng đo theo phông, không ước theo số ký tự): chữ không bao giờ tràn sang vùng cây.
+    // Liễn rộng theo chữ thật (độ rộng đo theo phông, không ước theo số ký tự): chữ không bao giờ tràn sang vùng cây.
     const coupletBold = resolveBold(palette.bodyFont, true);
     const widestEm = Math.max(...columns.flat().map((word) => textWidthEm(word, coupletBold, palette.bodyFont)));
-    const padding = unit * 1.2;
+    const board = boardMetrics(decoration.frame);
+    // Lề liễn = lề theo khung + 0,15 cỡ chữ mỗi bên (ngang) và 0,35 cỡ chữ mỗi đầu (dọc).
+    const padX = 2 * board.hPad * unit;
+    const padY = 2 * (board.cap + board.vPad) * unit;
     const maxColumn = page.width * 0.18;
     const wantedMm = decorationPxToMm(page, decoration.coupletSize * sizeScale);
-    let sizeMm = Math.min(wantedMm, availableHeight / (longest * 1.45));
-    if (widestEm * sizeMm + padding > maxColumn) sizeMm = (maxColumn - padding) / widestEm;
-    fit = Math.min(fit, Math.max(sizeMm, 0) / wantedMm);
-    const columnWidth = Math.max(unit * 7, widestEm * sizeMm + padding);
-    const drawColumn = (column: string[], centerX: number) => {
-      const blockHeight = column.length * sizeMm * 1.45;
-      let y = top + (availableHeight - blockHeight) / 2 + sizeMm * 0.7;
+    let sizeMm = Math.min(wantedMm, (availableHeight - padY) / (longest * COUPLET_LINE + 0.7));
+    if ((widestEm + 0.3) * sizeMm + padX > maxColumn) sizeMm = (maxColumn - padX) / (widestEm + 0.3);
+    // Vùng cây còn đủ rộng cho chú giải (khổ dọc có cạnh ngắn là bề ngang nên dễ hẹp nhất): liễn co lại trước, không nhường chỗ của chú giải.
+    const gap = unit * (1.2 + board.reach);
+    const maxColumnForTree = (page.width - MIN_TREE_WIDTH * Math.min(page.width, page.height)) / 2 - inset - gap;
+    if ((widestEm + 0.3) * sizeMm + padX > maxColumnForTree) sizeMm = (maxColumnForTree - padX) / (widestEm + 0.3);
+    sizeMm = Math.max(sizeMm, 0);
+    fit = Math.min(fit, sizeMm / wantedMm);
+    const columnWidth = (widestEm + 0.3) * sizeMm + padX;
+    // Hai liễn cao bằng nhau (theo vế dài hơn), canh trên ngang mép trên vùng cây; chữ xếp từ trên xuống.
+    const boardHeight = longest * sizeMm * COUPLET_LINE + 0.7 * sizeMm + padY;
+    const textColor = boardTextColor(decoration.frame, palette.title);
+    couplets = { from: above.length, height: boardHeight };
+    const drawColumn = (column: string[], boardX: number) => {
+      if (column.length === 0) return;
+      above.push(...coupletBoard(decoration.frame, palette, { x: boardX, y: top, width: columnWidth, height: boardHeight }, unit));
+      let y = top + (boardHeight - longest * sizeMm * COUPLET_LINE) / 2 + sizeMm * COUPLET_LINE * 0.5;
       for (const word of column) {
-        above.push({ type: 'text', x: centerX, y, text: word, sizePt: sizeMm * PT_PER_MM, bold: coupletBold, color: palette.title, font: palette.bodyFont });
-        y += sizeMm * 1.45;
+        above.push({ type: 'text', x: boardX + columnWidth / 2, y, text: word, sizePt: sizeMm * PT_PER_MM, bold: coupletBold, color: textColor, font: palette.bodyFont });
+        y += sizeMm * COUPLET_LINE;
       }
     };
-    drawColumn(columns[0]!, inset + columnWidth / 2);
-    drawColumn(columns[1]!, page.width - inset - columnWidth / 2);
-    left += columnWidth + unit;
-    right += columnWidth + unit;
+    drawColumn(columns[0]!, inset);
+    drawColumn(columns[1]!, page.width - inset - columnWidth);
+    left += columnWidth + gap;
+    right += columnWidth + gap;
   }
 
   return {
     below,
     above,
     content: { x: left, y: top, width: page.width - left - right, height: page.height - top - inset },
+    couplets,
     fit,
   };
 };

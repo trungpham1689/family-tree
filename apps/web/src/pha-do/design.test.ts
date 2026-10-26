@@ -2,7 +2,7 @@ import { randomFamily } from '@gia-pha/tree-layout';
 import { describe, expect, it } from 'vitest';
 import { buildFamilyGraph } from '../family/family-graph';
 import { blankPerson } from '../test-support/person';
-import { autoMemberFontPx } from './auto-fit';
+import { autoMemberFontPx, fitPaperToFont } from './auto-fit';
 import { defaultPhaDoConfig, pageSizeMm, type PhaDoConfig } from './config';
 import { FRAME_LABELS, layoutDecoration, type FrameStyle } from './decoration';
 import { decorationScaleOf } from './config';
@@ -65,6 +65,19 @@ const randomChange = (random: () => number, config: PhaDoConfig): DesignChange =
 };
 
 const paperOf = (config: PhaDoConfig) => JSON.stringify([config.paper, config.customWidthCm, config.customHeightCm, config.orientation]);
+
+describe('khổ tự động với liễn câu đối', () => {
+  const couplets = { coupletLeft: 'Công đức tổ tiên soi sáng muôn đời rạng', coupletRight: 'Nghĩa tình con cháu giữ gìn vạn thuở bền' };
+  it.each(FRAMES.flatMap((frame) => (['portrait', 'landscape'] as const).map((orientation) => [frame, orientation] as const)))(
+    '%s · %s: tìm được khổ vừa khít (liễn không chiếm hết chỗ của chú giải)',
+    (frame, orientation) => {
+      const config: PhaDoConfig = { ...decorated, autoPaper: true, orientation, decoration: { ...decorated.decoration, ...couplets, frame } };
+      const fitted = fitPaperToFont(graph, config, context.treeName);
+      expect(fitted.paper).toBe('custom');
+      expect(fitNamePxFor(graph, fitted, context.treeName)!).toBeGreaterThanOrEqual(config.memberFontPx - 0.01);
+    },
+  );
+});
 
 describe('settleDesign', () => {
   it('lũy đẳng: đã vừa khít thì settle lần nữa không đổi gì (khổ tự động và khổ cố định)', () => {

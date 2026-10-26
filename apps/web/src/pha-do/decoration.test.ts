@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { autoDecorationScale, DEFAULT_DECORATION, DECOR_LOOKS, FRAME_LABELS, layoutDecoration, memberColorsOf, paletteOf, type FrameStyle } from './decoration';
+import { boardFillOf, boardTextColor } from './decoration-couplets';
 import { DECOR_FONTS } from './decoration-fonts';
 import { readPhaDoConfig } from './config';
+import { legendWidthMm } from './render';
 
 const ALL_STYLES = Object.keys(FRAME_LABELS) as FrameStyle[];
 const PAGE = { width: 297, height: 420 };
@@ -141,6 +143,11 @@ describe('phương án nền, màu chữ, phông chữ', () => {
     }
   });
 
+  it.each(combos)('%s · %s: chữ câu đối đạt tương phản từ 4,5:1 với nền liễn', (frame, look) => {
+    const palette = paletteOf(frame, look);
+    expect(contrast(boardTextColor(frame, palette.title), boardFillOf(frame, palette))).toBeGreaterThanOrEqual(4.5);
+  });
+
   it('đọc lại cấu hình: phương án lạ hoặc thiếu thì dùng A', () => {
     expect(readPhaDoConfig({ decoration: { look: 'C' } }, 1).decoration.look).toBe('C');
     expect(readPhaDoConfig({ decoration: { look: 'Z' } }, 1).decoration.look).toBe('A');
@@ -171,5 +178,43 @@ describe('cỡ chữ trang trí theo khổ tự động', () => {
     const sizes = (layout: typeof full) => layout.above.filter((item) => item.type === 'text').map((item) => item.sizePt);
     sizes(full).forEach((size, index) => expect(sizes(half)[index]!).toBeCloseTo(size / 2, 3));
     expect(half.below).toEqual(full.below);
+  });
+});
+
+describe('liễn câu đối', () => {
+  it('chú giải luôn vừa vùng cây ngay cả khi liễn to: khung nào, khổ nào cũng vậy', () => {
+    const short = 1000;
+    expect(legendWidthMm({ width: short, height: 1414 }) / short).toBeLessThanOrEqual(0.45);
+    for (const frame of ALL_STYLES) {
+      for (const page of [{ width: short, height: 1414 }, { width: 1414, height: short }]) {
+        const layout = layoutDecoration(page, { ...DEFAULT_DECORATION, frame, coupletSize: 80, coupletLeft: 'Nghìn Nghìn Nghìn Nghìn', coupletRight: 'Nghìn Nghìn' }, 'họ Nguyễn');
+        expect(layout.content.width, frame).toBeGreaterThanOrEqual(legendWidthMm(page) - 1e-6);
+      }
+    }
+  });
+
+  const decoration = { ...DEFAULT_DECORATION, coupletLeft: 'Công đức tổ tiên soi sáng muôn đời rạng', coupletRight: 'Nghĩa tình con cháu giữ gìn vạn thuở bền' };
+
+  it.each(ALL_STYLES)('%s: hai liễn cao bằng nhau, canh trên ngang mép trên vùng cây, chữ nằm trong liễn', (frame) => {
+    const layout = layoutDecoration(PAGE, { ...decoration, frame }, 'họ Nguyễn');
+    const texts = layout.above.filter((item) => item.type === 'text').slice(1);
+    expect(texts).toHaveLength(18);
+    const [leftX, rightX] = [Math.min(...texts.map((item) => item.x)), Math.max(...texts.map((item) => item.x))];
+    expect(leftX).toBeLessThan(PAGE.width / 2);
+    expect(rightX).toBeGreaterThan(PAGE.width / 2);
+    expect(layout.content.x - (PAGE.width - layout.content.x - layout.content.width)).toBeCloseTo(0, 6);
+    // Dòng chữ đầu tiên không thấp hơn mép trên vùng cây, và cả hai vế bắt đầu cùng độ cao.
+    const firstY = texts.filter((item) => item.x === leftX)[0]!.y;
+    expect(firstY).toBeGreaterThan(layout.content.y);
+    expect(texts.filter((item) => item.x === rightX)[0]!.y).toBeCloseTo(firstY, 6);
+    // Không chữ nào chạm vùng cây.
+    for (const item of texts) expect(item.x < PAGE.width / 2 ? item.x < layout.content.x : item.x > layout.content.x + layout.content.width).toBe(true);
+  });
+
+  it('một vế để trống thì chỉ vẽ một liễn nhưng vùng cây vẫn đối xứng', () => {
+    const both = layoutDecoration(PAGE, decoration, 'họ Nguyễn');
+    const one = layoutDecoration(PAGE, { ...decoration, coupletRight: '' }, 'họ Nguyễn');
+    expect(one.content.x - (PAGE.width - one.content.x - one.content.width)).toBeCloseTo(0, 6);
+    expect(one.above.length).toBeLessThan(both.above.length);
   });
 });

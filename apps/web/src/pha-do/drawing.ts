@@ -52,6 +52,10 @@ export type DrawItem = DrawRect | DrawLine | DrawText | DrawImage;
 
 export type Drawing = { width: number; height: number; items: DrawItem[] };
 
+/** Dịch các phần tử xuống `dy` mm (trả bản sao, không sửa bản gốc vì bản vẽ trang trí được dùng chung). */
+export const shiftItems = (items: readonly DrawItem[], dy: number): DrawItem[] =>
+  items.map((item): DrawItem => (item.type === 'line' ? { ...item, points: item.points.map(([x, y]): [number, number] => [x, y + dy]) } : { ...item, y: item.y + dy }));
+
 export const PT_PER_MM = 72 / 25.4;
 
 /**

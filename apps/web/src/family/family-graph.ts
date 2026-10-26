@@ -168,7 +168,7 @@ export const buildFamilyGraph = <P extends GraphPerson>(input: {
         return (a0 === b0 ? 0 : a0 - b0) || (a1 === b1 ? 0 : a1 - b1) || compareSiblings(a, b);
       };
 
-      const bloodline = members.filter((member) => keys.get(member.id) !== null || placement(member.id).kind === 'thuy_to').sort(byFamily);
+      const bloodline = members.filter((member) => keys.get(member.id) !== null || placement(member.id).kind !== 'dau_re').sort(byFamily);
       const ordered: P[] = [];
       const placed = new Set<string>();
       for (const member of bloodline) {

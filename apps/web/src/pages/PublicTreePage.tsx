@@ -122,7 +122,7 @@ export const PublicTreePage = () => (
 
 const PublicTreeView = ({ data, token }: { data: PublicTree; token: string }) => {
   const personHref = useCallback((personId: string) => `/p/${token}/nguoi/${personId}`, [token]);
-  const hasRoot = data.graph.persons.some((person) => person.is_progenitor);
+  const hasRoot = data.graph.persons.some((person) => data.graph.placement(person.id).generation === 1);
 
   return (
     <main id="main" tabIndex={-1} className="focus:outline-none flex min-h-0 flex-1 flex-col gap-3 px-4 py-4">
@@ -135,7 +135,7 @@ const PublicTreeView = ({ data, token }: { data: PublicTree; token: string }) =>
           <TreeExplorer graph={data.graph} defaultOutside={data.tree.outside_generations} personHref={personHref} />
         </div>
       ) : (
-        <p className="text-ink-muted">Gia phả chưa có Thuỷ tổ nên chưa vẽ được cây.</p>
+        <p className="text-ink-muted">Gia phả chưa có người nào nên chưa vẽ được cây.</p>
       )}
     </main>
   );

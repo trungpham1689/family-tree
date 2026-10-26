@@ -20,6 +20,8 @@ export type ExportPerson = Pick<Row<'persons'>, 'id' | 'is_progenitor' | 'hidden
 
 export type ExportData = {
   persons: readonly ExportPerson[];
+  /** Đời/loại của từng người (tree_positions): chưa có Thuỷ tổ thì người gốc Đời 1 mở đầu file. */
+  positions?: readonly { person_id: string; generation: number | null; kind: string }[];
   parentLinks: readonly { child_id: string; parent_id: string; kind: string }[];
   unions: readonly {
     partner_a: string;
@@ -59,8 +61,8 @@ const marriageText = (year: number | null, month: number | null, day: number | n
 
 const genderText = (gender: string | null) => (gender === 'nam' ? 'Nam' : gender === 'nu' ? 'Nữ' : '');
 
-/** Thứ tự xuất: đi từ Thuỷ tổ theo kiểu cây (người, vợ/chồng, rồi từng con), sau đó tới Người chưa nối. */
-const exportOrder = ({ persons, parentLinks, unions }: ExportData): ExportPerson[] => {
+/** Thứ tự xuất: đi từ người gốc (Thuỷ tổ, hoặc người đầu tiên) theo kiểu cây (người, vợ/chồng, rồi từng con), sau đó tới Người chưa nối. */
+const exportOrder = ({ persons, parentLinks, unions, positions = [] }: ExportData): ExportPerson[] => {
   const byId = new Map(persons.map((person) => [person.id, person]));
   const children = new Map<string, string[]>();
   const hasParents = new Set<string>();
@@ -96,8 +98,9 @@ const exportOrder = ({ persons, parentLinks, unions }: ExportData): ExportPerson
     }
   };
 
-  const progenitor = persons.find((person) => person.is_progenitor);
-  if (progenitor) visit(progenitor);
+  const rootId = positions.find((position) => position.generation === 1 && position.kind !== 'dau_re')?.person_id;
+  const root = persons.find((person) => person.is_progenitor) ?? persons.find((person) => person.id === rootId);
+  if (root) visit(root);
   const rest = persons
     .filter((person) => !seen.has(person.id))
     .sort((a, b) => Number(hasParents.has(a.id)) - Number(hasParents.has(b.id)) || compareSiblings(a, b));

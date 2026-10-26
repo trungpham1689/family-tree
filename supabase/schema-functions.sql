@@ -567,21 +567,6 @@ begin
 end;
 $function$;
 
--- private.mark_first_progenitor()  [anon: không, authenticated: không, service_role: không]
-CREATE OR REPLACE FUNCTION private.mark_first_progenitor()
- RETURNS trigger
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-begin
-  if not exists (select 1 from public.persons where tree_id = new.tree_id and is_progenitor) then
-    new.is_progenitor := true;
-  end if;
-  return new;
-end;
-$function$;
-
 -- private.move_tree_owner(target_tree uuid, target_account uuid)  [anon: không, authenticated: không, service_role: không]
 CREATE OR REPLACE FUNCTION private.move_tree_owner(target_tree uuid, target_account uuid)
  RETURNS void
@@ -1845,10 +1830,23 @@ CREATE OR REPLACE FUNCTION public.tree_positions(target_tree uuid)
  STABLE
  SET search_path TO ''
 AS $function$
-  with recursive descent (id, gen, branch, path) as (
-    select p.id, 1, null::uuid, array[p.id]
-    from public.persons p
-    where p.tree_id = target_tree and p.is_progenitor
+  with recursive up (id, depth, path) as (
+    select f.id, 0, array[f.id]
+    from (select id from public.persons where tree_id = target_tree order by created_at, id limit 1) f
+    union all
+    select l.parent_id, u.depth + 1, u.path || l.parent_id
+    from up u
+    join public.parent_links l on l.child_id = u.id
+    where not l.parent_id = any (u.path) and u.depth < 500
+  ),
+  root as (
+    select coalesce(
+      (select id from public.persons where tree_id = target_tree and is_progenitor),
+      (select u.id from up u join public.persons p on p.id = u.id order by u.depth desc, p.created_at, p.id limit 1)
+    ) as id
+  ),
+  descent (id, gen, branch, path) as (
+    select r.id, 1, null::uuid, array[r.id] from root r where r.id is not null
     union all
     select l.child_id,
            d.gen + 1,

@@ -8,7 +8,7 @@ import { decorationScaleOf, pageSizeMm, type ExtraLine, type PhaDoConfig } from 
 import { layoutDecoration, memberColorsOf, memberFontOf, type FrameStyle } from './decoration';
 import { resolveBold, type DecorFontId } from './decoration-fonts';
 import { fitSize, textWidthEm, truncateToFit } from './glyph-widths';
-import { MM_PER_PX, paperScale, PT_PER_MM, type Drawing, type DrawItem } from './drawing';
+import { MM_PER_PX, paperScale, PT_PER_MM, shiftItems, type Drawing, type DrawItem } from './drawing';
 
 /** Dưới cỡ này (px) chữ in ra khó đọc với người lớn tuổi. */
 export const MIN_READABLE_PX = 8;
@@ -352,6 +352,9 @@ export const renderPhaDo = (
       : null;
 
   items.push(...legend(area, k));
-  items.push(...decoration.above);
+  // Hai liễn câu đối treo ngang mép trên của cây (không lên cao hơn vùng cây, không xuống quá đáy vùng cây).
+  const { couplets } = decoration;
+  const coupletShift = couplets ? Math.max(0, Math.min(offsetY - area.y, area.height - couplets.height)) : 0;
+  items.push(...(couplets ? [...decoration.above.slice(0, couplets.from), ...shiftItems(decoration.above.slice(couplets.from), coupletShift)] : decoration.above));
   return { drawing: { ...page, items }, personCount, namePx, fitNamePx, warning, missingRoot: false };
 };

@@ -61,11 +61,25 @@ describe('seam B: quan hệ, Đời và Chi', () => {
     return new Map(rows.map((row) => [row.person_id, row]));
   };
 
-  it('Người đầu tiên tự là Thuỷ tổ, Đời 1', async () => {
+  it('Người đầu tiên là Đời 1 nhưng không tự là Thuỷ tổ; chỉ thành Thuỷ tổ khi được đặt', async () => {
     const root = await addFirst('Phạm Văn Tổ');
 
-    expect(root.is_progenitor).toBe(true);
+    expect(root.is_progenitor).toBe(false);
+    expect((await positions()).get(root.id)).toMatchObject({ generation: 1, kind: 'dinh' });
+
+    await me.rpc('set_progenitor', { person_id: root.id });
     expect((await positions()).get(root.id)).toMatchObject({ generation: 1, kind: 'thuy_to' });
+  });
+
+  it('chưa đặt Thuỷ tổ: thêm cha cho người đầu tiên thì cha là Đời 1 (vẫn không phải Thuỷ tổ)', async () => {
+    const first = await addFirst('Người đầu');
+    const wife = await addSpouse(first.id, 'Vợ');
+    const father = await addParent(first.id, 'Cha');
+
+    const pos = await positions();
+    expect(pos.get(father)).toMatchObject({ generation: 1, kind: 'dinh' });
+    expect(pos.get(first.id)?.generation).toBe(2);
+    expect(pos.get(wife)).toMatchObject({ generation: 2, kind: 'dau_re' });
   });
 
   it('tính Đời qua 5 đời, Dâu cùng Đời với chồng', async () => {
@@ -137,6 +151,7 @@ describe('seam B: quan hệ, Đời và Chi', () => {
 
   it('thêm cha cho Thuỷ tổ thì cha trở thành Thuỷ tổ và Đời dịch xuống', async () => {
     const oldRoot = await addFirst('Thuỷ tổ cũ');
+    await me.rpc('set_progenitor', { person_id: oldRoot.id });
     const son = await addChild(oldRoot.id, 'Con');
     const newRoot = await addParent(oldRoot.id, 'Cụ cao hơn');
 

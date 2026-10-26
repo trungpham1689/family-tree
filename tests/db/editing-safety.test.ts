@@ -61,8 +61,9 @@ describe('seam B: an toàn khi biên tập', () => {
 
     it('thao tác quan hệ không gửi version vẫn chạy và cũng làm tăng version', async () => {
       const root = await insert('Tổ');
+      await me.rpc('set_progenitor', { person_id: root.id });
       await me.rpc('add_parent', { child_id: root.id, link_kind: 'ruot', person: { full_name: 'Cha Tổ' } });
-      expect((await read(root.id)).version).toBe(2);
+      expect((await read(root.id)).version).toBe(3);
     });
   });
 
