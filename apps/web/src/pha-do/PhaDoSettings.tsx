@@ -384,7 +384,7 @@ const ScopeSettings = ({
   config: PhaDoConfig;
   onChange: (patch: Partial<PhaDoConfig>) => void;
 }) => {
-  const progenitor = graph.persons.find((person) => person.is_progenitor);
+  const progenitor = graph.root();
   // Chi chọn được: các con của Thuỷ tổ và mọi Người "Lập chi mới" ở Đời sâu hơn, xếp theo thứ bậc trong danh sách Đời.
   const branchRoots = useMemo(() => {
     const rank = new Map(graph.generations().flatMap((group) => group.persons).map((person, index) => [person.id, index]));

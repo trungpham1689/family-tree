@@ -56,6 +56,8 @@ export type FamilyGraph<P extends GraphPerson> = {
   spousesOf(id: string): SpouseRelative<P>[];
   childrenOf(id: string): ChildRelative<P>[];
   generations(): GenerationGroup<P>[];
+  /** Gốc của cây: Thuỷ tổ nếu đã đặt, không thì người ở Đời 1 (tổ tiên xa nhất của người tạo đầu tiên). */
+  root(): P | undefined;
   unconnected(): P[];
 };
 
@@ -235,6 +237,10 @@ export const buildFamilyGraph = <P extends GraphPerson>(input: {
         .sort((a, b) => compareSiblings(a.person, b.person)),
 
     generations: () => (generationCache ??= computeGenerations()),
+
+    root: () =>
+      input.persons.find((person) => (person as { is_progenitor?: boolean }).is_progenitor) ??
+      input.persons.find((person) => placement(person.id).generation === 1 && placement(person.id).kind !== 'dau_re'),
 
     unconnected: () =>
       [...persons.values()]

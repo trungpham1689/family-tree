@@ -41,7 +41,7 @@ export const TreeExplorer = <P extends Person>({
   allowAvatars = false,
 }: TreeExplorerProps<P>) => {
   const navigate = useNavigate();
-  const root = useMemo(() => graph.persons.find((person) => person.is_progenitor), [graph]);
+  const root = useMemo(() => graph.root(), [graph]);
   const rootId = root?.id;
   // Mở hồ sơ một Người từ Cây rồi quay lại: giữ các nhánh đã thu/mở, số đời Cháu ngoại và chỗ đang làm việc (theo tab).
   const [saved] = useState(() => (rootId ? readCanvasPosition(rootId) : {}));

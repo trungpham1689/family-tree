@@ -149,7 +149,7 @@ const legend = (area: { x: number; y: number; width: number; height: number }, k
 const rootOf = (graph: FamilyGraph<Person>, config: PhaDoConfig): { rootId: string | null; maxDepth?: number } => {
   switch (config.scope.kind) {
     case 'all':
-      return { rootId: graph.persons.find((person) => person.is_progenitor)?.id ?? null };
+      return { rootId: graph.root()?.id ?? null };
     case 'branch':
       return { rootId: config.scope.personId };
     case 'from-person':

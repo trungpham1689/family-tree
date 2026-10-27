@@ -22,7 +22,7 @@ export const DeletePerson = ({ treeId, graph, person, isOwner, onCancel, onDelet
   const request = useRequestDeletePerson(treeId);
   const action = isOwner ? remove : request;
   const [typed, setTyped] = useState('');
-  const root = graph.persons.find((candidate) => candidate.is_progenitor) ?? null;
+  const root = graph.root() ?? null;
   const impact = deletionImpact({
     personId: person.id,
     rootId: root?.id ?? null,

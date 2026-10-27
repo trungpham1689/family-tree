@@ -29,6 +29,9 @@ await step('đăng ký, tạo gia phả, thêm Thuỷ tổ và 3 con', async () 
   await page.getByRole('dialog').getByRole('button', { name: 'Thêm', exact: true }).click();
   await page.getByRole('link', { name: /Cha Tổ/ }).first().click();
   await page.waitForURL(/nguoi/);
+  // Người đầu tiên không tự là Thuỷ tổ: đặt rõ ràng để Phả ký có dòng Thuỷ tổ.
+  await page.getByRole('button', { name: 'Đặt làm Thuỷ tổ' }).click();
+  await page.getByText('Thuỷ tổ', { exact: true }).first().waitFor();
   for (const name of ['Con A', 'Con B', 'Con C']) {
     await page.getByRole('button', { name: '+ Thêm con' }).click();
     const dialog = page.getByRole('dialog');
